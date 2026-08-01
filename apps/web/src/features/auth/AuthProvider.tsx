@@ -16,6 +16,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [holdPublicRedirect, setHoldPublicRedirect] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -32,6 +33,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!isMounted) return;
       setUser(session?.user ?? null);
       setStatus(session ? "authenticated" : "unauthenticated");
+      if (!session) {
+        setHoldPublicRedirect(false);
+      }
     });
 
     return () => {
@@ -40,5 +44,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  return <AuthContext.Provider value={{ status, user }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ status, user, holdPublicRedirect, setHoldPublicRedirect }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

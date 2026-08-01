@@ -11,7 +11,8 @@
       "mcp__claude_ai_Figma__get_design_context",
       "Bash(cd \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath\" && mkdir -p apps/web/src/assets/logo apps/web/public/icons && cp \"references/claude-design/assets/WhyMathLogo.png\" apps/web/src/assets/logo/WhyMathLogo.png && cp references/claude-design/assets/icons/*.png apps/web/public/icons/ && ls -la apps/web/src/assets/logo apps/web/public/icons)",
       "Bash(git checkout *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

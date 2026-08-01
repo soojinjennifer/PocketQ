@@ -21,6 +21,8 @@
 | `Camera/Problem Sheet` | 카메라 촬영, 미리보기 | 1회/화면 | `features/camera/ProblemSheet` | |
 | `Camera/Frame Guides` | 카메라 촬영 (미리보기에는 없음) | 1회 | `features/camera/FrameGuides` | 촬영 중에만 표시 |
 | `Camera/Shutter` | 카메라 촬영 | 1회 | `features/camera/ShutterButton` | |
+| `Button/Input` | 로그인·회원가입(이메일+비밀번호 묶음), 회원가입(닉네임 단일) | 로그인 1회, 회원가입 2회 | `shared/ui/input` (`InputGroup`) | `Property1=Email_Pass`(2필드 묶음)와 `Property1=input1`(단일 필드) variant. 회원가입은 닉네임 단일 필드 + 이메일/비밀번호 묶음 총 2개 인스턴스 사용(2026-08-01 실측) |
+| `Popup/Register`, `Popup/Login`, `Popup/Emailcheck` | 회원가입 완료, 로그인 완료, 이메일 인증 대기 | 각 1회(모달, 화면 아님) | `shared/ui/modal` | 아이콘(체크는 텍스트 "✓", 이메일은 SVG asset)+제목+부제+구분선+하단 텍스트 버튼 구조. `docs/FIGMA_SCREEN_MAP.md` "컴포넌트(비라우트) 참고" 섹션 참고. 부제/구분선/보더 색은 `docs/DESIGN_TOKEN_MAP.md`의 `--color-modal-subtitle`/`--color-modal-divider`/`--color-modal-border` 신규 토큰 사용(2026-08-01 확정) |
 
 ## 2. 아직 컴포넌트화되지 않은 화면 전용 요소 (plain frame, Figma 인스턴스 아님)
 

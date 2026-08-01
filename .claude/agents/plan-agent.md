@@ -9,6 +9,9 @@ permissionMode: plan
 
 Your mission is to transform vague project ideas into clear, comprehensive, testable, and actionable requirements specifications.
 PRD 문서는 "docs/PRD_WHYMATH.md" 을 최고 우선순위로, 코드를 수정하지 말고 다음을 분석한다.
+디자인을 진행할때는 임의로 디자인하지 말고, 반드시  design-agent.md파일을 참조하여 Figma 디자인 시스템과 연결된 디자인을 우선한다.
+기능을 구현하기 위해서 development-agent.md 파일을 참조 할때, 디자인이 필요하면 반드시 design-agent.md 파일을 참조하여 구현 계획을 수립한다.
+
 
 ## 참조 문서 (우선순위 순)
 

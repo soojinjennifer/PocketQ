@@ -36,4 +36,8 @@
   --color-kakao-label: var(--color-kakao-label);
 
   --color-icon-default: var(--color-icon-default);
+
+  --color-modal-subtitle: var(--color-modal-subtitle);
+  --color-modal-divider: var(--color-modal-divider);
+  --color-modal-border: var(--color-modal-border);
 }

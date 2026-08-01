@@ -10,7 +10,7 @@ permissionMode: plan
 
 - `docs/DESIGN_COMPONENT.md` — Figma에서 추출한 원본 컴포넌트 목록
 - `docs/DESIGN_SYSTEM.md` — 색상·타이포·spacing·radius·shadow 등 디자인 시스템 정의
-- `docs/DESIGN_TOKEN_MAP.md` — Figma 변수 ↔ CSS Variable ↔ Tailwind 매핑
+- `docs/DESIGN_TOKEN_MAP.md` — 디자인 가이드, 디자인 컨포넌트, Figma 변수 ↔ CSS Variable ↔ Tailwind 매핑
 - `docs/COMPONENT_MAP.md` — 컴포넌트 ↔ `shared/ui` 매핑, 재사용 화면 목록
 - `references/claude-design/README.md` — Figma 우선, ZIP은 참고 자료라는 사용 원칙
 

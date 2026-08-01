@@ -32,8 +32,11 @@
 | `kakao/yellow` | `#fee500` | `--color-kakao-bg` | 신규 (소셜 로그인 전용) |
 | `kakao/label` | `#191919` | `--color-kakao-label` | 신규 |
 | `iConColor` | `#8a8a8e` | `--color-icon-default` | — |
+| (Popup 전용 ink, `label/primary`와 동일 베이스 `#232b38` 다른 알파) | `rgba(35,43,56,0.65)` | `--color-modal-subtitle` | 2026-08-01 `Popup/Register`·`Popup/Login`·`Popup/Emailcheck` 실측. `label-secondary`(`#3c3c43` 계열)와 베이스가 달라 별도 토큰 |
+| (Popup 전용 ink) | `rgba(35,43,56,0.12)` | `--color-modal-divider` | 위와 동일 출처, 팝업 내부 콘텐츠·버튼 영역 구분선 |
+| (Popup 전용 ink) | `rgba(35,43,56,0.14)` | `--color-modal-border` | 위와 동일 출처, 팝업 카드 외곽 보더 |
 
-> 참고 자료(`colors-pastel.css`)와 값이 정확히 일치하는 항목은 검증된 것으로 간주한다. `components/math/*.jsx`의 대체 브랜드값(`#4F8285` 등)은 Figma 실측과 다르므로 **사용하지 않는다**.
+> 참고 자료(`colors-pastel.css`)와 값이 정확히 일치하는 항목은 검증된 것으로 간주한다. `components/math/*.jsx`의 대체 브랜드값(`#4F8285` 등)은 Figma 실측과 다르므로 **사용하지 않는다**. `--color-modal-*` 3종은 2026-08-01 Figma `Popup` 섹션(node `97:309`) 실측 기준 신규 확정 토큰이며, 제목 텍스트(`#232b38`)와 아이콘 원 배경(`#5e6e82`)·버튼 텍스트(`#46536a`)·카드 배경(`#fbfaf6`)은 각각 기존 `--color-label-primary`/`--color-brand`/`--color-brand-deep`/`--color-bg-canvas`를 그대로 재사용한다(신규 토큰 아님, 중복 정의 없음).
 
 ## 2. 타이포그래피
 

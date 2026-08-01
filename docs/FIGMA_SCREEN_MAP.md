@@ -1,3 +1,7 @@
+디자인을 할때, 피그마에 있는 Math Design System을 반드시 참조하여 디자인하고, 여기에 있는 컴포넌트를 쓸 수 있을 경우 반드시 재사용이 가능하도록 공통 컨포넌트화 하여 디자인한다. 피그마 디자인 시스템 URL = https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=1-225&t=LrZQeZ022Z7LUbtl-1
+
+디자인 가이드의 컴포넌트를 공통 컴포넌트화하여 react 컴포넌트에 반영한다. 
+
 | 화면    | Figma 프레임명 (실측) | 프레임 URL    | 기준 크기 (실측) | 라우트            | 상태  |
 | ----- | --------------- | --------: | -------------- | --- | --- |
 | 회원가입   | `0. Register/Desktop` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=83-138&t=LrZQeZ022Z7LUbtl-4) | 1194×834 | `/register`       | 미구현 |
@@ -7,6 +11,7 @@
 | 마이페이지 | `4 · MyPage` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=40-34&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/mypage`       | 미구현 |
 | 문제 촬영 · 카메라 | `5 · Capture.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=48-110&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera`       | 미구현 |
 | 문제 촬영 · 미리보기 | `6 · preview.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=51-129&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera/preview` | 미구현 |
+
 
 > 2026-07-26: Figma MCP(`get_metadata`, `get_screenshot`, `get_variable_defs`)로 6개 프레임 모두 실측 확인 완료. 프레임명·크기는 기존 표와 일치. 각 프레임의 실제 하위 컴포넌트 인스턴스는 `docs/COMPONENT_MAP.md` 참고.
 >
@@ -30,3 +35,11 @@
 ## 구현 보류
 
 - `Chat Bubble`/`Math Activity Card`: 6개 화면(빈 상태 스냅샷)에 인스턴스가 없어 최종 Variant 구현을 보류한다. 대화 진행 상태 프레임이 이 화면맵에 추가되기 전까지는 구현 범위를 확장하지 않는다.
+
+## 컴포넌트(비라우트) 참고
+
+아래는 URL 라우트가 없는 재사용 컴포넌트다 — 위 표(화면·라우트 기준)와 별도로 참고용으로만 기록한다. 실제 컴포넌트 인스턴스·variant 매핑은 `docs/COMPONENT_MAP.md`가 기준이다.
+
+| 컴포넌트 | Figma 인스턴스명 | Figma 위치 | 비고 |
+|---|---|---|---|
+| 알림 팝업 | `Popup/Register`, `Popup/Login`, `Popup/Emailcheck` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=97-309&t=LrZQeZ022Z7LUbtl-4) (`Popup` 섹션, node `97:309`) | 2026-08-01 실측. 회원가입 완료/로그인 완료/이메일 인증 대기 3종. `shared/ui/modal`로 컴포넌트화(`docs/COMPONENT_MAP.md` 참고) |

@@ -34,4 +34,8 @@
   --color-kakao-label: #191919;
 
   --color-icon-default: #8a8a8e;
+
+  --color-modal-subtitle: rgba(35, 43, 56, 0.65);
+  --color-modal-divider: rgba(35, 43, 56, 0.12);
+  --color-modal-border: rgba(35, 43, 56, 0.14);
 }
