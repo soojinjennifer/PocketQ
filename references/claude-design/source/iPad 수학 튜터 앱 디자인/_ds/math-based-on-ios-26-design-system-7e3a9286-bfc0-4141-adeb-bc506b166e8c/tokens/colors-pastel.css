@@ -1,0 +1,42 @@
+/* Accent palette — extracted from uploads/colorset2.jpg (Dashboard 2026). Brand: indigo #5E6E82 — primary emphasis color for buttons/selection. Teal #4F8285 remains as accents-teal.
+   --card-emphasis (#C3CCD9): background for emphasized text cards — 풀이영역 텍스트 피드백 카드 등. */
+:root {
+  --brand: #5E6E82;
+  --brand-deep: #46536A;
+  --brand-tint: #C3CCD9;
+  --card-emphasis: #C3CCD9;
+  --brand-ink: #232B38;
+  --accents-blue: #6C8693;
+  --accents-cyan: #9FC6CC;
+  --accents-teal: #4F8285;
+  --accents-mint: #A8D8CE;
+  --accents-green: #6FA898;
+  --accents-yellow: #DCC08A;
+  --accents-orange: #D9A05B;
+  --accents-red: #C97B6E;
+  --accents-pink: #D8AFA6;
+  --accents-purple: #9A93B0;
+  --accents-indigo: #5E6E82;
+  --accents-brown: #A98A6B;
+}
+:root[data-theme="light"], .light,
+:root[data-mode="dim"],
+:root[data-theme="dark"], .dark {
+  --brand: #5E6E82;
+  --brand-deep: #46536A;
+  --brand-tint: #C3CCD9;
+  --card-emphasis: #C3CCD9;
+  --brand-ink: #232B38;
+  --accents-blue: #6C8693;
+  --accents-cyan: #9FC6CC;
+  --accents-teal: #4F8285;
+  --accents-mint: #A8D8CE;
+  --accents-green: #6FA898;
+  --accents-yellow: #DCC08A;
+  --accents-orange: #D9A05B;
+  --accents-red: #C97B6E;
+  --accents-pink: #D8AFA6;
+  --accents-purple: #9A93B0;
+  --accents-indigo: #5E6E82;
+  --accents-brown: #A98A6B;
+}

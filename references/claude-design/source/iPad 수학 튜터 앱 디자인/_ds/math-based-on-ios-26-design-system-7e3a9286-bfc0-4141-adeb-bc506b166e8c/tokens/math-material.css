@@ -1,0 +1,47 @@
+/* Math Bold-3D Material — opaque clay surfaces, crisp extruded rim, deep soft ground shadow.
+   Effect ref: uploads/colorset_bold_3D-d555faa2.jpg. Tuned for iPad; intensity softened to ~70% of the bold reference.
+   Apply .math-glass for the material, .math-pressable for press behavior; .math-well for recessed areas;
+   recipes: .math-btn / .math-card / .math-tab. Brand emphasis = indigo (--brand). */
+:root{
+  /* shadow ink — deep brand indigo, never pure black */
+  --math-shadow-ink: 35,43,56;
+  /* extruded rim — the crisp 0-blur bottom edge that sells the clay thickness */
+  --math-rim: 0 3px 0 rgba(var(--math-shadow-ink),.21);
+  --math-rim-raised: 0 4px 0 rgba(var(--math-shadow-ink),.21);
+  /* elevation: crisp rim first, then soft ground shadow — clearly separated layers */
+  --math-shadow-rest: var(--math-rim), 0 8px 16px rgba(var(--math-shadow-ink),.14), 0 20px 34px rgba(var(--math-shadow-ink),.08);
+  --math-shadow-raised: var(--math-rim-raised), 0 13px 24px rgba(var(--math-shadow-ink),.18), 0 25px 45px rgba(var(--math-shadow-ink),.10);
+  --math-shadow-pressed: 0 1px 0 rgba(var(--math-shadow-ink),.17), inset 0 4px 8px rgba(var(--math-shadow-ink),.20), inset 0 1px 3px rgba(var(--math-shadow-ink),.14);
+  /* elevation ladder for stacked layers (Level 1–5) */
+  --math-elev-1: 0 1px 0 rgba(var(--math-shadow-ink),.17), 0 4px 8px rgba(var(--math-shadow-ink),.10);
+  --math-elev-2: 0 2px 0 rgba(var(--math-shadow-ink),.18), 0 7px 13px rgba(var(--math-shadow-ink),.11);
+  --math-elev-3: var(--math-shadow-rest);
+  --math-elev-4: var(--math-shadow-raised);
+  --math-elev-5: 0 6px 0 rgba(var(--math-shadow-ink),.22), 0 18px 32px rgba(var(--math-shadow-ink),.21), 0 34px 56px rgba(var(--math-shadow-ink),.11);
+  /* top light — strong inner highlight + faint bottom occlusion (pillow surface) */
+  --math-highlight: inset 0 2px 0 rgba(255,255,255,.9), inset 0 -2px 0 rgba(var(--math-shadow-ink),.07);
+  /* hairline edge — makes every surface boundary explicit */
+  --math-edge: 1px solid rgba(var(--math-shadow-ink),.14);
+  /* surface fills — opaque for clear area separation (glass blur only as accent) */
+  --math-glass-fill: #FBFAF6;
+  --math-glass-fill-strong: #FFFFFF;
+  --math-surface-canvas: #ECEAE2;
+  --math-well-fill: #E4E1D8;
+  --math-glass-blur: blur(24px) saturate(1.35); /* @kind other */
+  --math-press-ease: cubic-bezier(.32,.72,.28,1); /* @kind other */
+  /* recessed well — sections/inputs sunk into the canvas */
+  --math-shadow-well: inset 0 2px 4px rgba(var(--math-shadow-ink),.11), inset 0 1px 2px rgba(var(--math-shadow-ink),.08), 0 1px 0 rgba(255,255,255,.85);
+}
+.math-glass{background:var(--math-glass-fill);border:var(--math-edge);box-shadow:var(--math-shadow-rest),var(--math-highlight)}
+.math-well{background:var(--math-well-fill);border:var(--math-edge);box-shadow:var(--math-shadow-well)}
+.math-pressable{cursor:pointer;transition:transform .18s var(--math-press-ease),box-shadow .22s var(--math-press-ease);-webkit-tap-highlight-color:transparent;user-select:none}
+.math-pressable:hover{box-shadow:var(--math-shadow-raised),var(--math-highlight);transform:translateY(-2px)}
+.math-pressable:active,.math-pressable[aria-pressed="true"],.math-pressable.is-pressed{box-shadow:var(--math-shadow-pressed);transform:translateY(3px) scale(.98)}
+/* recipes */
+.math-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 26px;border:var(--math-edge);border-radius:100px;font:590 17px/1 "SF Pro",-apple-system,sans-serif;color:#3A4454}
+.math-btn--accent{background:var(--brand,#5E6E82);border-color:var(--brand-deep,#46536A);color:#fff;box-shadow:0 3px 0 var(--brand-deep,#46536A),0 8px 16px rgba(var(--math-shadow-ink),.17),inset 0 2px 0 rgba(255,255,255,.35)}
+.math-btn--accent:hover{box-shadow:0 4px 0 var(--brand-deep,#46536A),0 13px 24px rgba(var(--math-shadow-ink),.21),inset 0 2px 0 rgba(255,255,255,.35)}
+.math-btn--accent:active{box-shadow:0 1px 0 var(--brand-deep,#46536A),inset 0 4px 8px rgba(var(--math-shadow-ink),.24)}
+.math-card{border-radius:28px;padding:20px}
+.math-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:0;border-radius:100px;font:510 15px/1 "SF Pro",-apple-system,sans-serif;color:#3A4454;background:transparent;box-shadow:none}
+.math-tab.is-selected{background:var(--brand,#5E6E82);color:#fff;box-shadow:0 2px 0 var(--brand-deep,#46536A),0 6px 10px rgba(var(--math-shadow-ink),.14),inset 0 2px 0 rgba(255,255,255,.3)}

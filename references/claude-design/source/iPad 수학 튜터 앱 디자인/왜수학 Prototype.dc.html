@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/tokens/fig-tokens.css">
+<link rel="stylesheet" href="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/tokens/colors-pastel.css">
+<link rel="stylesheet" href="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/tokens/math-material.css">
+<link rel="stylesheet" href="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/tokens/typography.css">
+<script src="_ds/math-based-on-ios-26-design-system-7e3a9286-bfc0-4141-adeb-bc506b166e8c/_ds_bundle.js"></script>
+<style>body{margin:0;background:#D6D3C8;font-family:"SF Pro",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased}a{color:#5E6E82;text-decoration:none}a:hover{color:#46536A}@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}</style>
+</helmet>
+<div ref="{{ rootRef }}" style="width:1194px;height:834px;margin:24px auto;border-radius:26px;box-shadow:0 3px 0 rgba(35,43,56,.14),0 24px 60px rgba(35,43,56,.32);overflow:hidden;position:relative;background:var(--math-surface-canvas,#ECEAE2)">
+
+<!-- ================= AUTH ================= -->
+<sc-if value="{{ isAuth }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="로그인" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;background:var(--math-surface-canvas,#ECEAE2)">
+  <div style="height:24px;width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-sizing:border-box"><span style="font-size:13px;font-weight:590;color:#232B38">9:41</span><span style="font-size:13px;font-weight:590;color:rgba(35,43,56,.55)">Wi-Fi 100%</span></div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:392px">
+    <div style="width:76px;height:76px;border-radius:22px;background:var(--brand,#5E6E82);color:#fff;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;box-shadow:var(--math-shadow-rest),var(--math-highlight)">왜?</div>
+    <div style="font-size:34px;line-height:41px;font-weight:700;margin-top:18px;color:#232B38">왜?수학</div>
+    <div style="font-size:16px;line-height:21px;color:rgba(35,43,56,.6);margin-top:6px;text-align:center">궁금증이 풀릴 때까지 답해주는 수학 개념 튜터</div>
+    <div style="display:flex;flex-direction:column;gap:12px;width:100%;margin-top:36px">
+      <div onClick="{{ login }}" class="math-pressable" style="background:#FEE500;color:#191919;border-radius:100px;padding:14px;text-align:center;font-size:17px;font-weight:590;box-shadow:var(--math-shadow-rest),var(--math-highlight)">카카오로 계속하기</div>
+      <div onClick="{{ login }}" class="math-pressable" style="background:#fff;color:#232B38;border-radius:100px;padding:14px;text-align:center;font-size:17px;font-weight:590;box-shadow:var(--math-shadow-rest),var(--math-highlight)">Google로 계속하기</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;width:100%;margin:22px 0"><div style="flex:1;height:1px;background:rgba(35,43,56,.18)"></div><span style="font-size:13px;color:rgba(35,43,56,.5)">또는 이메일로</span><div style="flex:1;height:1px;background:rgba(35,43,56,.18)"></div></div>
+    <div style="width:100%;background:#fff;border-radius:22px;overflow:hidden;box-shadow:var(--math-shadow-rest),var(--math-highlight)">
+      <input placeholder="이메일" style="width:100%;box-sizing:border-box;border:none;outline:none;padding:14px 18px;font-size:16px;font-family:inherit;background:transparent;color:#232B38">
+      <div style="height:1px;background:rgba(35,43,56,.12);margin-left:18px"></div>
+      <input placeholder="비밀번호" type="password" style="width:100%;box-sizing:border-box;border:none;outline:none;padding:14px 18px;font-size:16px;font-family:inherit;background:transparent;color:#232B38">
+    </div>
+    <div onClick="{{ login }}" class="math-pressable" style="width:100%;box-sizing:border-box;background:var(--brand,#5E6E82);color:#fff;border-radius:100px;padding:14px;text-align:center;font-size:17px;font-weight:590;margin-top:12px;box-shadow:var(--math-shadow-rest),var(--math-highlight)">이메일로 계속하기</div>
+    <div style="font-size:12px;color:rgba(35,43,56,.45);margin-top:16px;text-align:center">가입하면 이메일·닉네임·학년만 수집해요</div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ================= ONBOARDING ================= -->
+<sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="온보딩 학년선택" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;background:var(--math-surface-canvas,#ECEAE2)">
+  <div style="height:24px;width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-sizing:border-box"><span style="font-size:13px;font-weight:590;color:#232B38">9:41</span><span style="font-size:13px;font-weight:590;color:rgba(35,43,56,.55)">Wi-Fi 100%</span></div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="font-size:28px;line-height:34px;font-weight:700;color:#232B38">학년을 선택해 주세요</div>
+    <div style="font-size:16px;color:rgba(35,43,56,.6);margin-top:8px">학년에 맞는 교육과정 범위로 설명해 드려요</div>
+    <div style="display:grid;grid-template-columns:repeat(3,168px);gap:18px;margin-top:36px">
+      <sc-for list="{{ grades }}" as="g" hint-placeholder-count="6">
+        <div onClick="{{ g.pick }}" class="math-pressable" style="{{ g.style }}">
+          <div style="font-size:22px;font-weight:700">{{ g.label }}</div>
+          <div style="font-size:13px;color:rgba(35,43,56,.55);margin-top:3px">{{ g.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size:13px;color:rgba(35,43,56,.45);margin-top:28px">마이페이지에서 언제든 바꿀 수 있어요</div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ================= SOLVE (1b 노트 중심) ================= -->
+<sc-if value="{{ isSolve }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="문제풀기" style="position:absolute;inset:0;overflow:hidden;background:#FBFAF6;background-image:radial-gradient(rgba(35,43,56,.16) 1px,transparent 1px);background-size:26px 26px">
+  <canvas ref="{{ canvasRef }}" width="1194" height="834" onPointerDown="{{ penDown }}" onPointerMove="{{ penMove }}" onPointerUp="{{ penUp }}" onPointerLeave="{{ penUp }}" style="position:absolute;inset:0;touch-action:none;cursor:crosshair"></canvas>
+  <sc-if value="{{ photoPlaced }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:130px;top:170px;width:540px;background:#fff;border-radius:10px;box-shadow:var(--math-shadow-raised);transform:rotate(-1.2deg);padding:26px 30px;pointer-events:none">
+      <div style="font-size:12px;color:rgba(35,43,56,.45);margin-bottom:10px">촬영한 문제 · 문제집 p.42</div>
+      <div style="font-size:19px;line-height:28px;font-family:'STIX Two Math',Georgia,serif;color:#232B38"><b>7.</b> 이차함수 y = −2x² + 4x + 1 의 최댓값을 구하시오. <span style="float:right;color:rgba(35,43,56,.5)">[4점]</span></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ showHint }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:96px;right:96px;top:300px;text-align:center;pointer-events:none;color:rgba(35,43,56,.38);font-size:20px">Apple Pencil이나 마우스로 문제를 써 보세요</div>
+  </sc-if>
+  <div style="position:absolute;top:0;left:0;right:0;height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;pointer-events:none"><span style="font-size:13px;font-weight:590;color:#232B38">9:41</span><span style="font-size:13px;font-weight:590;color:rgba(35,43,56,.55)">Wi-Fi 100%</span></div>
+
+  <!-- tab pill -->
+  <div class="math-glass" style="position:absolute;top:34px;left:50%;transform:translateX(-50%);display:flex;gap:2px;border-radius:100px;padding:4px">
+    <div class="math-tab is-selected">문제 풀기</div>
+    <div onClick="{{ goMypage }}" class="math-tab math-pressable" style="color:rgba(35,43,56,.7)">마이페이지</div>
+  </div>
+
+  <!-- pen tool rail -->
+  <div class="math-glass" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;border-radius:100px;padding:10px 8px">
+    <div onClick="{{ pickPen }}" class="math-pressable" style="{{ penBtnStyle }}">✎</div>
+    <div onClick="{{ pickEraser }}" class="math-pressable" style="{{ eraserBtnStyle }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 20 4 14.5a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L13.3 18"></path><path d="M7 9.5 14.5 17"></path><path d="M9.5 20H20"></path></svg></div>
+    <div onClick="{{ undo }}" class="math-pressable" style="width:36px;height:36px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(35,43,56,.7);box-shadow:none">↩</div>
+    <div onClick="{{ clearCanvas }}" class="math-pressable" style="width:36px;height:36px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--accents-red,#C97B6E);box-shadow:none">✕</div>
+    <div style="height:1px;background:rgba(35,43,56,.18);margin:2px 4px"></div>
+    <div onClick="{{ photoTap }}" class="math-pressable" style="width:36px;height:36px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:590;color:rgba(35,43,56,.7);box-shadow:none">사진</div>
+  </div>
+
+  <!-- bottom action bar -->
+  <div class="math-glass" style="position:absolute;left:50%;bottom:20px;transform:translateX(-58%);display:flex;align-items:center;gap:14px;border-radius:100px;padding:8px 10px 8px 20px">
+    <div onClick="{{ toggleConcept }}" style="cursor:pointer;display:flex;align-items:center;gap:7px;font-size:14px;font-weight:590;color:#232B38"><div style="{{ conceptCheckStyle }}">✓</div>개념설명해주기</div>
+    <div onClick="{{ toggleSolution }}" style="cursor:pointer;display:flex;align-items:center;gap:7px;font-size:14px;font-weight:590;color:#232B38"><div style="{{ solutionCheckStyle }}">✓</div>풀이해주기</div>
+    <div onClick="{{ solve }}" class="math-pressable" style="{{ solveBtnStyle }}">풀기</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;bottom:92px;transform:translateX(-58%);background:rgba(35,43,56,.9);backdrop-filter:blur(10px);color:#fff;font-size:14px;font-weight:590;border-radius:100px;padding:10px 20px;box-shadow:var(--math-shadow-rest)">{{ toast }}</div>
+  </sc-if>
+
+  <!-- camera sheet -->
+  <sc-if value="{{ cameraOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(16,28,29,.94);backdrop-filter:blur(6px);display:flex;flex-direction:column;z-index:5">
+      <div style="height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none">
+        <span onClick="{{ cameraCancel }}" style="cursor:pointer;color:#fff;font-size:16px;font-weight:590">취소</span>
+        <span style="color:rgba(255,255,255,.7);font-size:14px;font-weight:590">{{ cameraTitle }}</span>
+        <span style="width:32px"></span>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative">
+        <div style="{{ viewfinderStyle }}">
+          <div style="background:#fff;border-radius:4px;padding:30px 34px;transform:rotate(-1.5deg);box-shadow:0 10px 40px rgba(0,0,0,.4);width:520px">
+            <div style="font-size:20px;line-height:30px;font-family:'STIX Two Math',Georgia,serif;color:#232B38"><b>7.</b> 이차함수 y = −2x² + 4x + 1 의 최댓값을 구하시오. <span style="float:right;color:rgba(35,43,56,.5)">[4점]</span></div>
+          </div>
+          <sc-if value="{{ cameraLive }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;pointer-events:none">
+              <div style="position:absolute;left:70px;top:40px;width:34px;height:34px;border-left:2.5px solid var(--accents-yellow,#DCC08A);border-top:2.5px solid var(--accents-yellow,#DCC08A)"></div>
+              <div style="position:absolute;right:70px;top:40px;width:34px;height:34px;border-right:2.5px solid var(--accents-yellow,#DCC08A);border-top:2.5px solid var(--accents-yellow,#DCC08A)"></div>
+              <div style="position:absolute;left:70px;bottom:40px;width:34px;height:34px;border-left:2.5px solid var(--accents-yellow,#DCC08A);border-bottom:2.5px solid var(--accents-yellow,#DCC08A)"></div>
+              <div style="position:absolute;right:70px;bottom:40px;width:34px;height:34px;border-right:2.5px solid var(--accents-yellow,#DCC08A);border-bottom:2.5px solid var(--accents-yellow,#DCC08A)"></div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="height:110px;display:flex;align-items:center;justify-content:center;position:relative;flex:none">
+        <sc-if value="{{ cameraLive }}" hint-placeholder-val="{{ true }}">
+          <span onClick="{{ albumTap }}" style="cursor:pointer;position:absolute;left:60px;color:#fff;font-size:15px;font-weight:590">앨범</span>
+          <div onClick="{{ shutter }}" style="cursor:pointer;width:66px;height:66px;border-radius:100px;border:4px solid #fff;display:flex;align-items:center;justify-content:center"><div style="width:52px;height:52px;border-radius:100px;background:#fff"></div></div>
+        </sc-if>
+        <sc-if value="{{ cameraPreview }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:14px">
+            <div onClick="{{ retake }}" style="cursor:pointer;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:100px;padding:11px 26px;font-size:15px;font-weight:590">재촬영</div>
+            <div onClick="{{ usePhoto }}" class="math-pressable" style="background:var(--brand,#5E6E82);color:#fff;border-radius:100px;padding:11px 26px;font-size:15px;font-weight:590;box-shadow:var(--math-shadow-rest),var(--math-highlight)">사진 사용</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- results glass panel -->
+  <div style="{{ panelStyle }}">
+    <div style="padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;flex:none">
+      <span style="font-size:17px;font-weight:700;color:#232B38">풀이 결과</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <sc-if value="{{ tagShown }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:590;color:var(--brand-deep,#46536A);background:rgba(var(--brand-rgb,94,110,130),.14);border-radius:100px;padding:4px 12px">이차함수 › 최대·최소</span></sc-if>
+        <div onClick="{{ newProblem }}" class="math-pressable" style="font-size:13px;font-weight:590;color:var(--brand-deep,#46536A);background:rgba(var(--brand-rgb,94,110,130),.14);border-radius:100px;padding:4px 12px;box-shadow:none">새 문제</div>
+      </div>
+    </div>
+    <div ref="{{ panelBodyRef }}" style="flex:1;padding:2px 18px 10px;display:flex;flex-direction:column;gap:12px;min-height:0;overflow-y:auto">
+      <sc-if value="{{ recogShown }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border-radius:18px;padding:11px 14px;box-shadow:var(--math-shadow-rest),var(--math-highlight);display:flex;align-items:center;gap:10px;flex:none">
+          <span style="font-size:11px;font-weight:590;color:#3E7A66;background:rgba(111,168,152,.16);border-radius:8px;padding:3px 7px;flex:none">인식됨</span>
+          <span style="flex:1;font-size:14px;line-height:19px;font-family:'STIX Two Math',Georgia,serif;color:#232B38">이차함수 y = −2x² + 4x + 1 의 최댓값을 구하시오.</span>
+          <span onClick="{{ editTap }}" style="cursor:pointer;font-size:13px;font-weight:590;color:var(--brand,#5E6E82);flex:none">수정</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ conceptStarted }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border-radius:18px;padding:12px 14px;box-shadow:var(--math-shadow-rest),var(--math-highlight);flex:none">
+          <div style="font-size:11px;font-weight:700;color:#6E6787;letter-spacing:.5px;margin-bottom:4px">관련 개념</div>
+          <div style="font-size:15px;font-weight:700;color:#232B38">이차함수의 표준형과 꼭짓점</div>
+          <div style="font-size:13.5px;line-height:19px;color:rgba(35,43,56,.9);margin-top:4px;white-space:pre-line">{{ conceptText }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ stepsStarted }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border-radius:18px;padding:12px 14px;box-shadow:var(--math-shadow-rest),var(--math-highlight);flex:none">
+          <div style="font-size:11px;font-weight:700;color:#B07E3F;letter-spacing:.5px;margin-bottom:4px">단계별 풀이</div>
+          <div style="font-size:13.5px;line-height:20px;color:rgba(35,43,56,.9);white-space:pre-line">{{ stepsText }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ answerShown }}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius: 18px; padding: 11px 14px; font-size: 15px; font-weight: 700; color: #2C3547; flex: none; border: var(--math-edge); box-shadow: var(--math-shadow-rest),var(--math-highlight); background-color: var(--card-emphasis, #C3CCD9)">최종 답 · x = 1일 때 최댓값 3</div>
+      </sc-if>
+      <sc-for list="{{ chat }}" as="m" hint-placeholder-count="0">
+        <sc-if value="{{ m.isBubble }}" hint-placeholder-val="{{ true }}">
+          <div style="{{ m.rowStyle }}"><div style="{{ m.bubbleStyle }}">{{ m.text }}</div></div>
+        </sc-if>
+        <sc-if value="{{ m.isProblems }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border-radius:18px;box-shadow:var(--math-shadow-rest),var(--math-highlight);overflow:hidden;flex:none">
+            <div style="padding:11px 14px 8px;display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11px;font-weight:700;color:#3E7A66;letter-spacing:.5px">비슷한 문제 5</span>
+              <span style="font-size:11px;color:rgba(35,43,56,.5)">이차함수 › 최대·최소</span>
+            </div>
+            <sc-for list="{{ m.problems }}" as="p" hint-placeholder-count="5">
+              <div onClick="{{ p.pick }}" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid rgba(35,43,56,.1)">
+                <div style="width:20px;height:20px;border-radius:100px;background:rgba(111,168,152,.16);color:#3E7A66;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">{{ p.num }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;line-height:18px;font-family:'STIX Two Math',Georgia,serif;color:#232B38">{{ p.text }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                    <span style="font-size:10.5px;font-weight:590;color:rgba(35,43,56,.6);background:rgba(var(--brand-rgb,94,110,130),.1);border-radius:100px;padding:2px 8px">{{ p.type }}</span>
+                    <span style="font-size:10.5px;color:var(--accents-orange,#D9A05B);letter-spacing:1px">{{ p.diff }}</span>
+                  </div>
+                </div>
+                <span style="font-size:12px;font-weight:590;color:var(--brand,#5E6E82);flex:none">풀기</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-for>
+      <sc-if value="{{ suggestShown }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ askSuggested }}" class="math-pressable" style="align-self:flex-start;border:1px solid rgba(var(--brand-rgb,94,110,130),.45);color:var(--brand-deep,#46536A);border-radius:100px;padding:7px 14px;font-size:13px;font-weight:590;flex:none;box-shadow:none">"왜 꼭짓점에서 최댓값이 돼요?" 물어보기</div>
+      </sc-if>
+    </div>
+    <div style="padding:10px 14px 12px;flex:none">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 8px">
+        <sc-for list="{{ chatTags }}" as="t" hint-placeholder-count="4">
+          <div onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:100px;padding:6px 6px 6px 16px;box-shadow:var(--math-shadow-rest),var(--math-highlight)">
+        <input value="{{ chatInput }}" onChange="{{ chatType }}" onKeyDown="{{ chatKey }}" placeholder="궁금증이 풀릴 때까지 물어보세요" style="flex:1;border:none;outline:none;font-size:14px;font-family:inherit;background:transparent;color:#232B38">
+        <div onClick="{{ chatSend }}" class="math-pressable" style="width:32px;height:32px;border-radius:100px;background:var(--brand,#5E6E82);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;box-shadow:var(--math-shadow-rest),var(--math-highlight)">↑</div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ================= MYPAGE ================= -->
+<sc-if value="{{ isMypage }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="마이페이지" style="position:absolute;inset:0;display:flex;flex-direction:column;background:var(--math-surface-canvas,#ECEAE2);overflow:hidden">
+  <div style="height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none"><span style="font-size:13px;font-weight:590;color:#232B38">9:41</span><span style="font-size:13px;font-weight:590;color:rgba(35,43,56,.55)">Wi-Fi 100%</span></div>
+  <div style="height:56px;display:flex;align-items:center;justify-content:center;flex:none">
+    <div class="math-glass" style="display:flex;gap:2px;border-radius:100px;padding:4px">
+      <div onClick="{{ goSolve }}" class="math-tab math-pressable" style="color:rgba(35,43,56,.7)">문제 풀기</div>
+      <div class="math-tab is-selected">마이페이지</div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px 0 30px;min-height:0">
+    <div style="width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#fff;border-radius:24px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--math-shadow-rest),var(--math-highlight)">
+        <div style="width:52px;height:52px;border-radius:100px;background:var(--brand,#5E6E82);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex:none">지</div>
+        <div style="flex:1"><div style="font-size:17px;font-weight:700;color:#232B38">지민</div><div style="font-size:14px;color:rgba(35,43,56,.6)">{{ gradeLabel }} · jimin@example.com</div></div>
+        <div onClick="{{ changeGrade }}" class="math-pressable" style="font-size:14px;font-weight:590;color:var(--brand-deep,#46536A);background:rgba(var(--brand-rgb,94,110,130),.14);border-radius:100px;padding:7px 14px;box-shadow:none">학년 변경</div>
+        <div onClick="{{ logout }}" class="math-pressable" style="font-size:14px;font-weight:590;color:#A85B4E;background:rgba(201,123,110,.16);border-radius:100px;padding:7px 14px;box-shadow:none">로그아웃</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+          <div onClick="{{ f.pick }}" class="math-pressable" style="{{ f.style }}">{{ f.label }}</div>
+        </sc-for>
+      </div>
+      <div style="background:#fff;border-radius:24px;overflow:hidden;box-shadow:var(--math-shadow-rest),var(--math-highlight)">
+        <sc-for list="{{ historyItems }}" as="h" hint-placeholder-count="4">
+          <div onClick="{{ h.open }}" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid rgba(35,43,56,.1)">
+            <div style="width:72px;height:52px;border-radius:12px;background:#FBFAF6;border:1px solid rgba(35,43,56,.12);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden"><span style="font-family:'Bradley Hand',cursive;font-size:12px;color:#232B38;padding:0 6px;text-align:center">{{ h.thumb }}</span></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:590;color:#232B38;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.title }}</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:12px;font-weight:590;color:var(--brand-deep,#46536A);background:rgba(var(--brand-rgb,94,110,130),.14);border-radius:100px;padding:2px 10px">{{ h.tag }}</span><span style="font-size:12px;color:rgba(35,43,56,.5)">{{ h.date }}</span></div>
+            </div>
+            <span style="color:rgba(35,43,56,.35);font-size:16px;flex:none">›</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(35,43,56,.9);color:#fff;font-size:14px;font-weight:590;border-radius:100px;padding:10px 20px;box-shadow:var(--math-shadow-rest)">{{ toast }}</div>
+  </sc-if>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1242,&quot;height&quot;:882},&quot;brandPalette&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[[&quot;#5E6E82&quot;,&quot;#46536A&quot;,&quot;#C3CCD9&quot;],[&quot;#4F8285&quot;,&quot;#2E5E63&quot;,&quot;#A8D8CE&quot;],[&quot;#6FA898&quot;,&quot;#3E7A66&quot;,&quot;#CDE8DF&quot;]],&quot;default&quot;:[&quot;#6FA898&quot;,&quot;#3E7A66&quot;,&quot;#CDE8DF&quot;],&quot;tsType&quot;:&quot;string[]&quot;,&quot;section&quot;:&quot;브랜드&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auth&quot;,&quot;onboarding&quot;,&quot;solve&quot;,&quot;mypage&quot;],&quot;default&quot;:&quot;solve&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;프로토타입&quot;},&quot;streamSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:1,&quot;max&quot;:6,&quot;step&quot;:1,&quot;default&quot;:4,&quot;unit&quot;:&quot;x&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;프로토타입&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: null, grade: '고1',
+    tool: 'pen', hasInk: false, toast: '',
+    optConcept: true, optSolution: true,
+    panelOpen: false, phase: 'idle',
+    recogShown: false, conceptStarted: false, conceptText: '',
+    stepsStarted: false, stepsText: '', answerShown: false, tagShown: false, suggestShown: false,
+    chat: [], chatInput: '', filter: '전체',
+    photoMode: null, photoPlaced: false
+  };
+  strokes = []; drawing = false; answerIdx = 0;
+
+  CONCEPT = "y = a(x−p)² + q 꼴(표준형)로 바꾸면 꼭짓점이 (p, q)라는 걸 바로 알 수 있어요.\n이 문제에서 a = −2 < 0이라 그래프가 위로 볼록한 산 모양이 돼요. 산에서 가장 높은 곳은 꼭대기 하나뿐이죠. 그래서 꼭짓점의 y좌표가 곧 최댓값이 됩니다.";
+  STEPS = "1. 완전제곱식으로 변형 — 왜? 꼭짓점을 읽기 위해서예요.\ny = −2x² + 4x + 1 = −2(x−1)² + 3\n\n2. 꼭짓점에서 최댓값 확인 — 왜? a = −2 < 0이라 위로 볼록, 꼭짓점 (1, 3)이 가장 높은 점이에요.";
+  SIMILAR = [
+    { text: 'y = −3x² + 6x − 1 의 최댓값을 구하시오.', type: '기본', diff: '★' },
+    { text: 'y = x² − 4x + k 의 최솟값이 3일 때, 상수 k의 값을 구하시오.', type: '미정계수', diff: '★★' },
+    { text: '0 ≤ x ≤ 3에서 y = −(x−1)² + 4 의 최댓값과 최솟값을 구하시오.', type: '제한된 범위', diff: '★★' },
+    { text: '둘레의 길이가 20인 직사각형 넓이의 최댓값을 구하시오.', type: '활용 · 도형', diff: '★★★' },
+    { text: '지면에서 던진 물체의 높이가 h = −5t² + 20t 일 때, 최대 높이를 구하시오.', type: '활용 · 실생활', diff: '★★' }
+  ];
+  ANSWERS = [
+    "그래프가 위로 볼록한 산 모양이기 때문이에요. y = −2(x−1)² + 3에서 (x−1)²은 항상 0 이상인데, 여기에 −2를 곱하면 항상 0 이하가 돼요. 그래서 y는 3에서 무언가를 뺀 값이 되고, 뺄 것이 없는 x = 1일 때 가장 커요. 이해가 되었나요?",
+    "좋은 질문이에요. a가 양수면 반대로 아래로 볼록한 골짜기 모양이라 꼭짓점에서 최솟값을 가져요. 이때 최댓값은 없어요. 부호 하나가 그래프의 모양을 뒤집는 거예요.",
+    "그 부분을 더 풀어볼게요. 완전제곱식 변형은 y = −2x² + 4x + 1 = −2(x² − 2x) + 1 = −2{(x−1)² − 1} + 1 = −2(x−1)² + 3 순서로 진행돼요. 어느 단계가 더 궁금한가요?"
+  ];
+
+  componentDidMount() {
+    const s = this.props.startScreen ?? 'auth';
+    this.setState({ screen: s });
+    this.applyBrand();
+  }
+  componentDidUpdate(prevProps) {
+    if (prevProps.startScreen !== this.props.startScreen) {
+      this.setState({ screen: this.props.startScreen ?? 'auth' });
+    }
+    if (prevProps.brandPalette !== this.props.brandPalette) this.applyBrand();
+  }
+  rootRef = (el) => { this.rootEl = el; this.applyBrand(); };
+  applyBrand() {
+    const el = this.rootEl; if (!el) return;
+    let p = this.props.brandPalette ?? ['#5E6E82', '#46536A', '#C3CCD9'];
+    if (typeof p === 'string') p = [p];
+    const [brand, deep, tint] = [p[0] || '#5E6E82', p[1] || '#46536A', p[2] || '#C3CCD9'];
+    const rgb = (hex) => {
+      const h = hex.replace('#', '');
+      return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
+    };
+    el.style.setProperty('--brand', brand);
+    el.style.setProperty('--brand-deep', deep);
+    el.style.setProperty('--brand-tint', tint);
+    el.style.setProperty('--card-emphasis', tint);
+    el.style.setProperty('--brand-rgb', rgb(brand));
+  }
+  showToast(msg) {
+    clearTimeout(this._toastT);
+    this.setState({ toast: msg });
+    this._toastT = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  // ---- canvas ----
+  canvasRef = (el) => {
+    if (el && el !== this.canvas) { this.canvas = el; this.ctx = el.getContext('2d'); this.redraw(); }
+    if (!el) { this.canvas = null; this.ctx = null; }
+  };
+  pos(e) { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * (this.canvas.width / r.width), y: (e.clientY - r.top) * (this.canvas.height / r.height) }; }
+  penDown = (e) => {
+    if (!this.canvas) return;
+    this.drawing = true; this.canvas.setPointerCapture(e.pointerId);
+    this.cur = { tool: this.state.tool, pts: [this.pos(e)] };
+    this.strokes.push(this.cur);
+    if (!this.state.hasInk) this.setState({ hasInk: true });
+  };
+  penMove = (e) => {
+    if (!this.drawing || !this.cur) return;
+    const p = this.pos(e), prev = this.cur.pts[this.cur.pts.length - 1];
+    this.cur.pts.push(p);
+    this.seg(prev, p, this.cur.tool);
+  };
+  penUp = () => { this.drawing = false; this.cur = null; };
+  seg(a, b, tool) {
+    const c = this.ctx; if (!c) return;
+    c.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    c.strokeStyle = '#232B38'; c.lineWidth = tool === 'eraser' ? 26 : 2.6;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+  }
+  redraw() {
+    const c = this.ctx; if (!c) return;
+    c.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    for (const s of this.strokes) {
+      if (s.tool === 'example') { this.drawExample(); continue; }
+      for (let i = 1; i < s.pts.length; i++) this.seg(s.pts[i - 1], s.pts[i], s.tool);
+    }
+  }
+  writeExample() {
+    this.strokes.push({ tool: 'example', pts: [] });
+    this.drawExample();
+    this.setState({ hasInk: true });
+  }
+  drawExample() {
+    const c = this.ctx; if (!c) return;
+    c.globalCompositeOperation = 'source-over'; c.fillStyle = '#232B38';
+    c.font = "38px 'Bradley Hand', 'Segoe Print', cursive";
+    c.fillText('y = -2x\u00B2 + 4x + 1', 90, 300);
+    c.font = "30px 'Bradley Hand', 'Segoe Print', cursive";
+    c.fillText('\uCD5C\uB313\uAC12\uC740?', 90, 370);
+  }
+  undoFn = () => { this.strokes.pop(); this.redraw(); if (!this.strokes.length) this.setState({ hasInk: false }); };
+  clearFn = () => { this.strokes = []; this.redraw(); this.setState({ hasInk: false, photoPlaced: false }); };
+
+  // ---- streaming ----
+  streamTo(key, text) {
+    const speed = this.props.streamSpeed ?? 2;
+    return new Promise((res) => {
+      let i = 0;
+      const t = setInterval(() => {
+        i = Math.min(text.length, i + 2);
+        this.setState({ [key]: text.slice(0, i) }, this.scrollPanel);
+        if (i >= text.length) { clearInterval(t); res(); }
+      }, Math.max(6, 26 / speed));
+    });
+  }
+  wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+  panelBodyRef = (el) => { this.panelBody = el; };
+  scrollPanel = () => { if (this.panelBody) this.panelBody.scrollTop = this.panelBody.scrollHeight; };
+
+  solveFn = async () => {
+    if (!this.state.optConcept && !this.state.optSolution) return;
+    if (this.state.phase === 'streaming') return;
+    if (!this.state.hasInk) { this.writeExample(); this.showToast('예시 문제를 불러왔어요 — 이차함수 최댓값'); }
+    this.setState({ panelOpen: true, phase: 'streaming', recogShown: false, conceptStarted: false, conceptText: '', stepsStarted: false, stepsText: '', answerShown: false, tagShown: false, suggestShown: false, chat: [] });
+    await this.wait(700);
+    this.setState({ recogShown: true }, this.scrollPanel);
+    await this.wait(900);
+    if (this.state.optConcept) { this.setState({ conceptStarted: true }, this.scrollPanel); await this.streamTo('conceptText', this.CONCEPT); await this.wait(300); }
+    if (this.state.optSolution) { this.setState({ stepsStarted: true }, this.scrollPanel); await this.streamTo('stepsText', this.STEPS); await this.wait(300); }
+    this.setState({ answerShown: true, tagShown: true, suggestShown: true, phase: 'done' }, this.scrollPanel);
+  };
+  openDone(withChat) {
+    this.setState({
+      screen: 'solve', panelOpen: true, phase: 'done', recogShown: true,
+      conceptStarted: true, conceptText: this.CONCEPT, stepsStarted: true, stepsText: this.STEPS,
+      answerShown: true, tagShown: true, suggestShown: !withChat, hasInk: true,
+      chat: withChat ? [{ role: 'user', text: '왜 꼭짓점에서 최댓값이 돼요?' }, { role: 'ai', text: this.ANSWERS[0] }] : []
+    });
+  }
+
+  // ---- chat ----
+  askSimilar() {
+    if (this.state.phase === 'streaming') return;
+    const chat = [...this.state.chat, { role: 'user', text: '이 개념으로 푸는 비슷한 문제를 내주세요' }, { role: 'ai', text: '' }];
+    this.setState({ chat, chatInput: '', suggestShown: false, phase: 'streaming' }, this.scrollPanel);
+    const intro = '좋아요! 이차함수 최대·최소 개념으로 푸는 문제를 유형별로 5개 준비했어요. 탭하면 캔버스로 가져올 수 있어요.';
+    const speed = this.props.streamSpeed ?? 2; let i = 0;
+    setTimeout(() => {
+      const t = setInterval(() => {
+        i = Math.min(intro.length, i + 2);
+        const c = [...this.state.chat]; c[c.length - 1] = { role: 'ai', text: intro.slice(0, i) };
+        this.setState({ chat: c }, this.scrollPanel);
+        if (i >= intro.length) {
+          clearInterval(t);
+          this.setState({ chat: [...this.state.chat, { role: 'ai', kind: 'problems' }], phase: 'done' }, this.scrollPanel);
+        }
+      }, Math.max(6, 26 / speed));
+    }, 600);
+  }
+  ask(q) {
+    if (!q.trim() || this.state.phase === 'streaming') return;
+    const chat = [...this.state.chat, { role: 'user', text: q }, { role: 'ai', text: '' }];
+    this.setState({ chat, chatInput: '', suggestShown: false, phase: 'streaming' }, this.scrollPanel);
+    const ans = this.ANSWERS[this.answerIdx++ % this.ANSWERS.length];
+    const speed = this.props.streamSpeed ?? 2; let i = 0;
+    setTimeout(() => {
+      const t = setInterval(() => {
+        i = Math.min(ans.length, i + 2);
+        const c = [...this.state.chat]; c[c.length - 1] = { role: 'ai', text: ans.slice(0, i) };
+        this.setState({ chat: c }, this.scrollPanel);
+        if (i >= ans.length) { clearInterval(t); this.setState({ phase: 'done' }); }
+      }, Math.max(6, 26 / speed));
+    }, 600);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const check = (on) => `width:19px;height:19px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;` + (on ? 'background:var(--brand,#5E6E82);color:#fff;box-shadow:0 2px 4px rgba(35,43,56,.25)' : 'background:rgba(var(--brand-rgb,94,110,130),.12);color:transparent;border:1px solid rgba(35,43,56,.3);box-sizing:border-box');
+    const tool = (on) => `width:36px;height:36px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:17px;` + (on ? 'background:rgba(var(--brand-rgb,94,110,130),.16);color:var(--brand-deep,#46536A);box-shadow:var(--math-shadow-pressed)' : 'color:rgba(35,43,56,.7);box-shadow:none');
+    const canSolve = st.optConcept || st.optSolution;
+    const grades = ['중1', '중2', '중3', '고1', '고2', '고3'].map(label => ({
+      label, sub: label[0] === '중' ? '중학교 ' + label[1] + '학년' : '고등학교 ' + label[1] + '학년',
+      style: `background:#fff;border-radius:24px;padding:20px 0;text-align:center;color:#232B38;border:2px solid ${st.grade === label ? 'var(--brand,#5E6E82)' : 'transparent'};box-sizing:border-box;box-shadow:var(--math-shadow-rest),var(--math-highlight)`,
+      pick: () => { this.setState({ grade: label }); setTimeout(() => this.setState({ screen: 'solve' }), 280); }
+    }));
+    const items = [
+      { title: '이차함수 y = −2x² + 4x + 1 의 최댓값을 구하시오.', tag: '이차함수 › 최대·최소', date: '오늘 22:14', thumb: 'y=-2x²+4x+1', live: true },
+      { title: 'x² − 5x + 6 을 인수분해하시오.', tag: '다항식 › 인수분해', date: '어제 21:03', thumb: 'x²-5x+6' },
+      { title: '함수 f(x) = 2x + 1 에 대하여 f(f(2)) 의 값은?', tag: '함수 › 합성함수', date: '7월 12일', thumb: 'f(f(2))' },
+      { title: '이차방정식 x² + kx + 4 = 0 이 중근을 가질 때 k 의 값은?', tag: '이차방정식 › 판별식', date: '7월 10일', thumb: 'x²+kx+4=0' }
+    ];
+    const filters = ['전체', '이차함수', '다항식', '함수', '이차방정식'].map(label => ({
+      label, pick: () => this.setState({ filter: label }),
+      style: `font-size:14px;font-weight:590;border-radius:100px;padding:7px 16px;` + (st.filter === label ? 'background:var(--brand-deep,#46536A);color:#fff;box-shadow:var(--math-shadow-rest),var(--math-highlight)' : 'background:#fff;color:rgba(35,43,56,.75);box-shadow:var(--math-shadow-rest),var(--math-highlight)')
+    }));
+    return {
+      rootRef: this.rootRef,
+      isAuth: st.screen === 'auth', isOnboarding: st.screen === 'onboarding',
+      isSolve: st.screen === 'solve', isMypage: st.screen === 'mypage',
+      login: () => this.setState({ screen: 'onboarding' }),
+      logout: () => { this.strokes = []; this.setState({ screen: 'auth', panelOpen: false, hasInk: false, chat: [], phase: 'idle' }); },
+      changeGrade: () => this.setState({ screen: 'onboarding' }),
+      goMypage: () => this.setState({ screen: 'mypage' }),
+      goSolve: () => this.setState({ screen: 'solve' }),
+      grades, gradeLabel: st.grade,
+      showHint: !st.hasInk && !st.panelOpen,
+      canvasRef: this.canvasRef, penDown: this.penDown, penMove: this.penMove, penUp: this.penUp,
+      pickPen: () => this.setState({ tool: 'pen' }), pickEraser: () => this.setState({ tool: 'eraser' }),
+      undo: this.undoFn, clearCanvas: this.clearFn,
+      penBtnStyle: tool(st.tool === 'pen'), eraserBtnStyle: tool(st.tool === 'eraser'),
+      photoTap: () => this.setState({ photoMode: 'camera' }),
+      cameraOpen: !!st.photoMode, cameraLive: st.photoMode === 'camera', cameraPreview: st.photoMode === 'preview',
+      cameraTitle: st.photoMode === 'camera' ? '문제가 잘 보이게 맞춰 주세요' : '이대로 사용할까요?',
+      viewfinderStyle: 'position:relative;width:760px;height:440px;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;' + (st.photoMode === 'camera' ? 'background:#3A4454' : 'background:#232B38;outline:2px solid rgba(255,255,255,.25)'),
+      cameraCancel: () => this.setState({ photoMode: null }),
+      shutter: () => this.setState({ photoMode: 'preview' }),
+      retake: () => this.setState({ photoMode: 'camera' }),
+      albumTap: () => this.showToast('앨범 선택은 프로토타입 범위 밖이에요'),
+      usePhoto: () => { this.strokes = []; this.redraw(); this.setState({ photoMode: null, photoPlaced: true, hasInk: true }); this.showToast('사진이 인식 준비됐어요 — 풀기를 눌러 주세요'); },
+      photoPlaced: st.photoPlaced,
+      editTap: () => this.showToast('인식 결과 수정은 다음 단계에서 제공돼요'),
+      toggleConcept: () => this.setState({ optConcept: !st.optConcept }),
+      toggleSolution: () => this.setState({ optSolution: !st.optSolution }),
+      conceptCheckStyle: check(st.optConcept), solutionCheckStyle: check(st.optSolution),
+      solveBtnStyle: `background:var(--brand-deep,#46536A);color:#fff;border-radius:100px;padding:10px 28px;font-size:15px;font-weight:590;box-shadow:var(--math-shadow-rest),var(--math-highlight);` + (canSolve ? '' : 'opacity:.35;pointer-events:none'),
+      solve: this.solveFn,
+      panelStyle: `position:absolute;top:12px;right:12px;bottom:12px;width:420px;background:var(--math-glass-fill-strong,rgba(255,255,255,.9));backdrop-filter:var(--math-glass-blur,blur(24px));border-radius:28px;box-shadow:var(--math-shadow-raised),var(--math-highlight);display:flex;flex-direction:column;overflow:hidden;transition:transform .5s cubic-bezier(.32,.72,.28,1);transform:translateX(${st.panelOpen ? '0' : '452px'})`,
+      newProblem: () => { this.strokes = []; this.redraw(); this.setState({ panelOpen: false, hasInk: false, phase: 'idle', chat: [], photoPlaced: false }); },
+      recogShown: st.recogShown, conceptStarted: st.conceptStarted, conceptText: st.conceptText,
+      stepsStarted: st.stepsStarted, stepsText: st.stepsText, answerShown: st.answerShown,
+      tagShown: st.tagShown, suggestShown: st.suggestShown && st.phase === 'done',
+      panelBodyRef: this.panelBodyRef,
+      chat: st.chat.map(m => ({
+        text: m.text || '…',
+        isProblems: m.kind === 'problems', isBubble: m.kind !== 'problems',
+        problems: this.SIMILAR.map((p, idx) => ({
+          ...p, num: idx + 1,
+          pick: () => this.showToast('프로토타입에서는 예시 문제만 풀 수 있어요')
+        })),
+        rowStyle: 'display:flex;flex:none;' + (m.role === 'user' ? 'justify-content:flex-end' : ''),
+        bubbleStyle: m.role === 'user' ? 'max-width:85%;background:var(--brand,#5E6E82);color:#fff;border-radius:18px 18px 6px 18px;padding:9px 13px;font-size:14px;line-height:19px;box-shadow:var(--math-shadow-rest)' : 'max-width:88%;background:#fff;color:#232B38;border-radius:18px 18px 18px 6px;padding:9px 13px;font-size:14px;line-height:19px;box-shadow:var(--math-shadow-rest),var(--math-highlight)'
+      })),
+      askSuggested: () => this.ask('왜 꼭짓점에서 최댓값이 돼요?'),
+      chatTags: [
+        { label: '표준형 변형', q: '완전제곱식으로 바꾸는 과정을 자세히 알려주세요' },
+        { label: '꼭짓점', q: '왜 꼭짓점에서 최댓값이 돼요?' },
+        { label: '그래프 개형', q: 'a의 부호에 따라 그래프 모양이 어떻게 달라져요?' },
+        { label: '비슷한 문제', similar: true }
+      ].map(t => ({
+        label: '# ' + t.label,
+        pick: () => { if (st.phase !== 'streaming') t.similar ? this.askSimilar() : this.ask(t.q); },
+        style: 'cursor:pointer;font-size:12px;font-weight:590;color:var(--brand-deep,#46536A);background:rgba(var(--brand-rgb,94,110,130),.1);border:1px solid rgba(var(--brand-rgb,94,110,130),.35);border-radius:100px;padding:5px 11px;flex:none' + (st.phase === 'streaming' ? ';opacity:.4' : '')
+      })),
+      chatInput: st.chatInput,
+      chatType: (e) => this.setState({ chatInput: e.target.value }),
+      chatKey: (e) => { if (e.key === 'Enter') this.ask(st.chatInput); },
+      chatSend: () => this.ask(st.chatInput),
+      filters,
+      historyItems: items.filter(h => st.filter === '전체' || h.tag.startsWith(st.filter)).map(h => ({
+        ...h, open: () => h.live ? this.openDone(true) : this.showToast('이 기록은 프로토타입 범위 밖이에요')
+      })),
+      toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

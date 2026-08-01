@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(corepack pnpm *)",
+      "Bash(chromium-cli --help)",
+      "Bash(npx --version)",
+      "Bash(node -e \"require.resolve\\('playwright'\\)\")",
+      "Bash(npx --yes playwright@1.57.0 install chromium)",
+      "Bash(du -sh ~/Library/Caches/ms-playwright 2>&1; echo \"---\"; find ~/Library/Caches/ms-playwright -maxdepth 1 2>&1)",
+      "Read(//Users/soojin/Library/Caches/ms-playwright/**)",
+      "mcp__claude_ai_Figma__get_design_context",
+      "Bash(cd \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath\" && mkdir -p apps/web/src/assets/logo apps/web/public/icons && cp \"references/claude-design/assets/WhyMathLogo.png\" apps/web/src/assets/logo/WhyMathLogo.png && cp references/claude-design/assets/icons/*.png apps/web/public/icons/ && ls -la apps/web/src/assets/logo apps/web/public/icons)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)"
+    ],
+    "additionalDirectories": [
+      "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"
+    ]
+  }
+}

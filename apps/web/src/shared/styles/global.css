@@ -1,0 +1,33 @@
+/**
+ * 전역 reset 및 기본 배경/글자색.
+ * 다크모드는 v1에서 지원하지 않는다 — color-scheme을 light로 고정한다.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-label-primary);
+  font-family:
+    "SF Pro",
+    -apple-system,
+    "Apple SD Gothic Neo",
+    sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}

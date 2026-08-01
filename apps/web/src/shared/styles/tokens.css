@@ -1,0 +1,37 @@
+/**
+ * 왜수학 디자인 토큰 (Figma 실측, docs/DESIGN_TOKEN_MAP.md §1 기준)
+ * 순수 CSS Variables만 정의한다. Tailwind 문법을 사용하지 않는다.
+ */
+:root {
+  --color-label-primary: #232b38;
+  --color-label-secondary: #3c3c4399;
+  --color-label-tertiary: #3c3c434d;
+  --color-label-quaternary: #3c3c432e;
+  --color-label-on-dark: #ffffff;
+  --color-label-on-dark-secondary: #ffffffb2;
+
+  --color-bg-primary: #eceae2;
+  --color-bg-canvas: #fbfaf6;
+  --color-bg-elevated: #ffffff;
+  --color-bg-viewfinder: #2f3745;
+  --color-bg-camera-sheet: #232b38;
+
+  --color-brand: #5e6e82;
+  --color-brand-deep: #46536a;
+  --color-accent-green: #6fa898;
+  --color-accent-purple: #9a93b0;
+  --color-accent-orange: #d9a05b;
+  --color-accent-yellow: #dcc08a;
+
+  --color-separator: #3c3c431f;
+  --color-fill-quaternary: #7676801f;
+  --color-fill-tint-brand: #5e6e8229;
+  --color-fill-tint-green: #6fa8982e;
+  --color-glass-fill: #fbfaf6f5;
+  --color-glass-border: #ffffffd9;
+
+  --color-kakao-bg: #fee500;
+  --color-kakao-label: #191919;
+
+  --color-icon-default: #8a8a8e;
+}

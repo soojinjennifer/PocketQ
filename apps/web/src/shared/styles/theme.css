@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/**
+ * tokens.css에 정의된 CSS Variables 값을 Tailwind 유틸리티(bg-*, text-*, border-* 등)에서
+ * 그대로 참조한다. 값은 이중 정의하지 않는다.
+ */
+@theme inline {
+  --color-label-primary: var(--color-label-primary);
+  --color-label-secondary: var(--color-label-secondary);
+  --color-label-tertiary: var(--color-label-tertiary);
+  --color-label-quaternary: var(--color-label-quaternary);
+  --color-label-on-dark: var(--color-label-on-dark);
+  --color-label-on-dark-secondary: var(--color-label-on-dark-secondary);
+
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-canvas: var(--color-bg-canvas);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-viewfinder: var(--color-bg-viewfinder);
+  --color-bg-camera-sheet: var(--color-bg-camera-sheet);
+
+  --color-brand: var(--color-brand);
+  --color-brand-deep: var(--color-brand-deep);
+  --color-accent-green: var(--color-accent-green);
+  --color-accent-purple: var(--color-accent-purple);
+  --color-accent-orange: var(--color-accent-orange);
+  --color-accent-yellow: var(--color-accent-yellow);
+
+  --color-separator: var(--color-separator);
+  --color-fill-quaternary: var(--color-fill-quaternary);
+  --color-fill-tint-brand: var(--color-fill-tint-brand);
+  --color-fill-tint-green: var(--color-fill-tint-green);
+  --color-glass-fill: var(--color-glass-fill);
+  --color-glass-border: var(--color-glass-border);
+
+  --color-kakao-bg: var(--color-kakao-bg);
+  --color-kakao-label: var(--color-kakao-label);
+
+  --color-icon-default: var(--color-icon-default);
+}
