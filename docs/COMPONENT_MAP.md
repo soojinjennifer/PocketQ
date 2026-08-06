@@ -35,7 +35,7 @@
 | `Result Panel` (전체 우측 패널 컨테이너) | 문제풀기 | `features/ai-solution/ResultPanel` |
 | 후속 질문 입력 영역 | 문제풀기 결과 패널 하단 | `features/follow-up-chat/ChatInput` |
 
-## 3. `docs/DESIGN_COMPONENT.md`에는 있으나 이번 6개 화면에서 인스턴스 미확인 — 구현 보류
+## 3. `docs/DESIGN_COMPONENT.md`에는 있으나 이번 6개 화면에서 인스턴스 미확인 — 구현시 컴포넌트화 하여 재사용할 수 있도록 한다.
 
 - `Chat Bubble` — 후속 질문 대화 화면(빈 상태가 아닌, 대화가 진행된 상태)에 존재할 것으로 추정되나 이번 조사 대상 6개 화면(빈 상태 스냅샷)에서는 확인되지 않음. 최종 Variant 구현을 보류한다(2026-07-29 확정).
 - `Math Activity Card` — 마찬가지로 위치 미확인. 최종 Variant 구현을 보류한다.

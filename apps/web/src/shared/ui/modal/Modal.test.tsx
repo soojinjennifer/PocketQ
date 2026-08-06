@@ -34,6 +34,22 @@ describe("Modal", () => {
     expect(container.querySelector("img")).toBeInTheDocument();
   });
 
+  it("icon='error'일 때 느낌표 글리프를 표시한다", () => {
+    const { container } = render(
+      <Modal
+        icon="error"
+        title="오류가 발생했습니다"
+        description="잠시 후 다시 시도해 주세요"
+        actionLabel="확인"
+        onAction={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("!")).toBeInTheDocument();
+    expect(screen.queryByText("✓")).not.toBeInTheDocument();
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+  });
+
   it("하단 버튼 클릭 시 onAction을 호출한다", () => {
     const onAction = vi.fn();
     render(

@@ -12,7 +12,24 @@
       "Bash(cd \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath\" && mkdir -p apps/web/src/assets/logo apps/web/public/icons && cp \"references/claude-design/assets/WhyMathLogo.png\" apps/web/src/assets/logo/WhyMathLogo.png && cp references/claude-design/assets/icons/*.png apps/web/public/icons/ && ls -la apps/web/src/assets/logo apps/web/public/icons)",
       "Bash(git checkout *)",
       "Bash(git branch *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Read(//Users/soojin/Library/Application Support/Claude/**)",
+      "Read(//Users/soojin/.claude/**)",
+      "Bash(python3 -c ' *)",
+      "mcp__claude_ai_Figma__search_design_system",
+      "Bash(mkdir -p \"/private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/bad62c14-d2ef-4d12-96d5-b523621b6e41/scratchpad/figma\")",
+      "Bash(curl -sL -o solve_landscape.png \"https://www.figma.com/api/mcp/asset/d01720ef-8b2d-4383-987e-c06c802b2720.png\")",
+      "Bash(curl -sL -o capture_camera.png \"https://www.figma.com/api/mcp/asset/e7373628-53df-47ec-95a7-702024fc2b8a.png\")",
+      "Bash(curl -sL -o preview_camera.png \"https://www.figma.com/api/mcp/asset/66e3dc97-3a31-4db5-90c2-1eedb65de6d7.png\")",
+      "Bash(xargs -I{} cat {})",
+      "Bash(node -e ' *)",
+      "Bash(git status *)",
+      "Bash(mkdir -p apps/web/src/assets/icons/pen-rail)",
+      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/edit-outer.svg \"https://www.figma.com/api/mcp/asset/bb4a498c-0378-4c2c-8e3b-15cab891e9ce.svg\")",
+      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/edit-inner.svg \"https://www.figma.com/api/mcp/asset/27373895-0d5f-4e47-9855-72f9b67668d6.svg\")",
+      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/erase-1.svg \"https://www.figma.com/api/mcp/asset/2456762f-8417-4bb2-957c-4067d38d39e4.svg\")",
+      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/erase-2.svg \"https://www.figma.com/api/mcp/asset/5f70fcc8-3849-44eb-8c01-67ddb8df6745.svg\")"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

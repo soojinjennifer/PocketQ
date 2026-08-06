@@ -26,3 +26,8 @@ docs/
 ├─ DESIGN_TOKEN_MAP.md
 ├─ COMPONENT_MAP.md
 └─ FRONTEND_IMPLEMENTATION_PLAN.md
+
+서버 구동 명령어 
+corepack pnpm -F web dev
+종료시 
+lsof -ti:5173 -sTCP:LISTEN | xargs kill
