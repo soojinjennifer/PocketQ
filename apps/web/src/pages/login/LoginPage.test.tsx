@@ -37,7 +37,7 @@ function renderLoginPage() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<div>RegisterPage</div>} />
-          <Route path="/solve" element={<div>SolvePage</div>} />
+          <Route path="/solve/pencilcanvas" element={<div>SolvePage</div>} />
           <Route path="/grade-setup" element={<div>GradeSetupPage</div>} />
         </Routes>
       </MemoryRouter>

@@ -236,10 +236,10 @@ describe("라우팅", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument());
   });
 
-  it("비로그인 사용자의 보호 라우트(/solve) 접근은 /login으로 이동한다", async () => {
+  it("비로그인 사용자의 보호 라우트(/solve/pencilcanvas) 접근은 /login으로 이동한다", async () => {
     vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null }, error: null });
 
-    renderApp(["/solve"]);
+    renderApp(["/solve/pencilcanvas"]);
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "왜?수학" })).toBeInTheDocument(),

@@ -37,7 +37,7 @@ function renderRegisterPage() {
         <Routes>
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<div>LoginPage</div>} />
-          <Route path="/solve" element={<div>SolvePage</div>} />
+          <Route path="/solve/pencilcanvas" element={<div>SolvePage</div>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,

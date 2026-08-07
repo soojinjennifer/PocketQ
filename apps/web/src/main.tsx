@@ -5,6 +5,7 @@ import "./shared/styles/tokens.css";
 import "./shared/styles/theme.css";
 import "./shared/styles/global.css";
 import "./shared/styles/safe-area.css";
+import "./shared/styles/textures.css";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

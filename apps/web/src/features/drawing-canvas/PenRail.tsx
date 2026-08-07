@@ -1,27 +1,40 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
+import type { DrawingTool } from "./useDrawingStrokes";
+
+interface PenRailProps {
+  activeTool: DrawingTool;
+  onSelectTool: (tool: DrawingTool) => void;
+  onUndo: () => void;
+  onClear: () => void;
+}
 
 /**
- * Figma `Pen Rail`(node `42:159`) — `/solve` 좌측 필기 도구 레일.
- * 이번 단계는 사진 입력 흐름만 구현 범위이므로 펜/지우개/새로고침/취소 4개 아이콘은
- * Figma 스타일 그대로 표시만 하고 클릭 동작은 연결하지 않는다(추후 필기 캔버스 작업에서 연결 예정).
+ * Figma `Pen Rail`(node `42:159`) — `/solve/pencilcanvas`, `/solve/landscape` 좌측 필기 도구 레일.
+ * 펜/지우개는 `activeTool`과 비교해 활성 배경(`bg-fill-tint-brand`)을 표시하고 `onSelectTool`을 호출한다.
+ * "새로고침"(Figma 슬롯명 `Back`)은 직전 획 1개만 되돌리는 `onUndo`를, "취소"(Figma 슬롯명 `Cancelall`)는
+ * 전체 삭제하는 `onClear`를 호출한다. PenRail 자체는 필기 상태를 갖지 않는다(상위 페이지가 소유).
  * "사진" 항목만 `/camera`로 이동시킨다.
  */
-export function PenRail() {
+export function PenRail({ activeTool, onSelectTool, onUndo, onClear }: PenRailProps) {
   const navigate = useNavigate();
 
   return (
     <div className="border-glass-border bg-glass-fill absolute top-1/2 left-5 z-10 flex w-[52px] -translate-y-1/2 flex-col items-center gap-3 rounded-full border py-4 drop-shadow-[0px_7px_6.5px_rgba(35,43,56,0.11),0px_2px_0px_rgba(35,43,56,0.18)]">
-      <PenRailIcon label="펜" active>
+      <PenRailIcon label="펜" active={activeTool === "pen"} onClick={() => onSelectTool("pen")}>
         <PenGlyph />
       </PenRailIcon>
-      <PenRailIcon label="지우개">
+      <PenRailIcon
+        label="지우개"
+        active={activeTool === "eraser"}
+        onClick={() => onSelectTool("eraser")}
+      >
         <EraseGlyph />
       </PenRailIcon>
-      <PenRailIcon label="새로고침">
+      <PenRailIcon label="새로고침" onClick={onUndo}>
         <RefreshGlyph />
       </PenRailIcon>
-      <PenRailIcon label="취소">
+      <PenRailIcon label="취소" onClick={onClear}>
         <CancelGlyph />
       </PenRailIcon>
       <div className="bg-separator h-px w-7" />
@@ -39,15 +52,19 @@ export function PenRail() {
 interface PenRailIconProps {
   label: string;
   active?: boolean;
+  onClick: () => void;
   children: ReactNode;
 }
 
-/** 개별 도구 아이콘 자리 — 현재는 시각적 표시 전용이며 클릭 동작이 없다("펜"만 활성 배경 예시). */
-function PenRailIcon({ label, active, children }: PenRailIconProps) {
+/** 개별 도구 버튼 — "펜"/"지우개"만 `active` 배경을 가질 수 있다(현재 선택된 도구 표시). */
+function PenRailIcon({ label, active, onClick, children }: PenRailIconProps) {
   return (
-    <div
+    <button
+      type="button"
       aria-label={label}
+      aria-pressed={active}
       title={label}
+      onClick={onClick}
       className={
         active
           ? "bg-fill-tint-brand text-label-primary flex size-9 items-center justify-center rounded-full"
@@ -55,7 +72,7 @@ function PenRailIcon({ label, active, children }: PenRailIconProps) {
       }
     >
       {children}
-    </div>
+    </button>
   );
 }
 
@@ -119,7 +136,7 @@ function RefreshGlyph() {
 
 function CancelGlyph() {
   return (
-    <span className="text-[15px] leading-none font-semibold" aria-hidden="true">
+    <span className="text-[15px] leading-[20px] font-[590]" aria-hidden="true">
       ✕
     </span>
   );

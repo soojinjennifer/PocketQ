@@ -14,7 +14,7 @@ export function SolveNavTabs() {
     <NavTabBar
       items={TABS}
       activeId="solve"
-      onSelect={(id) => void navigate(id === "mypage" ? "/mypage" : "/solve")}
+      onSelect={(id) => void navigate(id === "mypage" ? "/mypage" : "/solve/pencilcanvas")}
     />
   );
 }

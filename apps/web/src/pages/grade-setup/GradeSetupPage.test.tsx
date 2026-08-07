@@ -23,7 +23,7 @@ function renderGradeSetupPage() {
     <MemoryRouter initialEntries={["/grade-setup"]}>
       <Routes>
         <Route path="/grade-setup" element={<GradeSetupPage />} />
-        <Route path="/solve" element={<div>SolvePage</div>} />
+        <Route path="/solve/pencilcanvas" element={<div>SolvePage</div>} />
       </Routes>
     </MemoryRouter>,
   );

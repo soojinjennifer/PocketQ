@@ -14,7 +14,7 @@ interface ProblemCardProps {
 /** Figma `Problem Card`(node `38:30`) — `/solve` 문제 입력 카드. */
 export function ProblemCard({ data }: ProblemCardProps) {
   return (
-    <div className="bg-bg-elevated flex min-h-[220px] w-full flex-col gap-3 rounded-[6px] p-5 drop-shadow-[0px_3px_0px_rgba(35,43,56,0.16),0px_10px_20px_rgba(35,43,56,0.14),0px_22px_40px_rgba(35,43,56,0.09)]">
+    <div className="bg-bg-elevated flex min-h-[110px] w-full flex-col gap-3 rounded-[6px] p-5 drop-shadow-[0px_3px_0px_rgba(35,43,56,0.16),0px_10px_20px_rgba(35,43,56,0.14),0px_22px_40px_rgba(35,43,56,0.09)]">
       <p className="text-label-tertiary text-xs font-semibold">문제</p>
       {data === null ? (
         <div className="flex flex-1 items-center justify-center">
@@ -30,7 +30,7 @@ export function ProblemCard({ data }: ProblemCardProps) {
         <img
           src={data.imageUrl}
           alt="촬영한 문제"
-          className="max-h-[400px] w-full rounded-[4px] object-contain"
+          className="max-h-[200px] w-full rounded-[4px] object-contain"
         />
       )}
     </div>

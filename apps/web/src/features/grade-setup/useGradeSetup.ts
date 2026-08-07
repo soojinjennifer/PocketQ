@@ -21,7 +21,7 @@ export const GRADE_OPTIONS: GradeOption[] = [
 
 /**
  * 학년 설정(GRADE-1) 로직. 선택한 학년을 Supabase 사용자 메타데이터(user_metadata.grade)에
- * 저장하고 성공 시 /solve로 이동한다. 실패 시 오류 메시지를 반환한다.
+ * 저장하고 성공 시 /solve/pencilcanvas로 이동한다. 실패 시 오류 메시지를 반환한다.
  */
 export function useGradeSetup() {
   const navigate = useNavigate();
@@ -40,7 +40,7 @@ export function useGradeSetup() {
         setErrorMessage(error.message);
         return;
       }
-      void navigate("/solve", { replace: true });
+      void navigate("/solve/pencilcanvas", { replace: true });
     },
     [navigate],
   );

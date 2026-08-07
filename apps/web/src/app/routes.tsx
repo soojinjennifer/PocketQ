@@ -10,7 +10,8 @@ import { LoginPage } from "../pages/login/LoginPage";
 import { MyPage } from "../pages/mypage/MyPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
 import { RegisterPage } from "../pages/register/RegisterPage";
-import { SolvePage } from "../pages/solve/SolvePage";
+import { SolveLandscapePage } from "../pages/solve/landscape/SolveLandscapePage";
+import { SolvePencilcanvasPage } from "../pages/solve/pencilcanvas/SolvePencilcanvasPage";
 import { IndexRedirect } from "./IndexRedirect";
 
 /**
@@ -47,10 +48,18 @@ export const routeConfig: RouteObject[] = [
     ),
   },
   {
-    path: "/solve",
+    path: "/solve/pencilcanvas",
     element: (
       <ProtectedRoute>
-        <SolvePage />
+        <SolvePencilcanvasPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/solve/landscape",
+    element: (
+      <ProtectedRoute>
+        <SolveLandscapePage />
       </ProtectedRoute>
     ),
   },

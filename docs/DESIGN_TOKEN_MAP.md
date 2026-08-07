@@ -14,6 +14,7 @@
 | `label/on-dark-secondary` | `#ffffffb2` | `--color-label-on-dark-secondary` | — |
 | `bg/primary` | `#eceae2` | `--color-bg-primary` | `math-material.css`의 `--math-surface-canvas` (동일 값) |
 | `bg/canvas` | `#fbfaf6` | `--color-bg-canvas` | `math-material.css`의 `--math-glass-fill` (동일 값) |
+| `bg/canvas-texture` | `#f5f2ed` | `--color-bg-canvas-texture` | 신규 (필기 캔버스 배경 텍스처 전용, `/solve/pencilcanvas`·`/solve/landscape`) |
 | `bg/elevated` | `#ffffff` | `--color-bg-elevated` | `math-material.css`의 `--math-glass-fill-strong` |
 | `bg/viewfinder` | `#2f3745` | `--color-bg-viewfinder` | 신규 (카메라 전용) |
 | `bg/camera-sheet` | `#232b38` | `--color-bg-camera-sheet` | 신규 (카메라 전용) |

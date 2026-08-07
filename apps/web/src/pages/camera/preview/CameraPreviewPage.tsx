@@ -18,7 +18,7 @@ export function CameraPreviewPage() {
     if (!capturedImage) {
       return;
     }
-    void navigate("/solve", { state: { capturedImageUrl: capturedImage.previewUrl } });
+    void navigate("/solve/pencilcanvas", { state: { capturedImageUrl: capturedImage.previewUrl } });
   };
 
   return (

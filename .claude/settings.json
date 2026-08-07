@@ -29,7 +29,19 @@
       "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/edit-outer.svg \"https://www.figma.com/api/mcp/asset/bb4a498c-0378-4c2c-8e3b-15cab891e9ce.svg\")",
       "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/edit-inner.svg \"https://www.figma.com/api/mcp/asset/27373895-0d5f-4e47-9855-72f9b67668d6.svg\")",
       "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/erase-1.svg \"https://www.figma.com/api/mcp/asset/2456762f-8417-4bb2-957c-4067d38d39e4.svg\")",
-      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/erase-2.svg \"https://www.figma.com/api/mcp/asset/5f70fcc8-3849-44eb-8c01-67ddb8df6745.svg\")"
+      "Bash(curl -sL -o apps/web/src/assets/icons/pen-rail/erase-2.svg \"https://www.figma.com/api/mcp/asset/5f70fcc8-3849-44eb-8c01-67ddb8df6745.svg\")",
+      "Bash(pnpm test *)",
+      "Bash(pnpm build *)",
+      "Bash(python3 -c \"import json,sys; print\\(json.load\\(sys.stdin\\)['scripts'].get\\('test'\\)\\)\")",
+      "Bash(lsof -ti:5173)",
+      "Bash(xargs kill -9)",
+      "Bash(pnpm dev *)",
+      "Bash(cp \"/private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/bad62c14-d2ef-4d12-96d5-b523621b6e41/scratchpad/strictmode-repro.test.tsx\" src/test/strictmode-repro.test.tsx)",
+      "Bash(npx vitest *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "mcp__claude_ai_Figma__use_figma",
+      "mcp__claude_ai_Figma__get_figma_skill",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

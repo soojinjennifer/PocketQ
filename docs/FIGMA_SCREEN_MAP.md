@@ -7,7 +7,8 @@
 | 회원가입   | `0. Register/Desktop` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=83-138&t=LrZQeZ022Z7LUbtl-4) | 1194×834 | `/register`       | 미구현 |
 | 로그인   | `1. Login/Desktop` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=37-2&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/login`       | 미구현 |
 | 학년 선택 | `2. Grade Setup` |  [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=37-30&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/grade-setup` | 미구현 |
-| 문제 풀기 | `3 · Solve/Landscape` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=38-21&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/solve`       | 미구현 |
+| 문제 풀기 | `3 -1 · Solve/Pencilcanvas` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=127-445&t=4blrn7JcDarFlGoC-4) | 1194×834 | `/solve/pencilcanvas`       | 미구현 |
+| 문제 풀기 | `3-2 · Solve/Landscape` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=38-21&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/solve/landscape`       | 미구현 |
 | 마이페이지 | `4 · MyPage` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=40-34&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/mypage`       | 미구현 |
 | 문제 촬영 · 카메라 | `5 · Capture.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=48-110&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera`       | 미구현 |
 | 문제 촬영 · 미리보기 | `6 · preview.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=51-129&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera/preview` | 미구현 |
