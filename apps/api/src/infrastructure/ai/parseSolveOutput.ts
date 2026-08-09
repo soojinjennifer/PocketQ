@@ -29,22 +29,30 @@ export function parseSolveOutput(fullText: string): ParsedSolveOutput {
   };
 }
 
+const CONCEPT_TAGS_MARKER = '{"concept_tags"';
+
+/**
+ * 답 본문(LaTeX `\boxed{}`, 집합 표기 등)에도 `{`/`}`가 흔히 등장하므로,
+ * 첫 `{`부터 그리디하게 찾는 정규식은 본문 중괄호에 잘못 걸린다.
+ * 프롬프트가 지시한 정확한 마커 문자열의 마지막 등장 위치를 기준으로 잘라낸다.
+ */
 function extractConceptTags(fullText: string): { body: string; conceptTags: string[] } {
-  const match = fullText.match(/\{[\s\S]*"concept_tags"[\s\S]*\}\s*$/);
-  if (!match || match.index === undefined) {
+  const markerIndex = fullText.lastIndexOf(CONCEPT_TAGS_MARKER);
+  if (markerIndex === -1) {
     return { body: fullText, conceptTags: [] };
   }
 
-  const body = fullText.slice(0, match.index).trim();
+  const body = fullText.slice(0, markerIndex).trim();
+  const candidate = fullText.slice(markerIndex).trim();
 
   try {
-    const parsed = JSON.parse(match[0]) as { concept_tags?: unknown };
+    const parsed = JSON.parse(candidate) as { concept_tags?: unknown };
     const tags = Array.isArray(parsed.concept_tags)
       ? parsed.concept_tags.filter((tag): tag is string => typeof tag === "string")
       : [];
     return { body, conceptTags: tags };
   } catch {
-    return { body, conceptTags: [] };
+    return { body: fullText, conceptTags: [] };
   }
 }
 

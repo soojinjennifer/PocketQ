@@ -43,6 +43,20 @@ describe("parseSolveOutput", () => {
     expect(result.answerMd).toBe("답은 3입니다.");
   });
 
+  it("최종 답에 \\boxed{} 같은 중괄호가 있어도 잘리지 않고 concept_tags를 정확히 분리한다", () => {
+    const text = [
+      "## 최종 답",
+      String.raw`\[\boxed{x=2,\ 3}\]`,
+      "",
+      '{"concept_tags":["이차방정식 > 인수분해를 이용한 풀이"]}',
+    ].join("\n");
+
+    const result = parseSolveOutput(text);
+
+    expect(result.answerMd).toBe(String.raw`\[\boxed{x=2,\ 3}\]`);
+    expect(result.conceptTags).toEqual(["이차방정식 > 인수분해를 이용한 풀이"]);
+  });
+
   it("헤더가 전혀 없으면 전체 텍스트를 answerMd로 폴백한다", () => {
     const result = parseSolveOutput("그냥 아무 텍스트");
 

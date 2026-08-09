@@ -70,7 +70,14 @@
       "Bash(echo \"osascript exit: $?\")",
       "Bash(afplay /System/Library/Sounds/Glass.aiff)",
       "Bash(echo \"afplay exit: $?\")",
-      "Bash(osascript -e 'display notification \"테스트 알림입니다 \\(2차\\)\" with title \"Claude Code\"')"
+      "Bash(osascript -e 'display notification \"테스트 알림입니다 \\(2차\\)\" with title \"Claude Code\"')",
+      "Bash(command -v magick convert)",
+      "Bash(python3 -c \"import PIL; print\\('PIL available:', PIL.__version__\\)\")",
+      "Bash(command -v qlmanage)",
+      "Bash(python3)",
+      "Bash(grep -c \"^OPENAI_API_KEY=$\" \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/apps/api/.env\")",
+      "Bash(grep -c \"^OPENAI_API_KEY=$\" .env)",
+      "Bash(pnpm exec *)"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"
