@@ -31,3 +31,5 @@ docs/
 corepack pnpm -F web dev
 종료시 
 lsof -ti:5173 -sTCP:LISTEN | xargs kill
+
+너가 구현을 진행하는 동안에는 내가 다른 일을 하다가, 승인이 필요하거나, 질문에 답을 해야 하는 경우 소리로 알림을 해서 내가 알기 쉽게 할 수 있어?

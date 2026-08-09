@@ -41,7 +41,27 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
       "mcp__claude_ai_Figma__use_figma",
       "mcp__claude_ai_Figma__get_figma_skill",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(npm view *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(pnpm -F shared-types typecheck)",
+      "Bash(pnpm -F validation typecheck)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(pnpm -F api typecheck)",
+      "Bash(../../node_modules/.bin/tsc --noEmit -p tsconfig.json --listFiles)",
+      "Bash(cd \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/apps/api\" && ls ../../node_modules/.bin/tsc 2>&1; ../../node_modules/.bin/tsc --noEmit -p tsconfig.json --listFiles 2>&1 | tail -20)",
+      "Read(//Users/soojin/Library/CloudStorage/OneDrive-개인/node_modules/.bin/**)",
+      "Bash(./node_modules/.bin/tsc --noEmit -p tsconfig.json --listFiles)",
+      "Bash(grep -i \"\\\\.d\\\\.ts$\")",
+      "Bash(./node_modules/.bin/tsc --noEmit -p tsconfig.json)",
+      "Bash(pnpm -F api test)",
+      "Bash(pnpm -F api build)",
+      "Bash(pnpm -F api lint)",
+      "Bash(echo \"TYPECHECK_EXIT:$?\")",
+      "Bash(echo \"LINT_EXIT:$?\")",
+      "Bash(echo \"TEST_EXIT:$?\")",
+      "Bash(echo \"BUILD_EXIT:$?\")"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"
