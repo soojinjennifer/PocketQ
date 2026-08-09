@@ -18,6 +18,17 @@ export const recognizeRequestSchema = z.object({
 });
 export type RecognizeRequestDto = z.infer<typeof recognizeRequestSchema>;
 
+/**
+ * Vision 모델의 원시 구조화 출력(Structured Outputs) 검증 스키마.
+ * `recognizeResponseSchema`(HTTP 응답 전체)와는 별개로, AI가 실제로 반환한 값만 검증한다
+ * (problemId/createdAt은 AI 응답이 아니라 서버가 이후에 부여하는 값이라 이 스키마엔 없다).
+ */
+export const recognizedProblemSchema = z.object({
+  recognizedText: z.string(),
+  recognizedLatex: z.string().nullable(),
+});
+export type RecognizedProblemDto = z.infer<typeof recognizedProblemSchema>;
+
 /** POST /api/problems/recognize 응답 스키마 */
 export const recognizeResponseSchema = z.object({
   problemId: z.string(),

@@ -23,6 +23,9 @@ export class FakeLLMAdapter implements LLMAdapter {
   }
 
   async *solve(req: SolveRequest): AsyncIterable<SolveStreamEvent> {
+    // 실제 스트리밍 어댑터처럼 최소 한 번은 비동기 지점을 거치게 한다(마이크로태스크 양보).
+    await Promise.resolve();
+
     for (const delta of this.buildChunks(req)) {
       yield { delta };
     }

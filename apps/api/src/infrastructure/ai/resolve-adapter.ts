@@ -1,15 +1,20 @@
 import { env } from "../../config/env";
-import type { LLMAdapter } from "./adapter";
+import { createAdapter, type LLMAdapter } from "./adapter";
 import { FakeLLMAdapter } from "./fake-adapter";
 
 /**
  * 라우트가 실제로 사용할 어댑터를 결정한다.
  *
- * 이번 vertical slice(1~4단계)에서는 AI_PROVIDER 환경변수 값과 무관하게
- * 항상 FakeLLMAdapter를 강제로 사용한다 (5단계 이전에 실제 OpenAI/Claude를 호출하지 않는 것이 최우선).
- * env.aiProvider/env.aiModel은 응답에 기록되는 라벨로만 사용하고,
- * 실제 provider 분기(createAdapter)는 5단계에서 이어받는다.
+ * `AI_PROVIDER` 환경변수가 설정돼 있으면 `createAdapter`로 실제 provider를 생성한다
+ * (openai는 실제 Responses API 연동, claude는 아직 스텁이라 호출 시 에러).
+ * `AI_PROVIDER`가 설정돼 있지 않으면(로컬 개발/테스트 등 AI 설정이 아예 없는 환경) 조용히
+ * 실패하지 않도록 FakeLLMAdapter로 폴백한다 — 단, provider가 명시적으로 설정된 경우에는
+ * 절대 fake로 대체하지 않는다(설정 오류는 `createAdapter`가 즉시 던진다).
  */
 export function resolveAdapter(): LLMAdapter {
-  return new FakeLLMAdapter(env.aiProvider ?? "claude", env.aiModel || "fake-whymath-v0");
+  if (!env.aiProvider) {
+    return new FakeLLMAdapter();
+  }
+
+  return createAdapter(env.aiProvider, env.aiModel);
 }

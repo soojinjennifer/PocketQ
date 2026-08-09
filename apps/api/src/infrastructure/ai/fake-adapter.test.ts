@@ -36,6 +36,7 @@ describe("FakeLLMAdapter", () => {
       adapter.solve({
         problem: { recognizedText: "1+1=?", recognizedLatex: null },
         options: { concept: true, solution: true },
+        grade: "M2",
       }),
     );
 
@@ -67,6 +68,7 @@ describe("FakeLLMAdapter", () => {
       adapter.solve({
         problem: { recognizedText: "1+1=?", recognizedLatex: null },
         options: { concept: false, solution: false },
+        grade: "M2",
       }),
     );
 

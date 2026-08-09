@@ -61,7 +61,16 @@
       "Bash(echo \"TYPECHECK_EXIT:$?\")",
       "Bash(echo \"LINT_EXIT:$?\")",
       "Bash(echo \"TEST_EXIT:$?\")",
-      "Bash(echo \"BUILD_EXIT:$?\")"
+      "Bash(echo \"BUILD_EXIT:$?\")",
+      "Bash(pnpm -F shared-types lint)",
+      "Bash(pnpm -F validation lint)",
+      "Bash(pnpm --filter api add openai)",
+      "Bash(grep \"\\\\.d\\\\.ts$\")",
+      "Bash(osascript -e 'display notification \"테스트 알림입니다\" with title \"Claude Code\"')",
+      "Bash(echo \"osascript exit: $?\")",
+      "Bash(afplay /System/Library/Sounds/Glass.aiff)",
+      "Bash(echo \"afplay exit: $?\")",
+      "Bash(osascript -e 'display notification \"테스트 알림입니다 \\(2차\\)\" with title \"Claude Code\"')"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

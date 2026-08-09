@@ -1,8 +1,11 @@
 import type { AiProvider, Grade, RecognizedProblem, Solution, SolveOptions } from "shared-types";
+import { env } from "../../config/env";
+import { OpenAIAdapter } from "./openai-adapter";
 
 export interface SolveRequest {
   problem: RecognizedProblem;
   options: SolveOptions;
+  grade: Grade;
 }
 
 export type SolveStreamEvent = { delta: string } | { done: true; result: Solution };
@@ -19,17 +22,25 @@ export interface LLMAdapter {
 }
 
 /**
- * Provider별 LLMAdapter 팩토리.
+ * Provider별 LLMAdapter 팩토리 (PRD §8.3: `createAdapter(AI_PROVIDER, AI_MODEL)`).
  *
- * 주의: 이번 vertical slice(1~4단계)에서는 openai/claude 어댑터가 실제로 구현되지 않는다.
- * 호출 시 명확한 오류를 던지는 스텁으로만 존재하며, 5단계 이후 실제 SDK 연동으로 대체된다.
- * 현재 라우트들은 이 함수를 사용하지 않고 fake adapter를 직접 사용한다
- * (`infrastructure/ai/resolve-adapter.ts` 참고).
+ * Claude adapter는 아직 구현되지 않아 호출 시 명확한 오류를 던지는 스텁으로 남아있다.
+ * OpenAI adapter는 실제 Responses API로 동작하며, `OPENAI_API_KEY`/`model`이 비어있으면
+ * 여기서 즉시(호출 시점에) 설정 오류를 던진다 — 조용히 다른 동작으로 대체하지 않는다.
  */
-export function createAdapter(provider: AiProvider, _model: string): LLMAdapter {
+export function createAdapter(provider: AiProvider, model: string): LLMAdapter {
   switch (provider) {
-    case "openai":
-      throw new Error("OpenAI adapter는 아직 구현되지 않았습니다 (5단계 이후 범위).");
+    case "openai": {
+      if (!env.openaiApiKey) {
+        throw new Error(
+          "AI_PROVIDER=openai로 설정됐지만 OPENAI_API_KEY 환경변수가 비어 있습니다.",
+        );
+      }
+      if (!model) {
+        throw new Error("AI_PROVIDER=openai로 설정됐지만 AI_MODEL 환경변수가 비어 있습니다.");
+      }
+      return new OpenAIAdapter(model, env.openaiApiKey);
+    }
     case "claude":
       throw new Error("Claude adapter는 아직 구현되지 않았습니다 (5단계 이후 범위).");
   }
