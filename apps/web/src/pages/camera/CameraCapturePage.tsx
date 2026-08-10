@@ -1,11 +1,12 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { CameraTopBar } from "../../features/camera/CameraTopBar";
 import { FrameGuides } from "../../features/camera/FrameGuides";
 import { ProblemSheet } from "../../features/camera/ProblemSheet";
 import { ShutterButton } from "../../features/camera/ShutterButton";
 import type { CameraPermissionError } from "../../features/camera/useCameraCapture";
 import { useCameraCapture } from "../../features/camera/useCameraCapture";
-import { useCameraSession } from "../../features/camera/useCameraSession";
+import { useProblemInput } from "../../features/problem-input/useProblemInput";
 
 const ERROR_MESSAGE: Record<CameraPermissionError, string> = {
   "permission-denied": "카메라 접근 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해 주세요.",
@@ -16,7 +17,8 @@ const ERROR_MESSAGE: Record<CameraPermissionError, string> = {
 
 /** Figma `48:110` — 사진 촬영 화면. */
 export function CameraCapturePage() {
-  const { clearCapturedImage } = useCameraSession();
+  const navigate = useNavigate();
+  const { clearCapturedImage, setCapturedImage } = useProblemInput();
   const { videoRef, error, stopStream, retry } = useCameraCapture();
 
   // 오너 확정: 이 페이지가 마운트될 때마다(재촬영 버튼이든 브라우저 뒤로가기든) 항상 깨끗한
@@ -24,6 +26,11 @@ export function CameraCapturePage() {
   useEffect(() => {
     clearCapturedImage();
   }, [clearCapturedImage]);
+
+  const handleCapture = (resizedBlob: Blob) => {
+    setCapturedImage(resizedBlob);
+    void navigate("/camera/preview");
+  };
 
   return (
     <div className="bg-bg-camera-sheet relative flex min-h-screen flex-col">
@@ -54,7 +61,7 @@ export function CameraCapturePage() {
           앨범
         </button>
         <div className="justify-self-center">
-          <ShutterButton videoRef={videoRef} stopStream={stopStream} />
+          <ShutterButton videoRef={videoRef} stopStream={stopStream} onCapture={handleCapture} />
         </div>
         <div />
       </div>

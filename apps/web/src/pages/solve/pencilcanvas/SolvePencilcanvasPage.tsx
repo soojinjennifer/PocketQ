@@ -1,22 +1,43 @@
 import { useNavigate } from "react-router";
 import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
-import { useDrawingStrokes } from "../../../features/drawing-canvas/useDrawingStrokes";
+import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
-import { useCapturedImageUrl } from "../../../features/solve-session/useCapturedImageUrl";
 
 /**
  * `/solve/pencilcanvas` — 문제풀기 필기 단계(진입점). Figma 문제풀기 화면의
  * Logo/NavTabBar/PenRail/필기 캔버스/ProblemCard/ActionBar를 조립한다.
- * "풀기" 클릭 시 `/solve/landscape`로 이동한다(AI 연동은 아직 없어 라우트 전환만 수행).
+ * "풀기" 클릭 시 `ProblemInputProvider`의 `submitProblem()`(recognize → solve)을 트리거하고
+ * `/solve/landscape`로 이동한다. 로딩/스트리밍/에러 표시는 landscape 화면의 책임이다.
  */
 export function SolvePencilcanvasPage() {
   const navigate = useNavigate();
-  const capturedImageUrl = useCapturedImageUrl();
-  const problemCardData: ProblemCardData = capturedImageUrl ? { imageUrl: capturedImageUrl } : null;
-  const { strokes, tool, setTool, startStroke, addPoint, undo, clear } = useDrawingStrokes();
+  const {
+    capturedImage,
+    strokes,
+    tool,
+    setTool,
+    startStroke,
+    addPoint,
+    undoStroke,
+    clearStrokes,
+    hasProblemInput,
+    selectedOptionIds,
+    toggleOption,
+    submitProblem,
+    recognizeStatus,
+    solveStatus,
+  } = useProblemInput();
+
+  const problemCardData: ProblemCardData = capturedImage ? { imageUrl: capturedImage.previewUrl } : null;
+  const isSubmitting = recognizeStatus === "loading" || solveStatus === "loading";
+
+  const handleSolve = () => {
+    void submitProblem();
+    void navigate("/solve/landscape");
+  };
 
   return (
     <div className="bg-canvas-texture solve-no-callout relative min-h-screen">
@@ -24,7 +45,7 @@ export function SolvePencilcanvasPage() {
 
       <HandwritingCanvas strokes={strokes} onStartStroke={startStroke} onAddPoint={addPoint} />
 
-      <PenRail activeTool={tool} onSelectTool={setTool} onUndo={undo} onClear={clear} />
+      <PenRail activeTool={tool} onSelectTool={setTool} onUndo={undoStroke} onClear={clearStrokes} />
 
       {/* ProblemCard/ActionBar는 캔버스와 같은 레벨에서 개별 absolute 요소로 배치한다(PenRail/SolveHeader와
           동일 패턴). top-[90px]는 SolveNavTabs(top-6=24px) + NavTabBar 실측 높이(42px) + 24px 여백
@@ -43,12 +64,11 @@ export function SolvePencilcanvasPage() {
           inset도 더해서 실제 화면 여백은 항상 최소 40px 이상이 되도록 한다. */}
       <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
         <ActionBar
-          hasProblem={problemCardData !== null}
-          onSolve={() =>
-            void navigate("/solve/landscape", {
-              state: capturedImageUrl ? { capturedImageUrl } : undefined,
-            })
-          }
+          hasProblem={hasProblemInput}
+          selectedOptionIds={selectedOptionIds}
+          onToggleOption={toggleOption}
+          onSolve={handleSolve}
+          isSubmitting={isSubmitting}
         />
       </div>
     </div>

@@ -87,6 +87,12 @@ importers:
       react-router:
         specifier: 8.3.0
         version: 8.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      shared-types:
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      validation:
+        specifier: workspace:*
+        version: link:../../packages/validation
     devDependencies:
       '@tailwindcss/vite':
         specifier: 4.3.3

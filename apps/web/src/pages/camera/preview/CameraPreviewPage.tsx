@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router";
 import { CameraTopBar } from "../../../features/camera/CameraTopBar";
 import { ProblemSheet } from "../../../features/camera/ProblemSheet";
-import { useCameraSession } from "../../../features/camera/useCameraSession";
+import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { Button } from "../../../shared/ui/button/Button";
 
 /** Figma `51:129` — 촬영 미리보기 화면. `CameraPreviewGuard`가 촬영 데이터 없이는 접근을 막는다. */
 export function CameraPreviewPage() {
   const navigate = useNavigate();
-  const { capturedImage, clearCapturedImage } = useCameraSession();
+  const { capturedImage, clearCapturedImage } = useProblemInput();
 
   const handleRetake = () => {
     clearCapturedImage();
@@ -18,7 +18,9 @@ export function CameraPreviewPage() {
     if (!capturedImage) {
       return;
     }
-    void navigate("/solve/pencilcanvas", { state: { capturedImageUrl: capturedImage.previewUrl } });
+    // Provider(ProblemInputProvider)가 이미 사진 Blob을 들고 있으므로 objectURL을 router state로
+    // 넘길 필요가 없다 — objectURL을 API 데이터/URL 파라미터로 쓰지 않는다는 원칙과도 일치한다.
+    void navigate("/solve/pencilcanvas");
   };
 
   return (

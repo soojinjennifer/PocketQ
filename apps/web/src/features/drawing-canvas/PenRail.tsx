@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import type { DrawingTool } from "./useDrawingStrokes";
+import type { DrawingTool } from "../../shared/lib/canvas/useDrawingStrokes";
 
 interface PenRailProps {
   activeTool: DrawingTool;

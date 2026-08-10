@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HandwritingCanvas } from "./HandwritingCanvas";
-import type { Stroke } from "./useDrawingStrokes";
+import type { Stroke } from "../../shared/lib/canvas/useDrawingStrokes";
 
 interface FillCall {
   compositeOperation: string;

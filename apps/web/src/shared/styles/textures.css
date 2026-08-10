@@ -1,11 +1,15 @@
 /**
- * 필기 캔버스 배경 텍스처 (Figma 실측: 20px 타일 반복, 타일 중앙에 지름 약 2px의 은은한 점).
+ * 필기 캔버스 배경 텍스처 (Figma 실측: 20px 타일 반복, 타일 중앙에 2x2px 크기의 하드엣지
+ * 사각형 도트 — 안티앨리어싱 없는 경성 사각형). SVG `shape-rendering="crispEdges"`로 렌더링해서
+ * 부드러운 원형 대신 Figma와 동일한 각진 사각 점을 만든다.
  * `docs/DESIGN_TOKEN_MAP.md`에 등록된 `--color-bg-canvas-texture` 토큰만 사용한다.
  */
 .bg-canvas-texture {
   background-color: var(--color-bg-canvas-texture);
-  background-image: radial-gradient(circle at center, rgba(35, 43, 56, 0.1) 0, transparent 1.2px);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMCcgaGVpZ2h0PScyMCc+PHJlY3QgeD0nOScgeT0nOScgd2lkdGg9JzInIGhlaWdodD0nMicgZmlsbD0ncmdiYSgzNSw0Myw1NiwwLjEpJyBzaGFwZS1yZW5kZXJpbmc9J2NyaXNwRWRnZXMnLz48L3N2Zz4=");
   background-size: 20px 20px;
+  background-repeat: repeat;
+  image-rendering: pixelated;
 }
 
 /**

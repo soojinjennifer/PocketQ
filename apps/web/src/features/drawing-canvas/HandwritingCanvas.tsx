@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { strokeToPath } from "./strokeToPath";
-import type { Stroke, StrokePoint } from "./useDrawingStrokes";
-
-const PEN_SIZE = 3;
-const ERASER_SIZE = 24;
-/** Figma `label/primary`와 동일한 잉크 색(토큰: `--color-label-primary`). */
-const INK_COLOR = "#232b38";
+import { strokeToPath } from "../../shared/lib/canvas/strokeToPath";
+import { ERASER_SIZE, INK_COLOR, PEN_SIZE } from "../../shared/lib/canvas/strokeStyle";
+import type { Stroke, StrokePoint } from "../../shared/lib/canvas/useDrawingStrokes";
 
 interface HandwritingCanvasProps {
   strokes: Stroke[];
