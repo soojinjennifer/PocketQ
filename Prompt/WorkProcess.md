@@ -33,3 +33,10 @@ corepack pnpm -F web dev
 lsof -ti:5173 -sTCP:LISTEN | xargs kill
 
 너가 구현을 진행하는 동안에는 내가 다른 일을 하다가, 승인이 필요하거나, 질문에 답을 해야 하는 경우 소리로 알림을 해서 내가 알기 쉽게 할 수 있어?
+
+프론트엔드(웹앱)	http://localhost:5173	로그인 화면부터
+API 헬스체크	http://localhost:4000/health	불필요 ({"status":"ok"} 확인됨)
+문제 인식	POST http://localhost:4000/api/problems/recognize	Bearer 토큰 필요
+풀이 생성	POST http://localhost:4000/api/problems/:problemId/solve	Bearer 토큰 필요
+
+ http://172.30.1.69:5173/
