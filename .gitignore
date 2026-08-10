@@ -24,3 +24,6 @@ yarn-error.log*
 *.tsbuildinfo
 
 .omc/
+
+.cert/
+apps/web/public/rootCA.pem

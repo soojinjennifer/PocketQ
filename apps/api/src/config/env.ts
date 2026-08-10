@@ -6,6 +6,10 @@ function readNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function readString(value: string | undefined, fallback: string): string {
+  return value === undefined || value === "" ? fallback : value;
+}
+
 function readAiProvider(value: string | undefined): AiProvider | undefined {
   return value === "openai" || value === "claude" ? value : undefined;
 }
@@ -17,7 +21,7 @@ function readAiProvider(value: string | undefined): AiProvider | undefined {
 export const env = {
   nodeEnv: process.env["NODE_ENV"] ?? "development",
   port: readNumber(process.env["PORT"], 4000),
-  corsOrigin: process.env["CORS_ORIGIN"] ?? "http://localhost:5173",
+  corsOrigin: readString(process.env["CORS_ORIGIN"], "http://localhost:5173"),
   supabaseUrl: process.env["SUPABASE_URL"] ?? "",
   supabaseServiceRoleKey: process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "",
   aiProvider: readAiProvider(process.env["AI_PROVIDER"]),
