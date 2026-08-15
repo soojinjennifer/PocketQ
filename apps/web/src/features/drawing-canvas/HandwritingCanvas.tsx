@@ -111,8 +111,16 @@ export function HandwritingCanvas({ strokes, onStartStroke, onAddPoint }: Handwr
     activePointerIdRef.current = null;
   }
 
+  // iOS Safari는 진행 중이던 포인터 제스처가 스크롤 등 다른 제스처로 전환될 때 `pointerup`
+  // 대신 `pointercancel`을 보낼 수 있다. 이를 처리하지 않으면 `activePointerIdRef`가 풀리지
+  // 않아 이후 `pointermove`/`pointerdown`이 무시되는 것처럼 보일 수 있어, `pointerup`과 동일하게
+  // 캡처 상태를 정리한다.
+  function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>) {
+    handlePointerUp(event);
+  }
+
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0 z-0">
       <canvas
         ref={canvasRef}
         className="solve-no-callout size-full touch-none"
@@ -120,6 +128,7 @@ export function HandwritingCanvas({ strokes, onStartStroke, onAddPoint }: Handwr
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       />
     </div>
   );

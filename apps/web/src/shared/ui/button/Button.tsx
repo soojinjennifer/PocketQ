@@ -31,10 +31,13 @@ const PILL_VARIANTS: ReadonlySet<ButtonVariant> = new Set([
 /** Figma `Button/Pill` `Style=Disable`(node `113:202`) — pill 계열 버튼의 disabled 공용 스타일. */
 const PILL_DISABLED_STYLE = "bg-icon-default text-bg-elevated";
 
+/** 포커스 키보드 사용자를 위한 공용 focus-visible 스타일. 브랜드 토큰(`--color-brand`)을 재사용한다. */
+const FOCUS_STYLE = "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
+
 const BASE_STYLE =
-  "w-full rounded-[14px] p-[14px] flex items-center justify-center text-[17px] font-semibold leading-[22px] disabled:opacity-50";
+  `w-full rounded-[14px] p-[14px] flex items-center justify-center text-[17px] font-semibold leading-[22px] disabled:opacity-50 ${FOCUS_STYLE}`;
 const PILL_BASE_STYLE =
-  "inline-flex items-center justify-center rounded-full px-[26px] py-[11px] text-[15px] font-semibold leading-[20px]";
+  `inline-flex items-center justify-center rounded-full px-[26px] py-[11px] text-[15px] font-semibold leading-[20px] ${FOCUS_STYLE}`;
 
 /**
  * Figma `Button/Login`(fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, node `35:22`)과 `Button/Pill`(node `35:31`)

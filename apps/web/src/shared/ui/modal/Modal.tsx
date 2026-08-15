@@ -57,7 +57,7 @@ export function Modal({ icon, title, description, actionLabel, onAction }: Modal
           ref={actionButtonRef}
           type="button"
           onClick={onAction}
-          className="text-brand-deep w-full py-[15px] text-center text-[17px] font-semibold"
+          className="text-brand-deep outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 w-full py-[15px] text-center text-[17px] font-semibold"
         >
           {actionLabel}
         </button>

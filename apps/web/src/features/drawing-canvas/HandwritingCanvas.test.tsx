@@ -204,4 +204,34 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
     });
     expect(onAddPoint).not.toHaveBeenCalled();
   });
+
+  it("pointercancel 이후의 pointermove는 무시한다(iOS 스크롤 전환 시 pointercancel 발생 대응)", () => {
+    const onStartStroke = vi.fn();
+    const onAddPoint = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={onStartStroke} onAddPoint={onAddPoint} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) {
+      throw new Error("canvas element not found");
+    }
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerCancel(canvas, { pointerId: 1, pointerType: "pen" });
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 2,
+      clientY: 2,
+      pressure: 0.5,
+    });
+    expect(onAddPoint).not.toHaveBeenCalled();
+  });
 });

@@ -12,6 +12,10 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* iOS Safari의 기본 오버스크롤 바운스(러버밴드)를 막는다. 이게 없으면 /solve 같은 캔버스 기반
+     전체화면 페이지에서 터치 시 페이지 전체가 살짝 튕기면서, absolute로 배치된 Result
+     Panel/ProblemCard/ActionBar가 화면과 함께 흔들려 "패널이 뜬 채로 움직인다"는 착시를 만든다. */
+  overscroll-behavior: none;
 }
 
 html {
@@ -30,4 +34,23 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/**
+ * `/solve/landscape`의 Result Panel 셸(`features/ai-solution/ResultPanelShell`)이 처음
+ * 마운트될 때 오른쪽에서 왼쪽으로 슬라이드 인 되는 모션. Figma/디자인 토큰에 모션 값이
+ * 정의돼 있지 않아(design-agent 확인 완료) Tailwind 표준값(300ms, ease-out)을 임시로 썼다 —
+ * 오너 확인 후 조정 가능. `transition` 대신 `@keyframes`를 쓰는 이유: 엘리먼트가 처음
+ * DOM에 마운트되는 순간 자동 재생되어, 로딩→성공으로 내부 콘텐츠만 바뀌는 경우(같은 DOM
+ * 요소 유지)엔 재생되지 않는다.
+ */
+@keyframes result-panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
