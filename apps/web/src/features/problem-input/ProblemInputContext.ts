@@ -38,6 +38,8 @@ export interface ProblemInputContextValue {
 
   // recognize → solve 제출 오케스트레이션
   recognizeStatus: RecognizeStatus;
+  /** recognize 성공 시 채워지는 인식된 문제 원문. `RecognizedProblemBar`(Result Panel) 표시용. */
+  recognizedText: string | null;
   solveStatus: SolveStreamStatus;
   streamedText: string;
   solveResult: Solution | null;

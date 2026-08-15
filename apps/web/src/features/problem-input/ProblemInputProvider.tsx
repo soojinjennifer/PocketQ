@@ -85,6 +85,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   // recognize → solve 제출 오케스트레이션
   const {
     status: recognizeStatus,
+    recognizedText,
     errorMessage: recognizeErrorMessage,
     recognize,
     reset: resetRecognize,
@@ -155,6 +156,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       selectedOptionIds,
       toggleOption,
       recognizeStatus,
+      recognizedText,
       solveStatus,
       streamedText,
       solveResult,
@@ -178,6 +180,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       selectedOptionIds,
       toggleOption,
       recognizeStatus,
+      recognizedText,
       solveStatus,
       streamedText,
       solveResult,

@@ -33,6 +33,7 @@
 | `Problem Card` | 문제풀기 | `features/solve-session/ProblemCard` |
 | `Action Bar` (개념설명/풀이 체크박스 + 풀기 버튼) | 문제풀기 | `features/solve-session/ActionBar` |
 | `Result Panel` (전체 우측 패널 컨테이너) | 문제풀기 | `features/ai-solution/ResultPanel` |
+| `Width=Default`/`Width=Extend`/`Width=Close` (Result Panel 좌측 드래그 핸들, 컴포넌트 갤러리 `174:638`/`174:640`/`174:743`, 갤러리 프레임 `174:639` 근방) | 문제풀기 결과(`/solve/landscape`) | `features/ai-solution/ResultPanelResizeHandle` | `ResultPanelShell`이 `width`(`"default"`\|`"extend"`\|`"close"`) prop과 `onExtend`/`onBackToDefault`/`onClose`/`onOpen` 콜백을 받아 좌측에 이 핸들을 항상 렌더링한다(24×88px, 패널 세로 중앙 고정). Default: 위쪽 버튼이 Extend로 전환(막대+좌측화살표 아이콘), 아래쪽 버튼이 Close로 전환(우측 쉐브런). Extend: 위쪽 버튼이 Default로 되돌림(우측화살표+막대, 좌우 반전 아이콘), 아래쪽 버튼은 Default와 동일하게 Close로 전환. Close: 콘텐츠(헤더/바디/푸터) 렌더링 없이 폭만 24px(`w-6`)로 줄고, 위쪽 버튼이 Extend로 전환(Default 위쪽과 동일 아이콘), 아래쪽 버튼이 Default로 되돌림(좌측 쉐브런, Close 아이콘을 180도 회전). 패널 폭은 Default `w-[min(420px,45vw)]`/Extend `w-[min(748px,90vw)]`(748px는 Figma 실측, 90vw 상한은 결정 필요)/Close `w-6`이며 `transition-[width] duration-300`(300ms는 결정 필요)로 전환된다 |
 | 후속 질문 입력 영역 | 문제풀기 결과 패널 하단 | `features/follow-up-chat/ChatInput` |
 
 ## 3. `docs/DESIGN_COMPONENT.md`에는 있으나 이번 6개 화면에서 인스턴스 미확인 — 구현시 컴포넌트화 하여 재사용할 수 있도록 한다.

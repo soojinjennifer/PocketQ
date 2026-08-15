@@ -29,10 +29,14 @@ vi.mock("../shared/api/recognizeProblem", () => ({
 }));
 
 vi.mock("../shared/api/solveProblem", () => ({
+  // 기본 mock: 헤더가 붙은 delta 하나만 오고 바로 done — `parseStreamingSolve`가 헤더 기준으로
+  // 파싱하므로, 헤더 없는 raw 텍스트는 더 이상 화면에 그대로 노출되지 않는다(P0 회귀 테스트들은
+  // 이 기본 동작만 필요하고, 스트리밍 중간 상태 자체를 검증하는 테스트는 아래에서 별도로
+  // `mockImplementationOnce`로 재정의한다).
   solveProblemStream: vi.fn(function mockSolveProblemStream() {
     async function* generate() {
       await Promise.resolve();
-      yield { type: "chunk" as const, delta: "테스트 스트리밍 텍스트" };
+      yield { type: "chunk" as const, delta: "## 최종 답\n테스트 스트리밍 텍스트" };
       yield {
         type: "done" as const,
         result: {
@@ -180,8 +184,8 @@ describe("필기 상태가 /solve/pencilcanvas ↔ /solve/landscape 이동 간 �
   });
 });
 
-describe("recognize/solve API 연동(모킹) — 최소 결과 표시", () => {
-  it("풀기 클릭 후 landscape 화면에 스트리밍 텍스트가 표시된다", async () => {
+describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
+  it("풀기 클릭 후 solve가 성공(done)하면 landscape 화면에 정식 Result Panel이 표시된다", async () => {
     const { container } = renderApp(["/solve/pencilcanvas"]);
 
     const canvas = await waitFor(() => {
@@ -194,7 +198,64 @@ describe("recognize/solve API 연동(모킹) — 최소 결과 표시", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "풀기" }));
 
-    expect(await screen.findByText("테스트 스트리밍 텍스트")).toBeInTheDocument();
+    // done 이벤트 수신 후에는 raw 스트리밍 텍스트 대신 구조화된 Result Panel로 전환된다
+    // (recognizeProblem mock의 recognizedText="1+1=?", solveProblemStream mock의 answerMd="답").
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    expect(screen.getByText("1+1=?")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) => element?.tagName.toLowerCase() === "p" && element.textContent === "최종 답 · 답",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("테스트 스트리밍 텍스트")).not.toBeInTheDocument();
+  });
+
+  it("done 이전 스트리밍 도중에도 지금까지 도착한 헤더 섹션이 완료 후와 같은 카드 구조로 실시간 표시된다", async () => {
+    const { solveProblemStream } = await import("../shared/api/solveProblem");
+    let releaseDone: (() => void) | undefined;
+    vi.mocked(solveProblemStream).mockImplementationOnce(function mockStreamingSolve() {
+      async function* generate() {
+        await Promise.resolve();
+        yield { type: "chunk" as const, delta: "## 풀이\n1단계: 스트리밍 중간 표시 확인" };
+        // done을 테스트가 명시적으로 release할 때까지 보류해서, 스트리밍 중간 상태를 확정적으로
+        // 관찰할 수 있게 한다.
+        await new Promise<void>((resolve) => {
+          releaseDone = resolve;
+        });
+        yield {
+          type: "done" as const,
+          result: {
+            conceptMd: null,
+            solutionMd: "1단계: 스트리밍 중간 표시 확인",
+            answerMd: "답",
+            conceptTags: [],
+            aiProvider: "openai" as const,
+            aiModel: "gpt-5.6-terra",
+          },
+        };
+      }
+      return generate();
+    });
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    // done 이벤트가 아직 오지 않았지만, "## 풀이" 헤더까지 도착한 내용이 바로 카드에 채워진다.
+    expect(await screen.findByText("1단계: 스트리밍 중간 표시 확인")).toBeInTheDocument();
+    expect(screen.queryByText("풀이 결과")).not.toBeInTheDocument();
+
+    releaseDone?.();
+
+    // done 수신 후에는 정식 Result Panel로 자연스럽게 전환된다.
+    await waitFor(() => expect(screen.getByText("풀이 결과")).toBeInTheDocument());
   });
 
   it("recognize가 실패하면 landscape 화면에 공통 에러 팝업(Modal)이 표시되고, 확인을 누르면 닫혀서 재시도할 수 있다", async () => {
