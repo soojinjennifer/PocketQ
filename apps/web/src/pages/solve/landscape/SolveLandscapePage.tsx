@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
@@ -7,12 +7,22 @@ import { RecognizedProblemBar } from "../../../features/ai-solution/RecognizedPr
 import { ResultCard } from "../../../features/ai-solution/ResultCard";
 import { ResultPanel } from "../../../features/ai-solution/ResultPanel";
 import { ResultPanelShell, type ResultPanelWidth } from "../../../features/ai-solution/ResultPanelShell";
+import { ChatBubble } from "../../../features/follow-up-chat/ChatBubble";
+import { ChatFooter, type ChatFooterHandle } from "../../../features/follow-up-chat/ChatFooter";
+import { SuggestionPill } from "../../../features/follow-up-chat/SuggestionPill";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
+import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
-import { Spinner } from "../../../shared/ui/spinner/Spinner";
+
+/**
+ * Figma `174:614` 제안 질문 pill의 실제 문구는 인식된 문제/풀이 내용에 맞춰 자동 생성되어야
+ * 하지만, 그런 추천 로직은 이번 범위 밖이다(결정 필요 — 오너 확인 후 실제 추천 로직으로 교체).
+ * 지금은 어떤 문제에도 자연스럽게 통하는 정적 placeholder 문구만 보여준다.
+ */
+const SUGGESTED_QUESTIONS = ["이 문제를 다른 방법으로도 풀 수 있나요?", "비슷한 문제를 더 풀어보고 싶어요"];
 
 /**
  * `/solve/landscape` — 문제풀기 결과 단계. `/solve/pencilcanvas`의 "풀기" 버튼 클릭 후 진입한다.
@@ -29,7 +39,8 @@ import { Spinner } from "../../../shared/ui/spinner/Spinner";
  * `parseStreamingSolve`로 헤더 기준 파싱해서, 아직 스트리밍 중이라도 도착한 섹션(관련 개념/단계별
  * 풀이/최종 답)만큼 `ResultCard`/`AnswerBox`를 그대로 채워 넣는다. 완료 시점에 구조화된
  * `ResultPanel`로 전환되어도 같은 컴포넌트들이 같은 자리에 있으므로 "깜빡이며 바뀌는" 느낌이 없다
- * (오너 요청, 2026-08-14). 헤더가 하나도 도착하지 않았을 때만 Spinner를 보여준다.
+ * (오너 요청, 2026-08-14). 헤더가 하나도 도착하지 않았을 때만 `LoadingMark`(브랜드 마크 펄스
+ * 로딩)를 보여준다(오너 요청, 2026-08-16 — Claude 자체 채팅 UI처럼 진행 중임을 알리기 위함).
  */
 export function SolveLandscapePage() {
   const {
@@ -51,7 +62,28 @@ export function SolveLandscapePage() {
     streamedText,
     solveResult,
     resetSubmission,
+    chatMessages,
+    chatStatus,
+    chatErrorMessage,
+    sendChatMessage,
   } = useProblemInput();
+
+  // `SuggestionPill`(Body)이 채워야 할 `ChatFooter`(Footer)의 입력창은 서로 다른 슬롯(`ResultPanel`의
+  // `chatContent`/`chatFooter`)으로 전달되어 DOM 상 분리돼 있다 — `ResultPanel`(features/ai-solution)이
+  // `features/follow-up-chat`를 직접 import하지 않게 하기 위한 구조(`ResultPanel` JSDoc 참고)라, 두
+  // 슬롯을 조립하는 이 페이지가 `ref`로 연결한다(오너 확정 인터랙션: pill 클릭 → 입력창 채움 →
+  // 포커스 → 사용자 확인/수정 → 전송 버튼/Enter로만 제출, 자동 전송 금지).
+  const chatFooterRef = useRef<ChatFooterHandle>(null);
+
+  // 스크롤 앵커 패턴: `ResultPanel`의 `chatContent` 슬롯 맨 끝에 빈 앵커 요소를 두고, 새 메시지/로딩
+  // 인디케이터가 추가될 때마다 이 요소로 스크롤한다. `ResultPanel`/`ResultPanelShell`은 스크롤
+  // 컨테이너(`overflow-y-auto`)만 소유할 뿐 이 로직을 몰라도 된다 — `scrollIntoView`는 가장 가까운
+  // 스크롤 가능한 조상을 스크롤하므로 앵커가 그 컨테이너 안에 있기만 하면 된다(오너 iPad 실사용 중
+  // 발견: 새 질문/로딩이 스크롤 영역 밖으로 밀려나 안 보이던 문제 수정, 2026-08-16).
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatMessages.length, chatStatus]);
 
   const problemCardData: ProblemCardData = capturedImage ? { imageUrl: capturedImage.previewUrl } : null;
   const isSubmitting = recognizeStatus === "loading" || solveStatus === "loading";
@@ -123,6 +155,47 @@ export function SolveLandscapePage() {
               conceptMd={solveResult.conceptMd}
               solutionMd={solveResult.solutionMd}
               answerMd={solveResult.answerMd}
+              chatContent={
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGESTED_QUESTIONS.map((question) => (
+                      <SuggestionPill
+                        key={question}
+                        label={question}
+                        onClick={() => chatFooterRef.current?.fillAndFocus(question)}
+                      />
+                    ))}
+                  </div>
+                  {chatMessages.map((message, index) => (
+                    // 메시지는 항상 끝에만 추가되고 재정렬/삭제되지 않아 index를 key로 써도 안전하다.
+                    <ChatBubble key={index} role={message.role} content={message.content} />
+                  ))}
+                  {/* 후속 질문 응답 대기 중: 마지막 메시지 다음, AI 답변이 도착하기 전까지 좌측
+                      정렬로 표시한다(Claude 자체 채팅 UI 패턴, 오너 요청 2026-08-16). */}
+                  {chatStatus === "submitting" ? (
+                    <div className="flex justify-start">
+                      <LoadingMark label="답변을 생성하는 중" />
+                    </div>
+                  ) : null}
+                  <div ref={chatEndRef} />
+                </>
+              }
+              chatFooter={
+                <ChatFooter
+                  ref={chatFooterRef}
+                  // 해시태그 pill 콘텐츠는 실제 문제의 `conceptTags`를 그대로 재사용한다(새 텍스트를
+                  // 발명하지 않기 위함) — 헤더 카테고리 배지(`conceptTags[0]`)와 일부 겹칠 수
+                  // 있는데, 이를 제외할지는 Figma에 근거가 없어 결정 필요(오너 확인 필요).
+                  hashtags={solveResult.conceptTags}
+                  status={chatStatus}
+                  errorMessage={chatErrorMessage}
+                  onSend={sendChatMessage}
+                  // 오너 확정 UX: 해시태그 pill도 `SuggestionPill`과 동일하게 입력창을 채우고
+                  // 포커스만 한다(자동 전송 없음). 정확한 문구 템플릿은 Figma/오너가 확정한 바
+                  // 없어 결정 필요(오너 확인 필요) — 우선 자연스러운 문장으로 조립한다.
+                  onHashtagClick={(tag) => chatFooterRef.current?.fillAndFocus(`${tag}에 대해 좀 더 설명해주세요`)}
+                />
+              }
             />
           ) : (
             <div
@@ -137,7 +210,7 @@ export function SolveLandscapePage() {
                   {answerSoFar ? <AnswerBox answerMd={answerSoFar} /> : null}
                 </>
               ) : (
-                <Spinner label={recognizeStatus === "loading" ? "문제를 인식하는 중" : "풀이를 생성하는 중"} />
+                <LoadingMark label={recognizeStatus === "loading" ? "문제를 인식하는 중" : "풀이를 생성하는 중"} />
               )}
             </div>
           )}

@@ -1,4 +1,11 @@
-import type { AiProvider, Grade, RecognizedProblem, Solution, SolveOptions } from "shared-types";
+import type {
+  AiProvider,
+  ChatMessage,
+  Grade,
+  RecognizedProblem,
+  Solution,
+  SolveOptions,
+} from "shared-types";
 import { env } from "../../config/env";
 import { OpenAIAdapter } from "./openai-adapter";
 
@@ -10,6 +17,15 @@ export interface SolveRequest {
 
 export type SolveStreamEvent = { delta: string } | { done: true; result: Solution };
 
+/** 후속 질문(채팅) 요청 — 문제/최초 풀이 컨텍스트와 이전 대화 이력, 이번 질문을 함께 전달한다. */
+export interface ChatRequest {
+  problem: RecognizedProblem;
+  solution: Solution;
+  history: ChatMessage[];
+  question: string;
+  grade: Grade;
+}
+
 /**
  * PRD §8.3 LLM Adapter 인터페이스.
  * 실제 SDK(OpenAI/Anthropic) 타입은 절대 노출하지 않고 shared-types 도메인 타입만 사용한다.
@@ -19,6 +35,11 @@ export interface LLMAdapter {
   recognizeProblem(image: Buffer, grade: Grade): Promise<RecognizedProblem>;
   /** 개념/풀이 생성 — 스트리밍 */
   solve(req: SolveRequest): AsyncIterable<SolveStreamEvent>;
+  /**
+   * 후속 질문(채팅) 응답 생성 — 일반 완료 응답(스트리밍 아님, PRD CHAT-8: 실시간 스트리밍은 P1).
+   * 반환값은 answerMd 하나뿐이다.
+   */
+  chat(req: ChatRequest): Promise<string>;
 }
 
 /**

@@ -33,6 +33,15 @@ export interface Solution {
   aiModel: string;
 }
 
+/** 후속 질문(채팅) 메시지의 발화자 */
+export type ChatRole = "user" | "assistant";
+
+/** 후속 질문(채팅) 대화 이력의 개별 메시지 */
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
 /** API 전역에서 사용하는 에러 코드 */
 export type ErrorCode =
   | "validation_error"

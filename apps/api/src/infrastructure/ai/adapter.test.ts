@@ -19,5 +19,6 @@ describe("OpenAIAdapter", () => {
     const adapter = new OpenAIAdapter("test-model", "test-key");
     expect(typeof adapter.recognizeProblem).toBe("function");
     expect(typeof adapter.solve).toBe("function");
+    expect(typeof adapter.chat).toBe("function");
   });
 });

@@ -1,7 +1,8 @@
 import { createContext } from "react";
-import type { Solution } from "shared-types";
+import type { ChatMessage, Solution } from "shared-types";
 import type { RecognizeStatus } from "../problem-recognition/useRecognizeProblem";
 import type { SolveStreamStatus } from "../ai-solution/useSolveStream";
+import type { ChatStatus } from "../follow-up-chat/useChatMessages";
 import type { DrawingTool, Stroke, StrokePoint } from "../../shared/lib/canvas/useDrawingStrokes";
 
 export interface CapturedImage {
@@ -38,6 +39,9 @@ export interface ProblemInputContextValue {
 
   // recognize → solve 제출 오케스트레이션
   recognizeStatus: RecognizeStatus;
+  /** recognize 성공 시 채워지는 문제 ID. `follow-up-chat`(`POST /api/problems/:problemId/chat`)이
+   *  참조한다. recognize 전/실패 시에는 `null`. */
+  problemId: string | null;
   /** recognize 성공 시 채워지는 인식된 문제 원문. `RecognizedProblemBar`(Result Panel) 표시용. */
   recognizedText: string | null;
   solveStatus: SolveStreamStatus;
@@ -47,6 +51,17 @@ export interface ProblemInputContextValue {
   /** "풀기" 클릭 시 호출한다: 입력 정규화 → recognize → solve를 순서대로 실행한다. */
   submitProblem: () => Promise<void>;
   resetSubmission: () => void;
+
+  // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해
+  // 소유권을 옮긴 것(필기 획을 `useDrawingStrokes`로 옮긴 것과 동일한 패턴). 새 문제가 시작되면
+  // (`clearCapturedImage`/`resetSubmission` 경로) 함께 초기화된다(PRD CHAT-9).
+  chatMessages: ChatMessage[];
+  chatStatus: ChatStatus;
+  chatErrorMessage: string | null;
+  /** 빈 질문/전송 중 중복 제출은 내부에서 차단한다. 성공하면 `true`, 실패/차단이면 `false`를
+   *  반환한다(호출 측이 입력값을 초기화할지 유지할지 판단할 때 사용). */
+  sendChatMessage: (question: string) => Promise<boolean>;
+  resetChat: () => void;
 }
 
 export const ProblemInputContext = createContext<ProblemInputContextValue | undefined>(undefined);

@@ -107,4 +107,21 @@ describe("POST /api/problems/:problemId/solve", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("event: done");
   });
+
+  it("done 이벤트 시점에 풀이 결과를 저장소에 저장한다(6.5B단계 chat 컨텍스트용)", async () => {
+    const app = createTestApp();
+
+    expect(inMemoryProblemStore.get(KNOWN_PROBLEM_ID)?.solution).toBeUndefined();
+
+    const res = await request(app)
+      .post(`/api/problems/${KNOWN_PROBLEM_ID}/solve`)
+      .set(AUTH_HEADER)
+      .send({ options: { concept: true, solution: true } });
+
+    expect(res.status).toBe(200);
+
+    const stored = inMemoryProblemStore.get(KNOWN_PROBLEM_ID);
+    expect(stored?.solution).toBeDefined();
+    expect(stored?.solution?.answerMd.length).toBeGreaterThan(0);
+  });
 });

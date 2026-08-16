@@ -1,10 +1,10 @@
 import OpenAI from "openai";
-import type { Grade, RecognizedProblem, Solution, SolveOptions } from "shared-types";
+import type { ChatMessage, Grade, RecognizedProblem, Solution, SolveOptions } from "shared-types";
 import { recognizedProblemSchema } from "validation";
 import { AppError } from "../../shared/errors/AppError";
-import type { LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
+import type { ChatRequest, LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
 import { parseSolveOutput } from "./parseSolveOutput";
-import { buildRecognizePrompt, buildSystemPrompt } from "./prompts/system";
+import { buildChatPrompt, buildRecognizePrompt, buildSystemPrompt } from "./prompts/system";
 
 /**
  * OpenAI Responses API로 recognizeProblem/solve를 강제하는 JSON Schema(Structured Outputs).
@@ -105,6 +105,19 @@ export class OpenAIAdapter implements LLMAdapter {
 
     yield { done: true, result };
   }
+
+  /** 후속 질문(채팅) — 일반 완료 응답(stream:true 아님, PRD CHAT-8: 실시간 스트리밍은 P1). */
+  async chat(req: ChatRequest): Promise<string> {
+    const response = await this.client.responses.create({
+      model: this.model,
+      input: [
+        { role: "system", content: buildChatPrompt(req.grade) },
+        { role: "user", content: buildChatUserMessage(req) },
+      ],
+    });
+
+    return response.output_text;
+  }
 }
 
 /**
@@ -124,4 +137,28 @@ function buildSolveUserMessage(problem: RecognizedProblem, options: SolveOptions
   return [`요청한 옵션: ${requestedOptions}`, `문제: ${problem.recognizedText}${latexLine}`].join(
     "\n\n",
   );
+}
+
+/**
+ * 채팅용 user 메시지 — 문제/최초 풀이/이전 대화 이력/이번 질문을 명확히 구분해 구성한다.
+ * `buildSolveUserMessage`와 동일한 원칙(시스템 프롬프트에 사용자 데이터를 concat하지 않음)을 따른다.
+ */
+function buildChatUserMessage(req: ChatRequest): string {
+  const latexLine = req.problem.recognizedLatex ? `\n수식(LaTeX): ${req.problem.recognizedLatex}` : "";
+
+  const historyText =
+    req.history.length > 0
+      ? req.history.map((message) => `${chatRoleLabel(message.role)}: ${message.content}`).join("\n")
+      : "(이전 대화 없음)";
+
+  return [
+    `문제: ${req.problem.recognizedText}${latexLine}`,
+    `최초 풀이의 답: ${req.solution.answerMd}`,
+    `지금까지의 대화:\n${historyText}`,
+    `이번 질문: ${req.question}`,
+  ].join("\n\n");
+}
+
+function chatRoleLabel(role: ChatMessage["role"]): string {
+  return role === "user" ? "학생" : "튜터";
 }

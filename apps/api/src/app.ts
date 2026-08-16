@@ -4,6 +4,7 @@ import { corsOptions } from "./config/cors";
 import type { LLMAdapter } from "./infrastructure/ai/adapter";
 import { resolveAdapter } from "./infrastructure/ai/resolve-adapter";
 import { errorHandler } from "./middleware/error-handler";
+import { createChatRouter } from "./modules/chat/chat.router";
 import { healthRouter } from "./modules/health/health.router";
 import { createRecognitionRouter } from "./modules/recognition/recognition.router";
 import { createSolutionsRouter } from "./modules/solutions/solutions.router";
@@ -25,6 +26,7 @@ export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
   app.use(healthRouter);
   app.use("/api", createRecognitionRouter(adapter));
   app.use("/api", createSolutionsRouter(adapter));
+  app.use("/api", createChatRouter(adapter));
 
   app.use(errorHandler);
 

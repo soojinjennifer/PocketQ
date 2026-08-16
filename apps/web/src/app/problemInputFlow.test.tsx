@@ -28,6 +28,10 @@ vi.mock("../shared/api/recognizeProblem", () => ({
   }),
 }));
 
+vi.mock("../shared/api/chatMessage", () => ({
+  sendChatMessage: vi.fn(),
+}));
+
 vi.mock("../shared/api/solveProblem", () => ({
   // 기본 mock: 헤더가 붙은 delta 하나만 오고 바로 done — `parseStreamingSolve`가 헤더 기준으로
   // 파싱하므로, 헤더 없는 raw 텍스트는 더 이상 화면에 그대로 노출되지 않는다(P0 회귀 테스트들은
@@ -114,6 +118,12 @@ beforeEach(() => {
     data: { session: createFakeSession({ user_metadata: { grade: "M2" } }) },
     error: null,
   });
+
+  // jsdom은 `Element.prototype.scrollIntoView`를 아예 구현하지 않는다(속성 자체가 없어
+  // `vi.spyOn`이 실패한다) — `SolveLandscapePage`의 채팅 스크롤 앵커
+  // (`chatEndRef.current?.scrollIntoView(...)`)가 새 메시지/로딩 시 실제로 호출되는지만
+  // 검증하기 위해 직접 할당해서 최소 모킹한다.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 afterEach(() => {
@@ -285,6 +295,80 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
 
     expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "풀기" })).not.toBeDisabled();
+  });
+});
+
+describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결", () => {
+  it("풀이가 완료되면 recognize가 반환한 problemId로 채팅 API를 호출하고, 응답을 대화 버블로 표시한다", async () => {
+    const { sendChatMessage } = await import("../shared/api/chatMessage");
+    vi.mocked(sendChatMessage).mockResolvedValue({ answerMd: "이렇게 풀면 됩니다." });
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+
+    const input = screen.getByLabelText("후속 질문 입력");
+    fireEvent.change(input, { target: { value: "왜 이렇게 풀어요?" } });
+    fireEvent.click(screen.getByRole("button", { name: "질문 보내기" }));
+
+    // recognizeProblem mock(파일 상단)의 problemId="problem-1"이 그대로 chat 요청에 쓰인다 —
+    // `ProblemInputContext`가 `problemId`를 노출하고 `useChatMessages`가 이를 참조한다는 뜻.
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith({
+        problemId: "problem-1",
+        question: "왜 이렇게 풀어요?",
+        history: [],
+      }),
+    );
+
+    expect(await screen.findByText("이렇게 풀면 됩니다.")).toBeInTheDocument();
+    expect(screen.getByText("왜 이렇게 풀어요?")).toBeInTheDocument();
+  });
+
+  it("새 질문을 보내면(로딩 인디케이터 추가 → 응답 도착) 채팅 스크롤 앵커로 자동 스크롤된다", async () => {
+    const { sendChatMessage } = await import("../shared/api/chatMessage");
+    let resolveChat: ((value: { answerMd: string }) => void) | undefined;
+    vi.mocked(sendChatMessage).mockReturnValue(
+      new Promise((resolve) => {
+        resolveChat = resolve;
+      }),
+    );
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+
+    const scrollIntoViewMock = vi.mocked(Element.prototype.scrollIntoView);
+    scrollIntoViewMock.mockClear();
+
+    const input = screen.getByLabelText("후속 질문 입력");
+    fireEvent.change(input, { target: { value: "왜 이렇게 풀어요?" } });
+    fireEvent.click(screen.getByRole("button", { name: "질문 보내기" }));
+
+    // 사용자 질문 버블이 추가되는 시점(chatMessages.length 변화)에 한 번 스크롤된다.
+    await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalled());
+    scrollIntoViewMock.mockClear();
+
+    resolveChat?.({ answerMd: "이렇게 풀면 됩니다." });
+
+    // 응답 도착(chatStatus 변화 + 메시지 추가) 시점에도 다시 스크롤된다.
+    await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalled());
   });
 });
 

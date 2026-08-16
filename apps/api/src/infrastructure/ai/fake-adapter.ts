@@ -1,5 +1,5 @@
 import type { AiProvider, Grade, RecognizedProblem, Solution } from "shared-types";
-import type { LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
+import type { ChatRequest, LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
 
 const FAKE_RECOGNIZED_TEXT = "이차함수 y = x^2 - 4x + 3의 최솟값을 구하시오.";
 const FAKE_RECOGNIZED_LATEX = "y = x^{2} - 4x + 3";
@@ -44,6 +44,13 @@ export class FakeLLMAdapter implements LLMAdapter {
     };
 
     yield { done: true, result };
+  }
+
+  /** 실제 Vision/LLM 호출 없이, 질문 내용을 그대로 되짚어주는 결정적인 가짜 답변을 반환한다. */
+  chat(req: ChatRequest): Promise<string> {
+    return Promise.resolve(
+      `## 답변\n"${req.question}"에 대한 답입니다.\n\n관련 개념: ${req.problem.recognizedText}\n최초 풀이의 답: ${req.solution.answerMd}`,
+    );
   }
 
   private buildChunks(req: SolveRequest): string[] {

@@ -57,6 +57,7 @@ function createHandleSolve(adapter: LLMAdapter) {
         if ("delta" in event) {
           res.write(`event: chunk\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`);
         } else {
+          inMemoryProblemStore.setSolution(problemId, event.result);
           res.write(`event: done\ndata: ${JSON.stringify(event.result)}\n\n`);
         }
       }

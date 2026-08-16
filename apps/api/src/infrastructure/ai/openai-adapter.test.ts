@@ -101,3 +101,36 @@ describe("OpenAIAdapter.solve", () => {
     expect(callArgs.stream).toBe(true);
   });
 });
+
+describe("OpenAIAdapter.chat", () => {
+  it("stream:true 없이(일반 완료 응답) 호출하고 output_text를 answerMd로 반환한다", async () => {
+    createMock.mockResolvedValue({ output_text: "2인 이유는 1+1이기 때문입니다." });
+
+    const adapter = new OpenAIAdapter("test-model", "test-key");
+
+    const answerMd = await adapter.chat({
+      problem: { recognizedText: "1+1=?", recognizedLatex: null },
+      solution: {
+        conceptMd: null,
+        solutionMd: null,
+        answerMd: "2입니다.",
+        conceptTags: [],
+        aiProvider: "openai",
+        aiModel: "test-model",
+      },
+      history: [{ role: "user", content: "이전 질문" }],
+      question: "왜 2인가요?",
+      grade: "M2",
+    });
+
+    expect(answerMd).toBe("2인 이유는 1+1이기 때문입니다.");
+
+    const callArgs = createMock.mock.calls[0]?.[0] as RequestInput;
+    expect(callArgs.model).toBe("test-model");
+    expect(callArgs.stream).toBeUndefined();
+
+    const userMessage = callArgs.input.find((m) => m.role === "user");
+    expect(typeof userMessage?.content).toBe("string");
+    expect(userMessage?.content as string).toContain("왜 2인가요?");
+  });
+});

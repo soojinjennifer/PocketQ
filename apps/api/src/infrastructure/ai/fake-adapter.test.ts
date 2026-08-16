@@ -80,4 +80,27 @@ describe("FakeLLMAdapter", () => {
       expect(last.result.answerMd.length).toBeGreaterThan(0);
     }
   });
+
+  it("chat은 질문/문제/최초 풀이 컨텍스트를 반영한 결정적인 answerMd 문자열을 반환한다", async () => {
+    const adapter = new FakeLLMAdapter();
+
+    const answerMd = await adapter.chat({
+      problem: { recognizedText: "1+1=?", recognizedLatex: null },
+      solution: {
+        conceptMd: null,
+        solutionMd: null,
+        answerMd: "2입니다.",
+        conceptTags: [],
+        aiProvider: "claude",
+        aiModel: "fake-whymath-v0",
+      },
+      history: [{ role: "user", content: "이전 질문" }],
+      question: "왜 2인가요?",
+      grade: "M2",
+    });
+
+    expect(typeof answerMd).toBe("string");
+    expect(answerMd).toContain("왜 2인가요?");
+    expect(answerMd.length).toBeGreaterThan(0);
+  });
 });

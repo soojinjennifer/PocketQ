@@ -47,3 +47,27 @@ export const solveRequestSchema = z.object({
   confirmedText: z.string().optional(),
 });
 export type SolveRequestDto = z.infer<typeof solveRequestSchema>;
+
+/**
+ * POST /api/problems/:problemId/chat 요청 스키마.
+ * `history`는 서버에 저장하지 않는 stateless 설계라 매 요청마다 클라이언트가 전체 이력을 보낸다.
+ * `max(2000)`은 Figma/PRD에 명시된 근거가 없는 합리적 기본값이다 — 결정 필요, 오너 확인 시 조정 가능.
+ */
+export const chatRequestSchema = z.object({
+  question: z.string().trim().min(1).max(2000),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      }),
+    )
+    .default([]),
+});
+export type ChatRequestDto = z.infer<typeof chatRequestSchema>;
+
+/** POST /api/problems/:problemId/chat 응답 스키마 (일반 JSON 완료 응답 — SSE 아님, PRD CHAT-8) */
+export const chatResponseSchema = z.object({
+  answerMd: z.string(),
+});
+export type ChatResponseDto = z.infer<typeof chatResponseSchema>;

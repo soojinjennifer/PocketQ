@@ -66,4 +66,28 @@ describe("ResultPanel", () => {
     expect(screen.queryByRole("button", { name: "새 문제" })).not.toBeInTheDocument();
     expect(screen.getByText("새 문제")).toBeInTheDocument();
   });
+
+  it("chatContent/chatFooter가 없으면 후속 질문 관련 슬롯을 아예 렌더링하지 않는다", () => {
+    const { container } = render(
+      <ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />,
+    );
+
+    expect(container.querySelector('[aria-label="후속 질문 입력"]')).toBeNull();
+  });
+
+  it("chatContent/chatFooter 슬롯을 전달하면 그대로 렌더링한다(features/follow-up-chat를 직접 import하지 않고 슬롯으로만 받는다)", () => {
+    render(
+      <ResultPanel
+        recognizedText="문제"
+        conceptMd={null}
+        solutionMd={null}
+        answerMd="42"
+        chatContent={<div data-testid="chat-content">채팅 콘텐츠</div>}
+        chatFooter={<div data-testid="chat-footer">채팅 푸터</div>}
+      />,
+    );
+
+    expect(screen.getByTestId("chat-content")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-footer")).toBeInTheDocument();
+  });
 });
