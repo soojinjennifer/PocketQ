@@ -45,6 +45,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     recognizedText,
     errorMessage: recognizeErrorMessage,
     recognize,
+    resumeFromHistory: recognizeResumeFromHistory,
     reset: resetRecognize,
   } = useRecognizeProblem();
   const {
@@ -161,6 +162,36 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     }
   }, [grade, capturedImage, strokes, selectedOptionIds, recognize, solve, clearCapturedImage, resetChat]);
 
+  /**
+   * 마이페이지 "다시 풀기" 경로. 사진/필기가 전혀 없는 상태에서 시작하므로 `normalizeProblemInput`을
+   * 거치지 않고, 서버에 저장된 인식 결과를 그대로 재수화(`reopen`)한 뒤 곧바로 solve를 실행한다.
+   * 그 외에는 `submitProblem`과 동일한 흐름·상태·에러 UI를 공유한다.
+   */
+  const resumeFromHistory = useCallback(
+    async (historyProblemId: string): Promise<boolean> => {
+      if (!grade) {
+        return false;
+      }
+
+      // 새 문제를 시작하는 시점이므로 이전 문제의 대화를 먼저 비운다(PRD CHAT-9, `submitProblem` 동일).
+      resetChat();
+
+      const resumedProblemId = await recognizeResumeFromHistory(historyProblemId);
+      if (!resumedProblemId) {
+        return false;
+      }
+
+      // 결정 필요(오너 확인 필요): "다시 풀기"에는 `ActionBar`의 개념설명/풀이 체크박스를 거치는 UX가
+      // 없어 확정된 옵션 기준이 없다. 우선 개념 + 풀이를 모두 받는 것을 기본값으로 한다.
+      const solution = await solve({
+        problemId: resumedProblemId,
+        options: { concept: true, solution: true },
+      });
+      return solution !== null;
+    },
+    [grade, resetChat, recognizeResumeFromHistory, solve],
+  );
+
   const resetSubmission = useCallback(() => {
     resetRecognize();
     resetSolve();
@@ -194,6 +225,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveResult,
       submitErrorMessage,
       submitProblem,
+      resumeFromHistory,
       resetSubmission,
       chatMessages,
       chatStatus,
@@ -224,6 +256,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveResult,
       submitErrorMessage,
       submitProblem,
+      resumeFromHistory,
       resetSubmission,
       chatMessages,
       chatStatus,

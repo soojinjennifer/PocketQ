@@ -25,4 +25,13 @@ describe("RecognizedProblemBar", () => {
     fireEvent.click(editButton);
     expect(handleEdit).toHaveBeenCalledTimes(1);
   });
+
+  it("editLabel을 전달하면 버튼 텍스트가 바뀐다(마이페이지 '다시 풀기')", () => {
+    const handleEdit = vi.fn();
+    render(<RecognizedProblemBar recognizedText="문제" onEdit={handleEdit} editLabel="다시 풀기" />);
+
+    expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "다시 풀기" }));
+    expect(handleEdit).toHaveBeenCalledTimes(1);
+  });
 });

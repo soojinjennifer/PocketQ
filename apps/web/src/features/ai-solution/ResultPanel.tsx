@@ -9,7 +9,18 @@ interface ResultPanelProps {
   category?: string;
   recognizedText: string;
   onEdit?: () => void;
+  /** `RecognizedProblemBar`의 "수정" 버튼 표시 텍스트를 바꾼다(마이페이지 과거 풀이 다시 보기에서는
+   *  "다시 풀기"). 전달하지 않으면 기존 그대로 "수정"이다. */
+  editLabel?: string;
   onNewProblem?: () => void;
+  /** 헤더의 "새 문제" 배지 노출 여부. 기본값 `true`(기존 `/solve/landscape` 동작 그대로 유지).
+   *  마이페이지의 과거 풀이 다시 보기처럼 read-only 조회에서는 "새 문제"라는 동작 자체가 없으므로
+   *  `false`를 전달해 감춘다.
+   *
+   *  `onNewProblem` 유무로 판단하지 않는 이유: `/solve/landscape`는 현재 `onNewProblem`을 전달하지
+   *  않은 채(=비상호작용 배지) Figma(`39:35`)대로 배지를 노출하고 있어, `onNewProblem` 조건부로
+   *  바꾸면 그 화면에서 배지가 사라지는 회귀가 생긴다(2026-08-16 확인). */
+  showNewProblemBadge?: boolean;
   conceptMd: string | null;
   solutionMd: string | null;
   answerMd: string;
@@ -39,7 +50,9 @@ export function ResultPanel({
   category,
   recognizedText,
   onEdit,
+  editLabel,
   onNewProblem,
+  showNewProblemBadge = true,
   conceptMd,
   solutionMd,
   answerMd,
@@ -52,9 +65,11 @@ export function ResultPanel({
         <h2 className="text-label-primary text-[17px] leading-[22px] font-[590]">풀이 결과</h2>
         <div className="flex flex-wrap items-center gap-2">
           {category ? <Badge variant="tint-blue">{category}</Badge> : null}
-          <Badge variant="tint-blue" onClick={onNewProblem}>
-            새 문제
-          </Badge>
+          {showNewProblemBadge ? (
+            <Badge variant="tint-blue" onClick={onNewProblem}>
+              새 문제
+            </Badge>
+          ) : null}
         </div>
       </div>
 
@@ -62,7 +77,7 @@ export function ResultPanel({
         className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5 touch-pan-y"
         aria-live="polite"
       >
-        <RecognizedProblemBar recognizedText={recognizedText} onEdit={onEdit} />
+        <RecognizedProblemBar recognizedText={recognizedText} onEdit={onEdit} editLabel={editLabel} />
         {conceptMd ? <ResultCard kind="concept" body={conceptMd} /> : null}
         {solutionMd ? <ResultCard kind="steps" body={solutionMd} /> : null}
         <AnswerBox answerMd={answerMd} />

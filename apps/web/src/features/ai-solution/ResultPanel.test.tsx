@@ -67,6 +67,49 @@ describe("ResultPanel", () => {
     expect(screen.getByText("새 문제")).toBeInTheDocument();
   });
 
+  it("showNewProblemBadge=false면 '새 문제' 배지를 렌더링하지 않는다(마이페이지 read-only 조회)", () => {
+    render(
+      <ResultPanel
+        recognizedText="문제"
+        conceptMd={null}
+        solutionMd={null}
+        answerMd="42"
+        showNewProblemBadge={false}
+      />,
+    );
+
+    expect(screen.queryByText("새 문제")).not.toBeInTheDocument();
+  });
+
+  it("showNewProblemBadge 기본값은 true다(기존 /solve/landscape 동작 유지)", () => {
+    render(<ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />);
+
+    expect(screen.getByText("새 문제")).toBeInTheDocument();
+  });
+
+  it("editLabel/onEdit을 RecognizedProblemBar로 그대로 전달한다(마이페이지 '다시 풀기')", () => {
+    const handleEdit = vi.fn();
+    render(
+      <ResultPanel
+        recognizedText="문제"
+        conceptMd={null}
+        solutionMd={null}
+        answerMd="42"
+        onEdit={handleEdit}
+        editLabel="다시 풀기"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "다시 풀기" }));
+    expect(handleEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("editLabel을 전달하지 않으면 기존대로 '수정' 버튼이 유지된다", () => {
+    render(<ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />);
+
+    expect(screen.getByRole("button", { name: "수정" })).toBeDisabled();
+  });
+
   it("chatContent/chatFooter가 없으면 후속 질문 관련 슬롯을 아예 렌더링하지 않는다", () => {
     const { container } = render(
       <ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />,

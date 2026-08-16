@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
@@ -56,6 +57,8 @@ export function SolveLandscapePage() {
     selectedOptionIds,
     toggleOption,
     submitProblem,
+    resumeFromHistory,
+    problemId,
     recognizeStatus,
     recognizedText,
     solveStatus,
@@ -67,6 +70,27 @@ export function SolveLandscapePage() {
     chatErrorMessage,
     sendChatMessage,
   } = useProblemInput();
+
+  // 마이페이지 "다시 풀기"로 진입한 경우(`RecognizedProblemBar`의 "다시 풀기" → `/solve/landscape`),
+  // 사진/필기 재입력 없이 저장된 인식 결과를 재수화하고 곧바로 풀이를 시작한다. 마이페이지는
+  // `ProblemInputProvider` 트리 밖이라 상태를 직접 넘길 수 없어서, 의도만 라우터 state로 전달받아
+  // Provider 안쪽인 이 페이지에서 트리거한다.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const resumeAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    const resumeProblemId = (location.state as { resumeProblemId?: string } | null)?.resumeProblemId;
+    if (!resumeProblemId || resumeAttemptedRef.current || problemId !== null) {
+      return;
+    }
+    resumeAttemptedRef.current = true;
+    void resumeFromHistory(resumeProblemId);
+    // 소비한 state는 즉시 비운다(새로고침 시 중복 재수화 방지, 뒤로가기 시 이상 동작 방지).
+    // 이 시점에는 아직 problemId가 없지만 `RequireProblemInputGuard`가 `recognizeStatus`도 보고
+    // 있어 `/camera`로 튕기지 않는다(가드 JSDoc 참고).
+    void navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate, problemId, resumeFromHistory]);
 
   // `SuggestionPill`(Body)이 채워야 할 `ChatFooter`(Footer)의 입력창은 서로 다른 슬롯(`ResultPanel`의
   // `chatContent`/`chatFooter`)으로 전달되어 DOM 상 분리돼 있다 — `ResultPanel`(features/ai-solution)이

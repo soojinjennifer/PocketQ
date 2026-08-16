@@ -79,6 +79,28 @@ describe("Badge", () => {
     expect(badge.className).toContain("py-[7px]");
   });
 
+  it("tint-blue-flat variant는 tint-blue와 같은 톤이면서 보더가 없다(MyPage History Row 개념 태그)", () => {
+    render(<Badge variant="tint-blue-flat">이차방정식</Badge>);
+
+    const badge = screen.getByText("이차방정식");
+    expect(badge.className).toContain("bg-fill-tint-brand");
+    expect(badge.className).toContain("text-brand");
+    expect(badge.className).not.toContain("border");
+  });
+
+  it("size=tag-sm은 px-[10px] py-[2px]/12px/590을 적용한다(MyPage History Row 개념 태그)", () => {
+    render(
+      <Badge variant="tint-blue-flat" size="tag-sm">
+        이차방정식
+      </Badge>,
+    );
+
+    const badge = screen.getByText("이차방정식");
+    expect(badge.className).toContain("px-[10px]");
+    expect(badge.className).toContain("py-[2px]");
+    expect(badge.className).toContain("text-[12px]");
+  });
+
   it("size=footnote는 line-height 18px를 적용한다(Figma 174:614 실측, BASE_STYLE의 leading-4 오버라이드)", () => {
     render(
       <Badge variant="outline" size="footnote">

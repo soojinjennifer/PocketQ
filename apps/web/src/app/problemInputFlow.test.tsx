@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, RouterProvider, type InitialEntry } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../features/auth/AuthProvider";
 import { supabase } from "../shared/lib/supabase/client";
@@ -30,6 +30,19 @@ vi.mock("../shared/api/recognizeProblem", () => ({
 
 vi.mock("../shared/api/chatMessage", () => ({
   sendChatMessage: vi.fn(),
+}));
+
+// 마이페이지 "다시 풀기" 재수화 경로(`POST /api/problems/:id/reopen`). 같은 모듈의 나머지 export도
+// `MyPage`가 import하고 있어(라우트 트리 전체를 렌더링한다) 함께 mock해 둔다.
+vi.mock("../shared/api/problemHistory", () => ({
+  listProblemHistory: vi.fn(),
+  getProblemHistoryDetail: vi.fn(),
+  reopenProblemHistory: vi.fn().mockResolvedValue({
+    problemId: "problem-reopened",
+    recognizedText: "저장돼 있던 문제 원문",
+    recognizedLatex: null,
+    createdAt: "2026-08-16T11:00:00.000Z",
+  }),
 }));
 
 vi.mock("../shared/api/solveProblem", () => ({
@@ -86,7 +99,7 @@ function createMockContext(): MockContext2D {
   return ctx;
 }
 
-function renderApp(initialEntries: string[]) {
+function renderApp(initialEntries: InitialEntry[]) {
   const router = createMemoryRouter(routeConfig, { initialEntries });
   return render(
     <AuthProvider>
@@ -379,5 +392,44 @@ describe("문제 입력 없이 /solve/landscape에 직접 진입하면 /camera�
     await waitFor(() =>
       expect(screen.getByText("문제가 잘 보이게 맞춰 주세요")).toBeInTheDocument(),
     );
+  });
+});
+
+describe("마이페이지 '다시 풀기' — 사진/필기 없이 재수화 후 곧바로 풀이한다", () => {
+  it("resumeProblemId가 담긴 state로 /solve/landscape에 진입하면 reopen → solve가 자동 실행된다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { solveProblemStream } = await import("../shared/api/solveProblem");
+
+    renderApp([{ pathname: "/solve/landscape", state: { resumeProblemId: "problem-history-1" } }]);
+
+    await waitFor(() =>
+      expect(reopenProblemHistory).toHaveBeenCalledWith("problem-history-1"),
+    );
+    // 가드가 사진/필기가 없다고 /camera로 튕기지 않는다.
+    expect(screen.queryByText("문제가 잘 보이게 맞춰 주세요")).not.toBeInTheDocument();
+
+    // reopen이 돌려준 새 problemId로 solve가 이어진다(개념 + 풀이 모두 요청).
+    await waitFor(() =>
+      expect(solveProblemStream).toHaveBeenCalledWith({
+        problemId: "problem-reopened",
+        options: { concept: true, solution: true },
+      }),
+    );
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    expect(screen.getByText("저장돼 있던 문제 원문")).toBeInTheDocument();
+  });
+
+  it("재수화가 실패하면 기존 인식 실패 에러 팝업을 그대로 재사용한다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { ApiError } = await import("../shared/api/ApiError");
+    // 404의 실제 `code` 문자열은 계약에 없고 `ErrorCode`에도 없어 타입에 존재하는 코드로 대신한다.
+    vi.mocked(reopenProblemHistory).mockRejectedValueOnce(
+      new ApiError("internal_error", "기록을 찾을 수 없습니다.", 404),
+    );
+
+    renderApp([{ pathname: "/solve/landscape", state: { resumeProblemId: "problem-x" } }]);
+
+    expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
   });
 });

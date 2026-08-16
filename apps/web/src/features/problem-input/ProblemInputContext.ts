@@ -50,6 +50,10 @@ export interface ProblemInputContextValue {
   submitErrorMessage: string | null;
   /** "풀기" 클릭 시 호출한다: 입력 정규화 → recognize → solve를 순서대로 실행한다. */
   submitProblem: () => Promise<void>;
+  /** 마이페이지 과거 풀이 다시 풀기 — 사진/필기 없이 저장된 텍스트로 recognize 상태를 재수화한 뒤
+   *  곧바로 solve를 실행한다. 풀이까지 성공하면 `true`, 중간에 실패하면 `false`를 반환한다.
+   *  실패 시 에러 메시지는 `submitErrorMessage`로 흘러 기존 에러 Modal이 그대로 재사용된다. */
+  resumeFromHistory: (historyProblemId: string) => Promise<boolean>;
   resetSubmission: () => void;
 
   // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해

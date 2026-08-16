@@ -51,4 +51,30 @@ describe("Button", () => {
     expect(button.className).toContain("bg-brand");
     expect(button.className).toContain("disabled:opacity-50");
   });
+
+  it("select variant는 fill-tint-brand 배경과 brand 텍스트, 좁은 pill 여백을 적용한다", () => {
+    render(<Button variant="select">학년 변경</Button>);
+
+    const button = screen.getByRole("button", { name: "학년 변경" });
+    expect(button.className).toContain("bg-fill-tint-brand");
+    expect(button.className).toContain("text-brand");
+    expect(button.className).toContain("rounded-full");
+    expect(button.className).toContain("px-[14px]");
+    expect(button.className).toContain("py-[7px]");
+  });
+
+  it("logout variant는 fill-quaternary 배경과 accent-purple 텍스트를 적용한다", () => {
+    render(<Button variant="logout">로그아웃</Button>);
+
+    const button = screen.getByRole("button", { name: "로그아웃" });
+    expect(button.className).toContain("bg-fill-quaternary");
+    expect(button.className).toContain("text-accent-purple");
+    expect(button.className).toContain("px-[14px]");
+  });
+
+  it("select/logout은 기존 pill 베이스(px-[26px])를 재사용하지 않는다", () => {
+    render(<Button variant="logout">로그아웃</Button>);
+
+    expect(screen.getByRole("button", { name: "로그아웃" }).className).not.toContain("px-[26px]");
+  });
 });
