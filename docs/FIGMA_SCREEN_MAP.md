@@ -1,4 +1,5 @@
-디자인을 할때, 피그마에 있는 Math Design System을 반드시 참조하여 디자인하고, 여기에 있는 컴포넌트를 쓸 수 있을 경우 반드시 재사용이 가능하도록 공통 컨포넌트화 하여 디자인한다. 피그마 디자인 시스템 URL = https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=1-225&t=LrZQeZ022Z7LUbtl-1
+디자인을 할때, 피그마에 있는 Math Design System을 반드시 참조하여 디자인하고, 여기에 있는 컴포넌트를 쓸 수 있을 경우 반드시 재사용이 가능하도록 공통 컨포넌트화 하여 디자인한다. 피그마 디자인 시스템 URL = https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=1-225&t=inChnhQt0UIeUlTU-1
+
 
 디자인 가이드의 컴포넌트를 공통 컴포넌트화하여 react 컴포넌트에 반영한다. 
 

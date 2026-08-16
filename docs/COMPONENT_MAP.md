@@ -34,11 +34,11 @@
 | `Action Bar` (개념설명/풀이 체크박스 + 풀기 버튼) | 문제풀기 | `features/solve-session/ActionBar` |
 | `Result Panel` (전체 우측 패널 컨테이너) | 문제풀기 | `features/ai-solution/ResultPanel` |
 | `Width=Default`/`Width=Extend`/`Width=Close` (Result Panel 좌측 드래그 핸들, 컴포넌트 갤러리 `174:638`/`174:640`/`174:743`, 갤러리 프레임 `174:639` 근방) | 문제풀기 결과(`/solve/landscape`) | `features/ai-solution/ResultPanelResizeHandle` | `ResultPanelShell`이 `width`(`"default"`\|`"extend"`\|`"close"`) prop과 `onExtend`/`onBackToDefault`/`onClose`/`onOpen` 콜백을 받아 좌측에 이 핸들을 항상 렌더링한다(24×88px, 패널 세로 중앙 고정). Default: 위쪽 버튼이 Extend로 전환(막대+좌측화살표 아이콘), 아래쪽 버튼이 Close로 전환(우측 쉐브런). Extend: 위쪽 버튼이 Default로 되돌림(우측화살표+막대, 좌우 반전 아이콘), 아래쪽 버튼은 Default와 동일하게 Close로 전환. Close: 콘텐츠(헤더/바디/푸터) 렌더링 없이 폭만 24px(`w-6`)로 줄고, 위쪽 버튼이 Extend로 전환(Default 위쪽과 동일 아이콘), 아래쪽 버튼이 Default로 되돌림(좌측 쉐브런, Close 아이콘을 180도 회전). 패널 폭은 Default `w-[min(420px,45vw)]`/Extend `w-[min(748px,90vw)]`(748px는 Figma 실측, 90vw 상한은 결정 필요)/Close `w-6`이며 `transition-[width] duration-300`(300ms는 결정 필요)로 전환된다 |
-| 후속 질문 입력 영역 | 문제풀기 결과 패널 하단 | `features/follow-up-chat/ChatInput` |
+| 후속 질문 입력 영역 | 문제풀기 결과 패널 하단 | `features/follow-up-chat/ChatFooter`(입력창+전송 버튼+해시태그 pill 행 셸), `features/follow-up-chat/SuggestionPill`(Body 최하단 제안 질문 pill, `Badge` `variant="outline"`/`size="footnote"` 재사용) — 2026-08-16 구현. `ResultPanel`(features/ai-solution)이 `follow-up-chat`을 직접 import하지 않도록(feature 간 참조 금지) `chatContent`/`chatFooter` 슬롯 props로만 받고, 실제 조립은 `pages/solve/landscape/SolveLandscapePage`가 담당한다 |
 
 ## 3. `docs/DESIGN_COMPONENT.md`에는 있으나 이번 6개 화면에서 인스턴스 미확인 — 구현시 컴포넌트화 하여 재사용할 수 있도록 한다.
 
-- `Chat Bubble` — 후속 질문 대화 화면(빈 상태가 아닌, 대화가 진행된 상태)에 존재할 것으로 추정되나 이번 조사 대상 6개 화면(빈 상태 스냅샷)에서는 확인되지 않음. 최종 Variant 구현을 보류한다(2026-07-29 확정).
+- `Chat Bubble` — 후속 질문 대화 화면(빈 상태가 아닌, 대화가 진행된 상태)에 존재할 것으로 추정되나 이번 조사 대상 6개 화면(빈 상태 스냅샷)에서는 확인되지 않음. 최종 Variant 구현을 보류한다(2026-07-29 확정). **2026-08-16 업데이트**: 6.5A(후속 질문 채팅 프론트엔드) 구현 시 design-agent가 다시 광범위하게 탐색했으나 여전히 대화가 진행된 상태의 Figma 프레임을 찾지 못했다 — 오너가 "임시 버블로 우선 구현, 추후 Figma 확정 시 교체"를 승인해 `features/follow-up-chat/ChatBubble`을 신규 색상 없이 기존 토큰만으로 구현했다(사용자 질문 `bg-fill-tint-brand`, AI 답변 `bg-bg-elevated` + `ResultCard`와 동일한 Elevation/Card 그림자). `shared/ui/modal`의 `icon="error"` variant와 동일한 성격의 임시 조치이며, 정식 Chat Bubble 디자인이 Figma에 추가되면 교체해야 한다.
 - `Math Activity Card` — 마찬가지로 위치 미확인. 최종 Variant 구현을 보류한다.
 - `History Row`(위 §1) — 마이페이지 내부 상세 화면이 화면맵에 별도로 추가되기 전까지 구현 범위를 확장하지 않는다.
 - `Chat Bubble`, `Math Activity Card`, `History Row`는 서로 하나의 컴포넌트로 통합하지 않는다. 공통 외형은 `shared/ui`의 `Card` 또는 `Surface`를 재사용하고, 기능별 로직은 각 feature 내부에 둔다.

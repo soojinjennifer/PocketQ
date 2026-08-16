@@ -177,7 +177,26 @@
       "Bash(rm -f apps/api/scripts/smoke-recognize.ts apps/api/scripts/smoke-test.ts)",
       "Bash(rmdir apps/api/scripts)",
       "Bash(rm -f apps/api/src/shared/types/express.d.ts)",
-      "Bash(rm -f apps/web/src/features/camera/CameraSessionContext.ts apps/web/src/features/camera/CameraSessionProvider.tsx apps/web/src/features/camera/useCameraSession.ts apps/web/src/features/solve-session/useCapturedImageUrl.ts apps/web/src/features/drawing-canvas/useDrawingStrokes.test.ts apps/web/src/test/check-path2d.test.ts apps/web/src/test/strictmode-repro.test.tsx)"
+      "Bash(rm -f apps/web/src/features/camera/CameraSessionContext.ts apps/web/src/features/camera/CameraSessionProvider.tsx apps/web/src/features/camera/useCameraSession.ts apps/web/src/features/solve-session/useCapturedImageUrl.ts apps/web/src/features/drawing-canvas/useDrawingStrokes.test.ts apps/web/src/test/check-path2d.test.ts apps/web/src/test/strictmode-repro.test.tsx)",
+      "mcp__claude_ai_Figma__list_file_components_for_code_connect",
+      "Read(//Users/soojin/Library/CloudStorage/OneDrี-개인/vibeStudy/WhyMath/apps/api/src/infrastructure/ai/**)",
+      "Bash(pnpm -F shared-types -F validation -F api build)",
+      "Bash(pnpm -F shared-types -F validation -F api test)",
+      "Bash(pnpm -F shared-types -F validation -F web typecheck)",
+      "Bash(pnpm -F shared-types -F validation -F web lint)",
+      "Bash(pnpm -F shared-types -F validation -F web test)",
+      "Bash(pnpm -F shared-types -F validation -F web build)",
+      "Bash(curl -L -o /private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/5b8a8485-6113-4e64-b1a2-3ffacce97d5c/scratchpad/node_190_866.png \"https://www.figma.com/api/mcp/asset/b8fd5541-b875-4469-9436-15a71014a200.png\")",
+      "mcp__claude_ai_Figma__read_skill_uri",
+      "mcp__claude_ai_Figma__download_assets",
+      "Bash(mkdir -p \"/private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/5b8a8485-6113-4e64-b1a2-3ffacce97d5c/scratchpad/figma-M-mark\")",
+      "Bash(curl -sL -o export_node.png \"https://www.figma.com/api/mcp/asset/8044119f-0539-4011-bae1-d19f7143851d.png\")",
+      "Bash(curl -sL -o raw_image_1.png \"https://www.figma.com/api/mcp/asset/9c6b6867-0dff-4c34-96da-b77b2f1ad7fb\")",
+      "Bash(curl -sL -o raw_image_2.png \"https://www.figma.com/api/mcp/asset/5a82119e-aad8-450a-b265-84a74e47f144\")",
+      "Bash(curl -sL -o design_context_image.png \"https://www.figma.com/api/mcp/asset/802f4d27-ad38-4636-8aca-013734a942de.png\")",
+      "Bash(python3 -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(xargs -I{} basename {})",
+      "Bash(pnpm -F shared-types -F validation -F api -F web test -- --run)"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

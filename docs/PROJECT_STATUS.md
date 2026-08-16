@@ -1,11 +1,11 @@
 # 프로젝트 진행 상황 (세션 인계용)
 
 이 문서는 Claude Code 세션을 새 창으로 재시작할 때 이전 세션 작업을 그대로 이어가기 위한 인계 문서다.
-2026-08-10 기준. 새 세션에서는 이 문서를 먼저 읽고, 아래 "다음에 할 일"부터 이어간다.
+2026-08-16 기준. 새 세션에서는 이 문서를 먼저 읽고, 아래 "다음에 할 일"부터 이어간다.
 
 ## 0. 지금 이 문서를 쓰게 된 이유
 
-`~/.claude/settings.json`에 승인 대기/질문 시 macOS 사운드 알림(`Notification` 훅, `osascript` + `afplay`)을 추가했는데, 이전 VS Code 세션은 훅 추가 **이전에 시작된 세션**이라 적용되지 않았다. 2026-08-09 새 세션에서 `AskUserQuestion`을 여러 번 호출했으나, 오너에게 사운드가 실제로 들렸는지 확인받지 못함 — 다음 세션에서 확인 필요.
+`~/.claude/settings.json`에 승인 대기/질문 시 macOS 사운드 알림(`Notification` 훅, `osascript` + `afplay`)을 추가했는데, 오너에게 사운드가 실제로 들렸는지 여러 세션에 걸쳐 확인받지 못했다 — 계속 미확인 상태로 남아있음(중요도 낮음, 다음 세션에서 시간 나면 확인).
 
 ## 1. 프로젝트 개요
 
@@ -92,6 +92,55 @@ plan-agent(구조 분석) → development-agent(구현) → design-agent(Figma �
 
 **주의**: 이 인프라(HTTPS/LAN IP)는 오너 로컬 환경(mkcert, 특정 LAN IP `172.30.1.69`)에 종속적이다. 다른 개발자/CI 환경에서는 인증서 파일이 없으므로 자동으로 평범한 HTTP로 폴백되고, `VITE_API_BASE_URL`/`CORS_ORIGIN`도 각자 `.env`에서 `localhost` 기준으로 설정하면 된다(`.env.example`은 그대로 `localhost` 기준 안내로 유지).
 
+### 3.7 6단계 마무리 — Result Panel 정식 Figma UI + 리사이즈 + 스트리밍 폴리싱 (2026-08-14~15, 미커밋)
+
+§3.5에서 "최소 결과 표시"로 남겨뒀던 부분을 정식 Figma UI로 교체. plan-agent → design-agent(Figma `39:28~39:65`, `174:*` 컴포넌트 갤러리 실측) → development-agent(구현) → design-agent(사후검수) 사이클을 여러 라운드 반복.
+
+- **정식 Result Panel 구현**: `RecognizedProblemBar`, `ResultCard`(concept/steps 2 variant), `AnswerBox`, 공용 `Badge`(pill/chip/tag/footnote/outline 5개 size, tint-blue/tint-green/outline 3개 variant) 신규. KaTeX(`katex` 패키지 신규 설치, `shared/lib/katex/renderMathText.tsx`) — 실제 라이브 OpenAI 응답이 `\( \)`/`\[ \]` 구분자를 쓰는 것을 확인하고 그 형식에 맞춤, 변환 실패 시 원문 폴백.
+- **레이아웃 대전환**: 처음엔 ProblemCard와 같은 좌측 컬럼에 이어붙이는 방식이었다가 → design-agent가 Figma를 재실측해 "우측 420px 독립 도킹 패널"이 원안임을 확인 → 다시 실사용 중 "ProblemCard/ActionBar가 계속 왼쪽으로 밀려 있다" 지적 받고 재실측한 결과 Figma 자체가 **겹침을 z-index로 해결하는 구조**(예약 공간 없음)임을 확인 → 최종적으로 ProblemCard/ActionBar는 화면 전체 폭 기준 정상 중앙정렬, `ResultPanelShell`이 `z-20`으로 그 위에 얹혀 필요하면 겹치는 방식으로 정착(`SolveLandscapePage.tsx`).
+- **로딩↔완료 상태 통합**: 로딩 박스와 완료 후 Result Panel이 서로 다른 위치/스타일에 각각 마운트되어 "다른 곳에서 갑자기 나타난다"는 지적을 받고, `ResultPanelShell`(신규) 하나가 항상 같은 DOM으로 유지되며 내부 콘텐츠만 전환되도록 재구성(마운트 애니메이션 `result-panel-slide-in`이 최초 1회만 재생). 스트리밍 중에도 `parseStreamingSolve.ts`(신규, 백엔드 `parseSolveOutput.ts`와 동일한 헤더 분리 로직을 프론트에 이식)로 raw 텍스트를 실시간 파싱해서 완료 후와 **같은** `ResultCard`/`AnswerBox` 컴포넌트에 채워 넣어 "깜빡이며 바뀌는" 느낌 제거.
+- **3단계 리사이즈 패널**(`Width=Default/Extend/Close`, Figma 컴포넌트 갤러리 `174:639`에서 발견 — 메인 화면이 아니라 별도 갤러리 프레임에 있었음): `ResultPanelResizeHandle`(신규, 좌측 24×88px 유리 탭 + 아이콘 버튼 2개) — Default(420px)/Extend(748px)/Close(24px, 콘텐츠 숨김) 3단계, 상태별 아이콘 전환 규칙까지 오너 확인 후 구현. `docs/COMPONENT_MAP.md`에 등록.
+- **iPad 실사용 중 발견해 함께 고친 버그들**: Badge `footnote` size의 line-height 결함(16px→18px), 후속 질문 답변 버블이 Extend 모드에서 `max-w-85%` 때문에 다른 카드처럼 안 넓어지는 문제(→ AI 답변은 ResultCard처럼 폭 꽉 채움으로 통일), Result Panel 터치 시 페이지가 출렁이는 문제(iOS 오버스크롤 바운스 — `global.css`에 `overscroll-behavior:none` 전역 추가, `HandwritingCanvas`에 `onPointerCancel` 누락도 함께 수정), 로그인/회원가입/전체 팝업의 브라우저 기본 포커스 링 노출(Modal 자동포커스에 스타일 누락 — `Modal`/`Button` 공용 컴포넌트에 `focus-visible:ring` 추가).
+- 게이트(typecheck/lint/test/build) 매 라운드 독립 재검증 완료. **미커밋** — §2 참고.
+
+### 3.8 로컬 개발 인프라 — LAN IP 변경 대응 (2026-08-14, 미커밋)
+
+오너 기기의 LAN IP가 세션 도중 `172.30.1.69`→`172.30.1.74`로 바뀌면서(DHCP 재할당 추정) "문제를 인식하지 못했다"는 무한 로딩이 재발. 원인은 IP 불일치로 `fetch`가 응답 없는 호스트에 무한 대기(즉시 실패가 아니라 TCP 타임아웃까지 대기)한 것.
+- `apps/web/.env`/`apps/api/.env`의 `VITE_API_BASE_URL`/`CORS_ORIGIN`을 새 IP로 갱신.
+- 재발 방지: `apps/web/src/shared/api/httpClient.ts`에 `createTimeoutSignal()`(30초, `AbortSignal.timeout`) 추가 — non-streaming 요청(`recognize`)에만 적용, `solve`(SSE)는 정상적으로 오래 걸릴 수 있어 제외.
+- mkcert 인증서도 옛 IP만 SAN에 포함하고 있어 재발급(`mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1 172.30.1.74`), `apps/web/.cert`/`apps/api/.cert` 양쪽에 반영.
+- **IP는 네트워크 환경에 따라 또 바뀔 수 있다** — 다음 세션에서 다시 "연결할 수 없음"이 뜨면 가장 먼저 `ifconfig`/`ipconfig getifaddr en0`로 현재 IP를 확인하고 위 3곳(`.env` 2개 + mkcert 인증서)을 맞춰야 한다.
+
+### 3.9 6.5단계 — 후속 질문(채팅) Footer 연결, 백엔드+프론트 신규 구현 (2026-08-16, 미커밋)
+
+PRD `docs/PRD_WHYMATH.md` §4.5에 CHAT-5~10을 보완(작업트리에 초안이 이미 있었음, 검토 후 오너 승인 — **아직 PRD 파일 자체는 커밋 안 됨**, CHAT-3는 기존 "개념 우선/답 유보" 뉘앙스에서 "직접 답변 우선, 회피 금지"로 정책이 실질적으로 바뀐 것을 오너가 인지하고 승인). plan-agent(코드 조사) → design-agent(Figma Footer 실측) → 오너 승인 → development-agent(6.5B 백엔드) → **라이브 OpenAI 스모크 테스트로 실동작 검증**(멀티턴 대화 맥락 유지 확인) → development-agent(6.5A 프론트) 순서로 진행.
+
+**6.5B 백엔드(신규, 이전엔 타입 선언조차 없었음)**:
+- `POST /api/problems/:problemId/chat` 신설(`apps/api/src/modules/chat/`) — 일반 JSON 완료 응답(SSE 아님, PRD가 스트리밍은 P1로 명시).
+- `ChatMessage`(`packages/shared-types`), `chatRequestSchema`(`question.trim().min(1).max(2000)`, `packages/validation`) 신규.
+- `LLMAdapter.chat()` 신규 — Fake/OpenAI 어댑터 둘 다 구현. 시스템 프롬프트(`buildChatPrompt`)는 CHAT-3 정책 반영.
+- `inMemoryProblemStore`를 확장해서 solve 완료 시(`done` 이벤트) `Solution`도 함께 저장(이전엔 `RecognizedProblem`만 저장) — chat 요청이 `problemId`만으로 문제+최초풀이 컨텍스트를 서버에서 복원할 수 있게 함. **대화 이력은 서버에 저장하지 않는 stateless 설계** — 매 요청마다 프론트가 전체 `history` 배열을 함께 보낸다(Supabase 저장은 7단계 범위, 이번엔 제외).
+
+**6.5A 프론트(신규)**:
+- `problemId`를 `ProblemInputContext`에 신규 노출(이전엔 훅 내부에만 있어서 chat 요청 자체가 불가능했음 — 선행 필수 작업이었음).
+- `apps/web/src/features/follow-up-chat/`(신규): `ChatFooter`(입력창+전송버튼+해시태그pill), `SuggestionPill`(Body 소속, Footer 아님 — Figma 실측으로 정정), `ChatBubble`(**Figma에 대화 진행 상태 프레임이 없어 임시로 구현** — 기존 토큰만 재사용, `docs/COMPONENT_MAP.md`에 "Figma 확정 시 교체 필요"로 문서화), `useChatMessages`(대화 상태 훅, 빈질문/중복제출 차단, 실패 시 입력값 유지).
+- 새 문제 제출 시작 시점(`submitProblem()` 맨 앞)에 `resetChat()` 호출 — recognize 로딩 중에는 `solveStatus`/`solveResult`가 아직 이전 문제 값이라 `isResultReady`가 계속 true로 남아 이전 결과+채팅이 잠깐 보일 수 있는 타이밍 갭을 세션 중 직접 발견해서 수정.
+- 게이트(typecheck/lint/test/build) 통과, design-agent 사후검수(제안pill/해시태그pill/입력창/전송버튼 Figma 픽셀 대조 — line-height 결함 1건 발견 즉시 수정).
+
+### 3.10 "Initial" 로딩 마크 (2026-08-16, 미커밋)
+
+Claude 자체 채팅 UI처럼, 첫 풀이 로딩과 후속 질문 응답 대기 중 브랜드 마크("M", Figma node `190:866`, "Initial" 컴포넌트)를 펄스 애니메이션으로 띄우도록 요청받음. Figma에서 정확한 노드를 찾는 데 두 차례 시행착오(처음엔 `docs/FIGMA_SCREEN_MAP.md`의 예시 URL에 우연히 박혀있던 무관한 노드를 잘못 짚음 → 오너가 스크린샷+정확한 node-id 재전달 → 재확인).
+- 에셋은 Figma가 준 raw 이미지의 crop 좌표를 역산하는 대신, 배경이 baked-in된 정확한 렌더(`export_node.png`)에서 균일한 배경색(`#f5f5f5`)만 픽셀 단위로 chroma-key 제거해 투명 PNG 직접 생성(`apps/web/src/assets/logo/WhyMathInitial.png`) — 이 방식은 제가 직접 처리(Python/PIL), 별도 서브에이전트 없이.
+- `apps/web/src/shared/ui/loading-mark/LoadingMark.tsx` 신규 — 펄스 애니메이션(opacity 0.4~1.0/scale 0.92~1.0/1.4초, Figma에 모션 스펙 없어 임시값)은 `global.css`의 `@keyframes loading-mark-pulse`. 기존 `Spinner`는 그대로 두고(다른 화면에서 계속 쓰임) 첫 풀이 로딩·후속 질문 로딩 두 자리만 `LoadingMark`로 교체.
+
+### 3.11 6.5단계 완료 조건 재검증 + 후속 버그 수정 (2026-08-16, 미커밋)
+
+오너가 완료 조건 13개를 나열하며 실제 충족 여부를 요청 → 코드로 하나씩 대조.
+- **자동 스크롤 부재**: 제안pill 클릭으로 새 질문/로딩이 추가돼도 스크롤이 안 내려가 화면 밖에 있던 문제 — `SolveLandscapePage.tsx`에 `chatEndRef` 스크롤 앵커 패턴 추가(`ResultPanel`/`ResultPanelShell`은 이 로직을 몰라도 됨).
+- **해시태그(주제) pill 클릭 안 됨**: `ChatFooter`가 순수 `Badge`(비클릭)로만 렌더링하고 있었음 — design-agent가 Figma를 재조사해 이 pill이 컴포넌트도 variant도 아닌 정적 프레임(선택 상태 정의 없음, 마이페이지의 진짜 "Filter Pill"과는 별개)임을 확인 → 오너가 "제안pill과 동일하게 입력창 채우기"로 UX 확정 → `onHashtagClick` 연결.
+- **iPad 키보드 회피 미구현**(6.5단계 완료 조건 13개 중 유일하게 미충족이었던 항목): `useKeyboardInset.ts`(신규, `window.visualViewport` 기반, 미지원 환경 0 반환) — `ResultPanelShell`의 `bottom` 오프셋에 키보드가 가린 높이만큼 인라인 스타일로 추가. Split View는 기존 `ViewportGuard`(1024px 미만 차단, 안 건드림)+기존 `flex-wrap`(pill 행)으로 이미 충족되는 것으로 판단.
+  - **중요**: 이 작업을 지시한 development-agent 실행이 "컴퓨터가 절전 모드로 전환"되며 중간에 끊겼다(응답 잘림, 최종 보고서 못 받음). 실제 코드 변경분은 살아있고 게이트도 통과했지만, 누락된 단위 테스트(`useKeyboardInset.test.ts`)와 stale JSDoc 주석은 제가 직접 마무리함. **실제 iPad Safari에서의 키보드 열림/닫힘/회전 동작은 검증 못 함**(코드+자동테스트로만 확인) — 다음 세션에서 실기기 확인 필요.
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -120,36 +169,45 @@ plan-agent(구조 분석) → development-agent(구현) → design-agent(Figma �
 | 3 | 인증·입력 검증 | ✅ 완료 |
 | 4 | AI Adapter interface + Fake Adapter | ✅ 완료 |
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
-| 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5) — recognize+solve 연결, 필기 유실 버그 수정, 최소 결과 표시. 정식 Result Panel은 별도 작업으로 분리 |
+| 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
+| 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
 ## 6. 다음 세션 시작 시 권장 첫 행동
 
-1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인).
-2. 사운드 알림이 실제로 들리는지 오너에게 확인(§0 — 아직 미확인 상태로 남아있음).
-3. 오너에게 다음 우선순위를 확인:
-   - 정식 Result Panel(개념/풀이/답 UI, 마크다운+KaTeX) — Figma에 컴포넌트가 아직 없으므로 먼저 Figma 확정이 필요할 수 있음.
-   - 7단계(Supabase 저장) 착수 여부.
-   - §3.5 끝에 남겨둔 사소한 항목(ProblemCard `recognitionFailed` 중복, 스트리밍 도중 에러 시 잔여 텍스트) 정리 여부.
+1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
+2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
+3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
+4. 오너에게 다음 우선순위를 확인:
+   - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
+   - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.
+   - Footer의 후속 질문 스트리밍 표시(PRD CHAT-8, P1) 착수 여부.
+   - 7단계(Supabase 저장, 후속 대화 영구 저장 포함) 착수 여부.
    - `icon="error"` Modal variant — Figma에 정식 error/warning 팝업이 생기면 교체 필요(현재는 임시로 승인된 상태, `docs/COMPONENT_MAP.md` 참고).
+   - §3.7 끝에 남겨둔 사소한 항목(ProblemCard `recognitionFailed` 중복) 정리 여부.
+   - 사운드 알림이 실제로 들리는지(§0, 중요도 낮음).
 
 ## 7. 주요 파일 경로 참고
 
 - 백엔드 진입점: `apps/api/src/app.ts`(`createApp(adapter?)`), `apps/api/src/server.ts`(HTTPS 조건부 지원)
-- AI 어댑터: `apps/api/src/infrastructure/ai/{adapter.ts,openai-adapter.ts,fake-adapter.ts,resolve-adapter.ts,parseSolveOutput.ts,prompts/system.ts}`
-- 라우트: `apps/api/src/modules/{recognition,solutions}/*.router.ts`
-- 인메모리 저장소(임시): `apps/api/src/infrastructure/store/inMemoryProblemStore.ts`
+- AI 어댑터: `apps/api/src/infrastructure/ai/{adapter.ts,openai-adapter.ts,fake-adapter.ts,resolve-adapter.ts,parseSolveOutput.ts,prompts/system.ts}`(`chat()` 포함)
+- 라우트: `apps/api/src/modules/{recognition,solutions,chat}/*.router.ts`
+- 인메모리 저장소(임시): `apps/api/src/infrastructure/store/inMemoryProblemStore.ts`(`Solution`도 저장하도록 확장됨)
 - 환경변수: `apps/api/src/config/env.ts`(+`env.test.ts`)
-- 공유 타입/스키마: `packages/shared-types/src/index.ts`, `packages/validation/src/index.ts`
-- 프론트 문제 입력 상태(Provider): `apps/web/src/features/problem-input/{ProblemInputProvider.tsx,ProblemInputContext.ts,useProblemInput.ts,normalizeProblemInput.ts,RequireProblemInputGuard.tsx,CameraPreviewGuard.tsx}`, `apps/web/src/app/ProblemInputRoute.tsx`
-- 프론트 API 클라이언트: `apps/web/src/shared/api/{httpClient.ts,parseSse.ts,recognizeProblem.ts,solveProblem.ts,ApiError.ts}`
-- 프론트 오케스트레이션 훅: `apps/web/src/features/problem-recognition/useRecognizeProblem.ts`, `apps/web/src/features/ai-solution/useSolveStream.ts`
+- 공유 타입/스키마: `packages/shared-types/src/index.ts`(`ChatMessage` 포함), `packages/validation/src/index.ts`(`chatRequestSchema` 포함)
+- 프론트 문제 입력 상태(Provider): `apps/web/src/features/problem-input/{ProblemInputProvider.tsx,ProblemInputContext.ts,useProblemInput.ts,normalizeProblemInput.ts,RequireProblemInputGuard.tsx,CameraPreviewGuard.tsx}`(`problemId`/`chatMessages` 등 노출), `apps/web/src/app/ProblemInputRoute.tsx`
+- 프론트 API 클라이언트: `apps/web/src/shared/api/{httpClient.ts,parseSse.ts,recognizeProblem.ts,solveProblem.ts,chatMessage.ts,ApiError.ts}`
+- 프론트 오케스트레이션 훅: `apps/web/src/features/problem-recognition/useRecognizeProblem.ts`, `apps/web/src/features/ai-solution/useSolveStream.ts`, `apps/web/src/features/follow-up-chat/useChatMessages.ts`
+- 프론트 결과 화면(Result Panel, §3.7): `apps/web/src/features/ai-solution/{ResultPanel.tsx,ResultPanelShell.tsx,ResultPanelResizeHandle.tsx,ResultCard.tsx,AnswerBox.tsx,RecognizedProblemBar.tsx,parseStreamingSolve.ts,useKeyboardInset.ts}`, `apps/web/src/shared/lib/katex/renderMathText.tsx`, `apps/web/src/shared/ui/badge/Badge.tsx`
+- 프론트 후속 질문(채팅, §3.9): `apps/web/src/features/follow-up-chat/{ChatFooter.tsx,SuggestionPill.tsx,ChatBubble.tsx(임시),useChatMessages.ts}`
+- 로딩 마크(§3.10): `apps/web/src/shared/ui/loading-mark/LoadingMark.tsx`, 에셋 `apps/web/src/assets/logo/WhyMathInitial.png`
 - 프론트 캔버스 유틸(이관됨): `apps/web/src/shared/lib/canvas/{useDrawingStrokes.ts,strokeToPath.ts,strokeStyle.ts,exportStrokesToPngBlob.ts}`
-- 프론트 필기 컴포넌트: `apps/web/src/features/drawing-canvas/{HandwritingCanvas.tsx,PenRail.tsx}`
+- 프론트 필기 컴포넌트: `apps/web/src/features/drawing-canvas/{HandwritingCanvas.tsx,PenRail.tsx}`(`onPointerCancel` 포함)
 - 프론트 카메라: `apps/web/src/features/camera/*`
-- 프론트 solve 페이지: `apps/web/src/pages/solve/{pencilcanvas,landscape}/*`(landscape에 최소 결과 표시 포함)
-- 공용 Modal: `apps/web/src/shared/ui/modal/Modal.tsx`
+- 프론트 solve 페이지: `apps/web/src/pages/solve/{pencilcanvas,landscape}/*`(landscape가 전체 조립부)
+- 공용 Modal/Button: `apps/web/src/shared/ui/{modal/Modal.tsx,button/Button.tsx}`(`focus-visible:ring` 포함)
+- 전역 CSS: `apps/web/src/shared/styles/global.css`(`overscroll-behavior:none`, 슬라이드인/펄스 keyframes)
 - 루트 ESLint: `eslint.config.js`(신규), `apps/web/eslint.config.js`(기존, 미변경)
-- 로컬 HTTPS: `apps/web/vite.config.ts`, `apps/api/src/server.ts`, `apps/{web,api}/.cert/`(gitignore)
-- PRD/구조 문서: `docs/PRD_WHYMATH.md`, `docs/PROJECT_STRUCTURE.md`, `docs/FIGMA_SCREEN_MAP.md`, `docs/COMPONENT_MAP.md`, `.claude/rules/frontend.md`
+- 로컬 HTTPS: `apps/web/vite.config.ts`, `apps/api/src/server.ts`, `apps/{web,api}/.cert/`(gitignore, LAN IP 바뀌면 재발급 필요 — §3.8)
+- PRD/구조 문서: `docs/PRD_WHYMATH.md`(§4.5 CHAT-1~10 미커밋 초안), `docs/PROJECT_STRUCTURE.md`, `docs/FIGMA_SCREEN_MAP.md`, `docs/COMPONENT_MAP.md`(`ChatBubble`/리사이즈 핸들 등 임시·신규 컴포넌트 문서화), `.claude/rules/frontend.md`
