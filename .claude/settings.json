@@ -196,7 +196,22 @@
       "Bash(curl -sL -o design_context_image.png \"https://www.figma.com/api/mcp/asset/802f4d27-ad38-4636-8aca-013734a942de.png\")",
       "Bash(python3 -c \"import PIL; print\\(PIL.__version__\\)\")",
       "Bash(xargs -I{} basename {})",
-      "Bash(pnpm -F shared-types -F validation -F api -F web test -- --run)"
+      "Bash(pnpm -F shared-types -F validation -F api -F web test -- --run)",
+      "Bash(supabase --version)",
+      "Bash(cd /Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/apps/api && head -20 src/app.test.ts && echo \"=== solutions test head ===\" && head -20 src/modules/solutions/solutions.router.test.ts && echo \"=== chat test head ===\" && head -25 src/modules/chat/chat.router.test.ts && echo \"=== validation recognize schema ===\" && grep -n \"inputType\" -r ../../packages/validation/src | head)",
+      "Read(//Users/soojin/Library/CloudStorage/OneDrive-개인/packages/validation/**)",
+      "Bash(pnpm -F api test -- --run)",
+      "Bash(curl -sL -o /private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/5b8a8485-6113-4e64-b1a2-3ffacce97d5c/scratchpad/figma/mypage_full.png \"https://www.figma.com/api/mcp/asset/576eb29a-6e7b-4f2d-9f82-26ed47f810e7.png\")",
+      "Bash(curl -sL -o /private/tmp/claude-501/-Users-soojin-Library-CloudStorage-OneDrive----vibeStudy-WhyMath/5b8a8485-6113-4e64-b1a2-3ffacce97d5c/scratchpad/figma/mypage_body.png \"https://www.figma.com/api/mcp/asset/cc4972c1-5909-49e7-9ff7-d4afc0d7fa16.png\")",
+      "Bash(pnpm -F web test -- --run)",
+      "Bash(pnpm -F web test -- --run src/pages/mypage)",
+      "Bash(pnpm -F api test -- --run src/modules/problems src/infrastructure/persistence)",
+      "Bash(pnpm -F validation build)",
+      "Bash(xargs -I{} sh -c 'echo ---{}---; cat {}')",
+      "Bash(grep -rnE \"#[0-9a-fA-F]{3,8}|rgba?\\\\\\(\" apps/web/src/features/learning-history apps/web/src/shared/ui/filter-pill apps/web/src/pages/mypage/MyPage.tsx)",
+      "Bash(xargs -I{} echo {})",
+      "Bash(cd \"/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/apps/web/src\" && grep -n \"export type DrawingTool\" shared/lib/canvas/useDrawingStrokes.ts && grep -n \"export type ChatStatus\" features/follow-up-chat/useChatMessages.ts && grep -n \"export type SolveStreamStatus\" features/ai-solution/useSolveStream.ts && grep -rn \"InitialEntry\" ../node_modules/react-router/dist/development/index.d.ts | head -5)",
+      "Read(//Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/node_modules/react-router/dist/development/**)"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"
