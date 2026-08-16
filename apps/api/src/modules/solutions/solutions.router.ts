@@ -7,6 +7,7 @@ import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
+import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 
 interface ResolvedProblem {
@@ -58,6 +59,9 @@ function createHandleSolve(adapter: LLMAdapter) {
           res.write(`event: chunk\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`);
         } else {
           inMemoryProblemStore.setSolution(problemId, event.result);
+          // best-effort 영구 저장. saveSolution은 절대 throw하지 않으므로
+          // 아래 catch(어댑터 에러용)에 걸려 error 이벤트를 오발생시키지 않는다.
+          await problemRepository.saveSolution({ problemId, solution: event.result });
           res.write(`event: done\ndata: ${JSON.stringify(event.result)}\n\n`);
         }
       }

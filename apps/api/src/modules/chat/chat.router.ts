@@ -7,6 +7,7 @@ import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
+import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 
 interface ResolvedChatContext {
@@ -47,6 +48,9 @@ function createHandleChat(adapter: LLMAdapter) {
       const { problem, solution, grade } = resolveChatContext(problemId);
 
       const answerMd = await adapter.chat({ problem, solution, history, question, grade });
+
+      // 질문/답변 한 턴을 best-effort로 영구 저장한다(실패해도 throw하지 않는다).
+      await problemRepository.saveChatTurn({ problemId, question, answer: answerMd });
 
       const responseBody = chatResponseSchema.parse({ answerMd });
 

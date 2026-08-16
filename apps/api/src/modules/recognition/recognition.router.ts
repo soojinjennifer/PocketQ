@@ -7,6 +7,7 @@ import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
+import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
 import { uploadProblemImage } from "./upload";
@@ -23,7 +24,7 @@ function createHandleRecognize(adapter: LLMAdapter) {
   return async function handleRecognize(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       // validateRequest 미들웨어가 이미 검증·치환한 값이므로 안전하게 단언한다.
-      const { grade } = req.body as RecognizeRequestDto;
+      const { grade, inputType } = req.body as RecognizeRequestDto;
       const imageBuffer = req.file?.buffer;
 
       if (!imageBuffer) {
@@ -36,10 +37,22 @@ function createHandleRecognize(adapter: LLMAdapter) {
       const problemId = randomUUID();
       const createdAt = new Date().toISOString();
 
+      const userId = getRequestUser(req)?.id ?? "unknown";
+
       inMemoryProblemStore.set({
         problemId,
-        userId: getRequestUser(req)?.id ?? "unknown",
+        userId,
         grade,
+        problem: recognized,
+        createdAt,
+      });
+
+      // Supabase 영구 저장은 best-effort다 — 실패해도 throw하지 않으므로 응답에 영향이 없다.
+      await problemRepository.saveProblem({
+        problemId,
+        userId,
+        grade,
+        inputType,
         problem: recognized,
         createdAt,
       });

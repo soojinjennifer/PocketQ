@@ -71,3 +71,48 @@ export const chatResponseSchema = z.object({
   answerMd: z.string(),
 });
 export type ChatResponseDto = z.infer<typeof chatResponseSchema>;
+
+/** GET /api/problems 응답의 개별 이력 항목 */
+export const problemHistoryListItemSchema = z.object({
+  problemId: z.string(),
+  recognizedText: z.string(),
+  conceptTags: z.array(z.string()),
+  createdAt: z.string(),
+});
+export type ProblemHistoryListItemDto = z.infer<typeof problemHistoryListItemSchema>;
+
+/** GET /api/problems 응답 스키마 (마이페이지 풀이 이력 목록).
+ *  최신순 정렬은 서버가 처리하므로 클라이언트는 재정렬하지 않는다. */
+export const problemHistoryListResponseSchema = z.object({
+  items: z.array(problemHistoryListItemSchema),
+});
+export type ProblemHistoryListResponseDto = z.infer<typeof problemHistoryListResponseSchema>;
+
+/**
+ * GET /api/problems/:problemId 응답 스키마 (풀이 이력 상세).
+ * `solution`은 recognize만 끝나고 solve가 완료되지 않은 문제를 위해 nullable이다.
+ */
+export const problemHistoryDetailSchema = z.object({
+  problemId: z.string(),
+  recognizedText: z.string(),
+  recognizedLatex: z.string().nullable(),
+  createdAt: z.string(),
+  solution: z
+    .object({
+      conceptMd: z.string().nullable(),
+      solutionMd: z.string().nullable(),
+      answerMd: z.string(),
+      conceptTags: z.array(z.string()),
+      aiProvider: z.enum(["openai", "claude"]),
+      aiModel: z.string(),
+    })
+    .nullable(),
+  chatMessages: z.array(
+    z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+export type ProblemHistoryDetailDto = z.infer<typeof problemHistoryDetailSchema>;

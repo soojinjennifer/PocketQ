@@ -6,6 +6,7 @@ import { resolveAdapter } from "./infrastructure/ai/resolve-adapter";
 import { errorHandler } from "./middleware/error-handler";
 import { createChatRouter } from "./modules/chat/chat.router";
 import { healthRouter } from "./modules/health/health.router";
+import { createProblemsRouter } from "./modules/problems/problems.router";
 import { createRecognitionRouter } from "./modules/recognition/recognition.router";
 import { createSolutionsRouter } from "./modules/solutions/solutions.router";
 
@@ -27,6 +28,7 @@ export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
   app.use("/api", createRecognitionRouter(adapter));
   app.use("/api", createSolutionsRouter(adapter));
   app.use("/api", createChatRouter(adapter));
+  app.use("/api", createProblemsRouter());
 
   app.use(errorHandler);
 

@@ -1,0 +1,294 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "supertest";
+
+const getUserMock = vi.fn();
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    auth: { getUser: getUserMock },
+  })),
+}));
+
+// 이 라우터는 AI 어댑터를 쓰지 않으므로 repository 계층 자체를 모듈 mock으로 대체한다.
+// vi.mock 팩토리는 호이스팅되므로 mock 함수도 vi.hoisted로 함께 끌어올린다.
+const { listProblemsMock, getProblemDetailMock } = vi.hoisted(() => ({
+  listProblemsMock: vi.fn(),
+  getProblemDetailMock: vi.fn(),
+}));
+
+vi.mock("../../infrastructure/persistence/problemRepository", () => ({
+  problemRepository: {
+    listProblems: listProblemsMock,
+    getProblemDetail: getProblemDetailMock,
+    saveProblem: vi.fn(),
+    saveSolution: vi.fn(),
+    saveChatTurn: vi.fn(),
+  },
+}));
+
+// reopen 라우트가 메모리 저장소를 다시 채우는지 확인하기 위해 저장소도 모듈 mock으로 대체한다.
+const { storeSetMock } = vi.hoisted(() => ({ storeSetMock: vi.fn() }));
+
+vi.mock("../../infrastructure/store/inMemoryProblemStore", () => ({
+  inMemoryProblemStore: {
+    set: storeSetMock,
+    get: vi.fn(),
+    setSolution: vi.fn(),
+    clear: vi.fn(),
+  },
+}));
+
+const { createApp } = await import("../../app");
+const { FakeLLMAdapter } = await import("../../infrastructure/ai/fake-adapter");
+
+const AUTH_HEADER = { Authorization: "Bearer valid-token" };
+
+function createTestApp() {
+  return createApp(new FakeLLMAdapter());
+}
+
+describe("GET /api/problems", () => {
+  beforeEach(() => {
+    getUserMock.mockReset();
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: { grade: "M2" } } },
+      error: null,
+    });
+    listProblemsMock.mockReset();
+    getProblemDetailMock.mockReset();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("인증 헤더가 없으면 401을 응답한다", async () => {
+    const res = await request(createTestApp()).get("/api/problems");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("unauthorized");
+    expect(listProblemsMock).not.toHaveBeenCalled();
+  });
+
+  it("로그인 사용자의 풀이 이력 목록을 200으로 응답한다", async () => {
+    listProblemsMock.mockResolvedValue([
+      {
+        problemId: "problem-1",
+        recognizedText: "2x + 1 = 5",
+        conceptTags: ["일차방정식"],
+        createdAt: "2026-08-16T00:00:00.000Z",
+      },
+    ]);
+
+    const res = await request(createTestApp()).get("/api/problems").set(AUTH_HEADER);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      items: [
+        {
+          problemId: "problem-1",
+          recognizedText: "2x + 1 = 5",
+          conceptTags: ["일차방정식"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(listProblemsMock).toHaveBeenCalledWith("user-1");
+  });
+
+  it("조회가 실패하면 원본 에러 메시지를 노출하지 않고 500을 응답한다", async () => {
+    listProblemsMock.mockRejectedValue(new Error("permission denied for table problems"));
+
+    const res = await request(createTestApp()).get("/api/problems").set(AUTH_HEADER);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("internal_error");
+    expect(res.body.error.message).toBe("풀이 기록을 불러오지 못했습니다.");
+    expect(JSON.stringify(res.body)).not.toContain("permission denied");
+  });
+});
+
+describe("GET /api/problems/:problemId", () => {
+  const DETAIL = {
+    problemId: "problem-1",
+    recognizedText: "2x + 1 = 5",
+    recognizedLatex: "2x+1=5",
+    createdAt: "2026-08-16T00:00:00.000Z",
+    solution: {
+      conceptMd: "개념 설명",
+      solutionMd: "풀이 과정",
+      answerMd: "42",
+      conceptTags: ["일차방정식"],
+      aiProvider: "openai",
+      aiModel: "gpt-test",
+    },
+    chatMessages: [
+      { role: "user", content: "왜요?", createdAt: "2026-08-16T00:01:00.000Z" },
+      { role: "assistant", content: "이항했어요.", createdAt: "2026-08-16T00:02:00.000Z" },
+    ],
+  };
+
+  beforeEach(() => {
+    getUserMock.mockReset();
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: { grade: "M2" } } },
+      error: null,
+    });
+    listProblemsMock.mockReset();
+    getProblemDetailMock.mockReset();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("인증 헤더가 없으면 401을 응답한다", async () => {
+    const res = await request(createTestApp()).get("/api/problems/problem-1");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("unauthorized");
+    expect(getProblemDetailMock).not.toHaveBeenCalled();
+  });
+
+  it("풀이 이력 상세를 200으로 응답한다", async () => {
+    getProblemDetailMock.mockResolvedValue(DETAIL);
+
+    const res = await request(createTestApp()).get("/api/problems/problem-1").set(AUTH_HEADER);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(DETAIL);
+    expect(getProblemDetailMock).toHaveBeenCalledWith("user-1", "problem-1");
+  });
+
+  it("repository가 null을 반환하면(없거나 타인 소유) 404를 응답한다", async () => {
+    getProblemDetailMock.mockResolvedValue(null);
+
+    const res = await request(createTestApp()).get("/api/problems/problem-9").set(AUTH_HEADER);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toBe("풀이 기록을 찾을 수 없습니다.");
+  });
+
+  it("조회가 실패하면 원본 에러 메시지를 노출하지 않고 500을 응답한다", async () => {
+    getProblemDetailMock.mockRejectedValue(new Error("connection reset by peer"));
+
+    const res = await request(createTestApp()).get("/api/problems/problem-1").set(AUTH_HEADER);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("internal_error");
+    expect(JSON.stringify(res.body)).not.toContain("connection reset");
+  });
+});
+
+describe("POST /api/problems/:problemId/reopen", () => {
+  const DETAIL = {
+    problemId: "problem-1",
+    recognizedText: "2x + 1 = 5",
+    recognizedLatex: "2x+1=5",
+    createdAt: "2026-08-16T00:00:00.000Z",
+    solution: {
+      conceptMd: "개념 설명",
+      solutionMd: "풀이 과정",
+      answerMd: "42",
+      conceptTags: ["일차방정식"],
+      aiProvider: "openai",
+      aiModel: "gpt-test",
+    },
+    chatMessages: [],
+  };
+
+  beforeEach(() => {
+    getUserMock.mockReset();
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: { grade: "M2" } } },
+      error: null,
+    });
+    getProblemDetailMock.mockReset();
+    storeSetMock.mockReset();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("인증 헤더가 없으면 401을 응답한다", async () => {
+    const res = await request(createTestApp()).post("/api/problems/problem-1/reopen");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("unauthorized");
+    expect(getProblemDetailMock).not.toHaveBeenCalled();
+    expect(storeSetMock).not.toHaveBeenCalled();
+  });
+
+  it("과거 기록을 메모리 저장소에 다시 채우고 200으로 응답한다", async () => {
+    getProblemDetailMock.mockResolvedValue(DETAIL);
+
+    const res = await request(createTestApp())
+      .post("/api/problems/problem-1/reopen")
+      .set(AUTH_HEADER);
+
+    expect(res.status).toBe(200);
+    expect(getProblemDetailMock).toHaveBeenCalledWith("user-1", "problem-1");
+    expect(res.body.problemId).toBe("problem-1");
+    expect(res.body.recognizedText).toBe("2x + 1 = 5");
+    expect(res.body.recognizedLatex).toBe("2x+1=5");
+    // 저장 당시가 아니라 재수화 시점의 createdAt을 새로 부여한다.
+    expect(typeof res.body.createdAt).toBe("string");
+    expect(res.body.createdAt).not.toBe(DETAIL.createdAt);
+
+    expect(storeSetMock).toHaveBeenCalledTimes(1);
+    expect(storeSetMock).toHaveBeenCalledWith({
+      problemId: "problem-1",
+      userId: "user-1",
+      // 저장 당시 학년이 아니라 현재 로그인 사용자의 학년을 쓴다.
+      grade: "M2",
+      problem: { recognizedText: "2x + 1 = 5", recognizedLatex: "2x+1=5" },
+      createdAt: res.body.createdAt,
+    });
+  });
+
+  it("repository가 null을 반환하면(없거나 타인 소유) 404를 응답한다", async () => {
+    getProblemDetailMock.mockResolvedValue(null);
+
+    const res = await request(createTestApp())
+      .post("/api/problems/problem-9/reopen")
+      .set(AUTH_HEADER);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toBe("풀이 기록을 찾을 수 없습니다.");
+    expect(storeSetMock).not.toHaveBeenCalled();
+  });
+
+  it("조회가 실패하면 원본 에러 메시지를 노출하지 않고 500을 응답한다", async () => {
+    getProblemDetailMock.mockRejectedValue(new Error("connection reset by peer"));
+
+    const res = await request(createTestApp())
+      .post("/api/problems/problem-1/reopen")
+      .set(AUTH_HEADER);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("internal_error");
+    expect(JSON.stringify(res.body)).not.toContain("connection reset");
+    expect(storeSetMock).not.toHaveBeenCalled();
+  });
+
+  it("학년 정보가 없으면 400을 응답한다", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: {} } },
+      error: null,
+    });
+
+    const res = await request(createTestApp())
+      .post("/api/problems/problem-1/reopen")
+      .set(AUTH_HEADER);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("validation_error");
+    expect(res.body.error.message).toBe("학년 정보가 필요합니다.");
+    expect(getProblemDetailMock).not.toHaveBeenCalled();
+    expect(storeSetMock).not.toHaveBeenCalled();
+  });
+});
