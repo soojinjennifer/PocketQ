@@ -1,4 +1,4 @@
-import { renderMathText } from "./renderMathText";
+import { renderMathText } from "../../shared/lib/katex/renderMathText";
 
 interface AnswerBoxProps {
   answerMd: string;

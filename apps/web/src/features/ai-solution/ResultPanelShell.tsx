@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ResultPanelResizeHandle, type ResultPanelWidth } from "./ResultPanelResizeHandle";
+import { useKeyboardInset } from "./useKeyboardInset";
 
 export type { ResultPanelWidth };
 
@@ -23,11 +24,19 @@ interface ResultPanelShellProps {
  * 않다 — ProblemCard/ActionBar/Result Panel이 한 프레임에 항상 함께 배치돼 있으므로, 로딩
  * 단계부터 이 셸을 정식 Result Panel과 동일한 위치·폭·스타일로 노출한다.
  *
- * 위치(top-3/right-3/bottom-3)·폭(`w-[min(420px,45vw)]`, Figma 420px + 좁은 Split View
- * 방어용 45vw 상한)·배경/보더(`bg-glass-fill`/`border-glass-border`, Figma `glass/fill`,
- * `glass/border`)·모서리(`rounded-[24px]`, Figma 실측값)·그림자(Figma `Elevation/Glass
- * Panel` 재실측값)는 기존 `ResultPanel`이 갖고 있던 값을 그대로 옮겼다(이중 래핑 방지를 위해
- * `ResultPanel`에서는 제거).
+ * 위치(top-3/right-3, 하단은 `bottom-[calc(0.75rem+env(safe-area-inset-bottom))]`로 iPad
+ * safe-area까지 반영, 키보드가 열리면 `useKeyboardInset()`만큼 인라인 스타일로 추가 — 아래
+ * 참고)·폭(`w-[min(420px,45vw)]`, Figma 420px + 좁은 Split View 방어용 45vw 상한)·배경/
+ * 보더(`bg-glass-fill`/`border-glass-border`, Figma `glass/fill`, `glass/border`)·모서리
+ * (`rounded-[24px]`, Figma 실측값)·그림자(Figma `Elevation/Glass Panel` 재실측값)는 기존
+ * `ResultPanel`이 갖고 있던 값을 그대로 옮겼다(이중 래핑 방지를 위해 `ResultPanel`에서는 제거).
+ *
+ * iPad 온스크린 키보드 대응(오너 6.5단계 완료 조건 보완 요청, 2026-08-16): iOS Safari는 키보드가
+ * 열려도 레이아웃 뷰포트(`100vh`/`min-h-screen` 기준)가 줄지 않아, 이 셸의 `bottom` 오프셋이
+ * 그대로면 후속 질문 입력창이 키보드 뒤에 가려진다. `useKeyboardInset()`(`window.visualViewport`
+ * 기반, 미지원 환경에서는 항상 0)가 가려진 높이(px)를 반환하면 그만큼 `bottom`에 더해 패널
+ * 전체를 위로 당긴다 — 내부 Header/Body/Footer 재분배는 `ResultPanel`의 기존 flex 레이아웃이
+ * 그대로 처리하므로 이 컴포넌트는 위치만 책임진다.
  *
  * 슬라이드 인 모션(`result-panel-slide-in`, `shared/styles/global.css`)은 이 셸이 처음
  * 마운트되는 순간에만 자동 재생된다 — 로딩 중 콘텐츠가 갱신되거나 로딩→성공으로 바뀌어도
@@ -64,9 +73,19 @@ export function ResultPanelShell({
   const widthClassName =
     width === "extend" ? "w-[min(748px,90vw)]" : width === "close" ? "w-6" : "w-[min(420px,45vw)]";
 
+  // iPad 온스크린 키보드가 이 셸의 `bottom` 기준 위치(포함된 `ResultPanel` Footer/후속 질문
+  // 입력창)를 가리는 문제 보완(위 JSDoc, `useKeyboardInset` 참고). 키보드가 닫혀 있으면 0이라
+  // 인라인 스타일을 아예 적용하지 않고, 기존 `bottom-[...]` 클래스 값을 그대로 쓴다(회귀 없음).
+  const keyboardInset = useKeyboardInset();
+
   return (
     <div
-      className={`pointer-events-auto absolute top-3 right-3 bottom-3 z-20 ${widthClassName} transition-[width] duration-300 ease-out`}
+      className={`pointer-events-auto absolute top-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-20 ${widthClassName} transition-[width,bottom] duration-300 ease-out`}
+      style={
+        keyboardInset > 0
+          ? { bottom: `calc(0.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px)` }
+          : undefined
+      }
     >
       <ResultPanelResizeHandle
         width={width}

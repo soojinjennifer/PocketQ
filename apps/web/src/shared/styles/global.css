@@ -54,3 +54,22 @@ body {
     transform: translateX(0);
   }
 }
+
+/**
+ * `shared/ui/loading-mark/LoadingMark`가 쓰는 브랜드 마크("M", Figma `190:866`) 펄스 로딩
+ * 애니메이션. 로딩 펄스 자체는 Figma에 정의돼 있지 않아(design-agent 확인 완료) opacity
+ * 0.4~1.0 / scale 0.92~1.0, 1.4s 주기를 임시값으로 사용한다(결정 필요 — 오너 확인 후 조정
+ * 가능). `result-panel-slide-in`과 달리 로딩이 지속되는 동안 계속 반복 재생돼야 하므로
+ * 컴포넌트에서 `infinite`로 적용한다.
+ */
+@keyframes loading-mark-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

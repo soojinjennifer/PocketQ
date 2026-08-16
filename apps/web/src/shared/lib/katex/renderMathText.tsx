@@ -3,11 +3,16 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 
 /**
- * `ResultCard`/`AnswerBox` 전용 최소 KaTeX 렌더 유틸. 별도의 Markdown 렌더링 파이프라인
- * (`react-markdown`/`remark-math`/`rehype-katex` 등)은 도입하지 않고, 텍스트 안에서 수식
- * 구분자로 감싼 구간만 찾아 KaTeX로 치환한다. 실제 백엔드 응답은 `\( ... \)`(인라인)/
+ * `ResultCard`/`AnswerBox`/`ChatBubble` 전용 최소 KaTeX 렌더 유틸. 별도의 Markdown 렌더링
+ * 파이프라인(`react-markdown`/`remark-math`/`rehype-katex` 등)은 도입하지 않고, 텍스트 안에서
+ * 수식 구분자로 감싼 구간만 찾아 KaTeX로 치환한다. 실제 백엔드 응답은 `\( ... \)`(인라인)/
  * `\[ ... \]`(블록) 구분자를 쓰는 것을 라이브 테스트로 확인했고, `$...$`/`$$...$$`는
  * 방어적으로만 지원한다. 다른 화면/공통 텍스트 컴포넌트에서는 사용하지 않는다(전역 적용 금지).
+ *
+ * `features/ai-solution`(ResultCard/AnswerBox)과 `features/follow-up-chat`(ChatBubble) 두
+ * feature가 모두 이 유틸을 재사용해야 해서 `shared/lib`로 옮겼다(`.claude/rules/frontend.md` §1
+ * feature 간 직접 참조 금지 규칙 준수 — 원래 `features/ai-solution/renderMathText.tsx`였던 것을
+ * 로직 변경 없이 파일 위치만 이동, 2026-08-16). 내부 렌더링 로직 자체는 수정하지 않는다.
  */
 
 interface MathSegment {
