@@ -74,6 +74,21 @@ describe("POST /api/problems/:problemId/solve", () => {
     expect(res.status).toBe(404);
   });
 
+  it("다른 사용자의 problemId면 404를 응답한다(소유권 검증, Final QA BLOCKER-1)", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-2", user_metadata: { grade: "M2" } } },
+      error: null,
+    });
+    const app = createTestApp();
+
+    const res = await request(app)
+      .post(`/api/problems/${KNOWN_PROBLEM_ID}/solve`)
+      .set(AUTH_HEADER)
+      .send({ options: { concept: true, solution: true } });
+
+    expect(res.status).toBe(404);
+  });
+
   it("정상 요청이면 SSE로 chunk 이벤트들과 마지막 done 이벤트를 스트리밍한다", async () => {
     const app = createTestApp();
 

@@ -114,6 +114,21 @@ describe("POST /api/problems/:problemId/chat", () => {
     expect(res.status).toBe(404);
   });
 
+  it("다른 사용자의 problemId면 404를 응답한다(소유권 검증, Final QA BLOCKER-1)", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-2", user_metadata: { grade: "M2" } } },
+      error: null,
+    });
+    const app = createTestApp();
+
+    const res = await request(app)
+      .post(`/api/problems/${KNOWN_PROBLEM_ID}/chat`)
+      .set(AUTH_HEADER)
+      .send({ question: "왜 2인가요?", history: [] });
+
+    expect(res.status).toBe(404);
+  });
+
   it("풀이가 아직 없는 problemId면 400을 응답한다", async () => {
     const app = createTestApp();
 

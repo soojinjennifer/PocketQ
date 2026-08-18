@@ -9,16 +9,26 @@ import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
 import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
+import { getRequestUser } from "../../shared/lib/request-user";
 
 interface ResolvedProblem {
   problem: RecognizedProblem;
   grade: Grade;
 }
 
-function resolveProblem(problemId: string, confirmedText: string | undefined): ResolvedProblem {
+/**
+ * `userId`가 저장된 소유자와 다르면 존재하지 않는 문제와 동일하게 404를 던진다(정보 노출 방지,
+ * `problems.router.ts`의 `getProblemDetail` 소유권 검증과 동일 패턴) — Final QA(BLOCKER-1)가
+ * 지적한 대로, 이 검증이 없으면 다른 사용자의 problemId로 풀이를 조회/덮어쓸 수 있었다.
+ */
+function resolveProblem(
+  problemId: string,
+  userId: string,
+  confirmedText: string | undefined,
+): ResolvedProblem {
   const stored = inMemoryProblemStore.get(problemId);
 
-  if (!stored) {
+  if (!stored || stored.userId !== userId) {
     throw new AppError("validation_error", `문제(${problemId})를 찾을 수 없습니다.`, 404);
   }
 
@@ -35,9 +45,15 @@ function createHandleSolve(adapter: LLMAdapter) {
     const { problemId } = req.params as { problemId: string };
     const { options, confirmedText } = req.body as SolveRequestDto;
 
+    const userId = getRequestUser(req)?.id;
+    if (!userId) {
+      next(new AppError("unauthorized", "인증이 필요합니다.", 401));
+      return;
+    }
+
     let resolved: ResolvedProblem;
     try {
-      resolved = resolveProblem(problemId, confirmedText);
+      resolved = resolveProblem(problemId, userId, confirmedText);
     } catch (error) {
       next(error);
       return;
