@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import {
   problemHistoryDetailSchema,
@@ -64,9 +65,19 @@ async function handleGetProblemDetail(
 }
 
 /**
- * 마이페이지의 "다시 풀기": DB에 영구 저장된 인식 결과로 inMemoryProblemStore를 다시 채운다.
- * solve 라우트가 문제 데이터를 메모리 저장소에서만 찾기 때문에, 서버 재시작 등으로
- * 엔트리가 사라진 과거 문제도 재입력 없이 곧바로 다시 풀 수 있게 하기 위함이다.
+ * 마이페이지의 "다시 풀기": DB에 영구 저장된 인식 결과로 **새 problemId**를 발급해
+ * inMemoryProblemStore/DB에 새 문제로 등록한다.
+ *
+ * 원래 problemId를 그대로 재사용하지 않는 이유(Final QA HIGH-1 지적): solve가 끝나면
+ * `saveSolution`이 `problem_id`에 upsert하므로, 같은 id를 그대로 쓰면 재풀이 결과가 원본
+ * 풀이/대화 기록을 덮어써 버려 MYPAGE-3("저장 시점 내용과 동일하게 재현")를 깨뜨린다. 새 id를
+ * 쓰면 원본 기록은 그대로 남고, 재풀이는 별도의 새 이력 항목으로 쌓인다.
+ *
+ * `saveProblem`이 요구하는 `inputType`은 과거 기록 조회 응답에 없다(사진/필기 원본 이미지를
+ *애초에 저장하지 않는 설계라 이 값을 알 방법이 없다) — 화면에도 이 구분이 전혀 노출되지 않으므로
+ * (Figma 실측에도 없음), 재풀이 항목은 `"handwriting"`으로 고정한다(결정 필요 — 오너가 실제
+ * 원본 방식을 구분해서 보여줘야 한다고 판단하면 `problems` 테이블 조회에 `input_type`을
+ * 추가해야 함).
  */
 async function handleReopenProblem(req: Request, res: Response, next: NextFunction): Promise<void> {
   const user = getRequestUser(req);
@@ -83,11 +94,11 @@ async function handleReopenProblem(req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  const { problemId } = req.params as { problemId: string };
+  const { problemId: sourceProblemId } = req.params as { problemId: string };
 
   let detail: Awaited<ReturnType<typeof problemRepository.getProblemDetail>>;
   try {
-    detail = await problemRepository.getProblemDetail(userId, problemId);
+    detail = await problemRepository.getProblemDetail(userId, sourceProblemId);
   } catch (error) {
     next(historyQueryFailed("getProblemDetail", error));
     return;
@@ -98,15 +109,22 @@ async function handleReopenProblem(req: Request, res: Response, next: NextFuncti
     return;
   }
 
+  const problemId = randomUUID();
   const createdAt = new Date().toISOString();
-  inMemoryProblemStore.set({
+  const problem = {
+    recognizedText: detail.recognizedText,
+    recognizedLatex: detail.recognizedLatex,
+  };
+
+  inMemoryProblemStore.set({ problemId, userId, grade, problem, createdAt });
+  // best-effort 영구 저장 — 실패해도 throw하지 않으므로 응답에 영향 없다(saveProblem 계약대로).
+  // 이 호출이 없으면 solve 완료 시 saveSolution이 문제 행이 없어 FK 위반으로 조용히 실패한다.
+  await problemRepository.saveProblem({
     problemId,
     userId,
     grade,
-    problem: {
-      recognizedText: detail.recognizedText,
-      recognizedLatex: detail.recognizedLatex,
-    },
+    inputType: "handwriting",
+    problem,
     createdAt,
   });
 

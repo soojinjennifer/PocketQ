@@ -11,16 +11,17 @@ vi.mock("@supabase/supabase-js", () => ({
 
 // 이 라우터는 AI 어댑터를 쓰지 않으므로 repository 계층 자체를 모듈 mock으로 대체한다.
 // vi.mock 팩토리는 호이스팅되므로 mock 함수도 vi.hoisted로 함께 끌어올린다.
-const { listProblemsMock, getProblemDetailMock } = vi.hoisted(() => ({
+const { listProblemsMock, getProblemDetailMock, saveProblemMock } = vi.hoisted(() => ({
   listProblemsMock: vi.fn(),
   getProblemDetailMock: vi.fn(),
+  saveProblemMock: vi.fn(),
 }));
 
 vi.mock("../../infrastructure/persistence/problemRepository", () => ({
   problemRepository: {
     listProblems: listProblemsMock,
     getProblemDetail: getProblemDetailMock,
-    saveProblem: vi.fn(),
+    saveProblem: saveProblemMock,
     saveSolution: vi.fn(),
     saveChatTurn: vi.fn(),
   },
@@ -207,6 +208,7 @@ describe("POST /api/problems/:problemId/reopen", () => {
     });
     getProblemDetailMock.mockReset();
     storeSetMock.mockReset();
+    saveProblemMock.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -223,7 +225,7 @@ describe("POST /api/problems/:problemId/reopen", () => {
     expect(storeSetMock).not.toHaveBeenCalled();
   });
 
-  it("과거 기록을 메모리 저장소에 다시 채우고 200으로 응답한다", async () => {
+  it("새 problemId를 발급해 메모리 저장소/DB에 새 문제로 등록하고 200으로 응답한다(원본 기록 보존, Final QA HIGH-1)", async () => {
     getProblemDetailMock.mockResolvedValue(DETAIL);
 
     const res = await request(createTestApp())
@@ -232,7 +234,10 @@ describe("POST /api/problems/:problemId/reopen", () => {
 
     expect(res.status).toBe(200);
     expect(getProblemDetailMock).toHaveBeenCalledWith("user-1", "problem-1");
-    expect(res.body.problemId).toBe("problem-1");
+    // 원본 problemId를 재사용하지 않는다 — 재사용하면 solve 완료 시 saveSolution이 원본 풀이를
+    // 덮어써 버린다(HIGH-1). 새 id가 발급됐는지만 확인하고(형태는 uuid), 값 자체는 검증하지 않는다.
+    expect(typeof res.body.problemId).toBe("string");
+    expect(res.body.problemId).not.toBe("problem-1");
     expect(res.body.recognizedText).toBe("2x + 1 = 5");
     expect(res.body.recognizedLatex).toBe("2x+1=5");
     // 저장 당시가 아니라 재수화 시점의 createdAt을 새로 부여한다.
@@ -241,10 +246,21 @@ describe("POST /api/problems/:problemId/reopen", () => {
 
     expect(storeSetMock).toHaveBeenCalledTimes(1);
     expect(storeSetMock).toHaveBeenCalledWith({
-      problemId: "problem-1",
+      problemId: res.body.problemId,
       userId: "user-1",
       // 저장 당시 학년이 아니라 현재 로그인 사용자의 학년을 쓴다.
       grade: "M2",
+      problem: { recognizedText: "2x + 1 = 5", recognizedLatex: "2x+1=5" },
+      createdAt: res.body.createdAt,
+    });
+
+    // solve 완료 시 saveSolution이 FK 위반으로 조용히 실패하지 않도록 새 problems 행도 저장한다.
+    expect(saveProblemMock).toHaveBeenCalledTimes(1);
+    expect(saveProblemMock).toHaveBeenCalledWith({
+      problemId: res.body.problemId,
+      userId: "user-1",
+      grade: "M2",
+      inputType: "handwriting",
       problem: { recognizedText: "2x + 1 = 5", recognizedLatex: "2x+1=5" },
       createdAt: res.body.createdAt,
     });
