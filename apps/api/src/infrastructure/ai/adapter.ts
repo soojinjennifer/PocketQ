@@ -26,6 +26,13 @@ export interface ChatRequest {
   grade: Grade;
 }
 
+/** 후속 질문 제안 pill 문구 생성 요청 — 문제/풀이 컨텍스트만 있으면 된다(대화 이력 불필요). */
+export interface SuggestQuestionsRequest {
+  problem: RecognizedProblem;
+  solution: Solution;
+  grade: Grade;
+}
+
 /**
  * PRD §8.3 LLM Adapter 인터페이스.
  * 실제 SDK(OpenAI/Anthropic) 타입은 절대 노출하지 않고 shared-types 도메인 타입만 사용한다.
@@ -40,6 +47,11 @@ export interface LLMAdapter {
    * 반환값은 answerMd 하나뿐이다.
    */
   chat(req: ChatRequest): Promise<string>;
+  /**
+   * 후속 질문 제안 pill 문구 생성(Final QA MEDIUM-4) — 문제/풀이를 반영한 짧은 질문 2개.
+   * 로딩이 오래 걸리지 않도록 최소한의 프롬프트/응답만 요구한다.
+   */
+  suggestQuestions(req: SuggestQuestionsRequest): Promise<string[]>;
 }
 
 /**

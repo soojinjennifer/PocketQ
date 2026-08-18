@@ -103,4 +103,27 @@ describe("FakeLLMAdapter", () => {
     expect(answerMd).toContain("왜 2인가요?");
     expect(answerMd.length).toBeGreaterThan(0);
   });
+
+  it("suggestQuestions는 문제/풀이 내용과 무관하게 고정된 문구 2개를 반환한다(Final QA MEDIUM-4)", async () => {
+    const adapter = new FakeLLMAdapter();
+
+    const questions = await adapter.suggestQuestions({
+      problem: { recognizedText: "1+1=?", recognizedLatex: null },
+      solution: {
+        conceptMd: null,
+        solutionMd: null,
+        answerMd: "2입니다.",
+        conceptTags: [],
+        aiProvider: "claude",
+        aiModel: "fake-whymath-v0",
+      },
+      grade: "M2",
+    });
+
+    expect(questions).toHaveLength(2);
+    for (const question of questions) {
+      expect(typeof question).toBe("string");
+      expect(question.length).toBeGreaterThan(0);
+    }
+  });
 });

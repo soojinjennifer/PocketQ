@@ -1,5 +1,11 @@
 import type { AiProvider, Grade, RecognizedProblem, Solution } from "shared-types";
-import type { ChatRequest, LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
+import type {
+  ChatRequest,
+  LLMAdapter,
+  SolveRequest,
+  SolveStreamEvent,
+  SuggestQuestionsRequest,
+} from "./adapter";
 
 const FAKE_RECOGNIZED_TEXT = "이차함수 y = x^2 - 4x + 3의 최솟값을 구하시오.";
 const FAKE_RECOGNIZED_LATEX = "y = x^{2} - 4x + 3";
@@ -51,6 +57,11 @@ export class FakeLLMAdapter implements LLMAdapter {
     return Promise.resolve(
       `## 답변\n"${req.question}"에 대한 답입니다.\n\n관련 개념: ${req.problem.recognizedText}\n최초 풀이의 답: ${req.solution.answerMd}`,
     );
+  }
+
+  /** 문제 내용과 무관하게 항상 같은 결정적인 더미 질문 2개를 반환한다. */
+  suggestQuestions(_req: SuggestQuestionsRequest): Promise<string[]> {
+    return Promise.resolve(["이 문제를 다른 방법으로도 풀 수 있나요?", "비슷한 문제를 더 풀어보고 싶어요"]);
   }
 
   private buildChunks(req: SolveRequest): string[] {

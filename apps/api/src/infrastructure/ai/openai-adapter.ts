@@ -1,10 +1,21 @@
 import OpenAI from "openai";
 import type { ChatMessage, Grade, RecognizedProblem, Solution, SolveOptions } from "shared-types";
-import { recognizedProblemSchema } from "validation";
+import { recognizedProblemSchema, suggestedQuestionsResponseSchema } from "validation";
 import { AppError } from "../../shared/errors/AppError";
-import type { ChatRequest, LLMAdapter, SolveRequest, SolveStreamEvent } from "./adapter";
+import type {
+  ChatRequest,
+  LLMAdapter,
+  SolveRequest,
+  SolveStreamEvent,
+  SuggestQuestionsRequest,
+} from "./adapter";
 import { parseSolveOutput } from "./parseSolveOutput";
-import { buildChatPrompt, buildRecognizePrompt, buildSystemPrompt } from "./prompts/system";
+import {
+  buildChatPrompt,
+  buildRecognizePrompt,
+  buildSuggestQuestionsPrompt,
+  buildSystemPrompt,
+} from "./prompts/system";
 
 /**
  * OpenAI Responses API로 recognizeProblem/solve를 강제하는 JSON Schema(Structured Outputs).
@@ -20,6 +31,24 @@ const RECOGNIZED_PROBLEM_JSON_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/** `suggestQuestions` 구조화 출력 스키마 — `SuggestedQuestionsResponseDto`(validation)와 일치. */
+const SUGGESTED_QUESTIONS_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    questions: { type: "array", items: { type: "string" } },
+  },
+  required: ["questions"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * 모든 OpenAI 호출(recognize/solve/chat)에 공통 적용하는 타임아웃(Final QA MEDIUM-2 — 타임아웃이
+ * 없으면 upstream이 응답을 멈춰도 요청이 무한정 열려 있는다). 값 자체는 근거 없는 임시값이라
+ * 결정 필요 — PRD는 "스트리밍 첫 토큰 5초 이내"를 성능 목표로만 제시할 뿐 하드 타임아웃 값은
+ * 정하지 않았다.
+ */
+const OPENAI_REQUEST_TIMEOUT_MS = 30_000;
+
 /**
  * `openai` SDK를 참조하는 유일한 파일이다 — 다른 어떤 파일도 이 패키지의 타입을 직접
  * import하지 않는다. `LLMAdapter` interface(shared-types 도메인 타입만 사용)만 노출한다.
@@ -32,7 +61,7 @@ export class OpenAIAdapter implements LLMAdapter {
     private readonly model: string,
     apiKey: string,
   ) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, timeout: OPENAI_REQUEST_TIMEOUT_MS });
   }
 
   async recognizeProblem(image: Buffer, grade: Grade): Promise<RecognizedProblem> {
@@ -118,6 +147,39 @@ export class OpenAIAdapter implements LLMAdapter {
 
     return response.output_text;
   }
+
+  /** 후속 질문 제안 pill 문구 생성(Final QA MEDIUM-4) — 짧은 프롬프트/응답만 요구해 지연을 최소화한다. */
+  async suggestQuestions(req: SuggestQuestionsRequest): Promise<string[]> {
+    const response = await this.client.responses.create({
+      model: this.model,
+      input: [
+        { role: "system", content: buildSuggestQuestionsPrompt(req.grade) },
+        { role: "user", content: buildSuggestQuestionsUserMessage(req) },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "suggested_questions",
+          schema: SUGGESTED_QUESTIONS_JSON_SCHEMA,
+          strict: true,
+        },
+      },
+    });
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(response.output_text);
+    } catch {
+      throw new AppError("provider_error", "추천 질문 응답을 해석하지 못했습니다.", 502);
+    }
+
+    const result = suggestedQuestionsResponseSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new AppError("provider_error", "추천 질문 응답이 예상한 형식이 아닙니다.", 502);
+    }
+
+    return result.data.questions;
+  }
 }
 
 /**
@@ -161,4 +223,13 @@ function buildChatUserMessage(req: ChatRequest): string {
 
 function chatRoleLabel(role: ChatMessage["role"]): string {
   return role === "user" ? "학생" : "튜터";
+}
+
+/** 제안 질문 생성용 user 메시지 — 문제/답만 있으면 충분하다(대화 이력 불필요, 최소 컨텍스트). */
+function buildSuggestQuestionsUserMessage(req: SuggestQuestionsRequest): string {
+  const latexLine = req.problem.recognizedLatex ? `\n수식(LaTeX): ${req.problem.recognizedLatex}` : "";
+
+  return [`문제: ${req.problem.recognizedText}${latexLine}`, `답: ${req.solution.answerMd}`].join(
+    "\n\n",
+  );
 }

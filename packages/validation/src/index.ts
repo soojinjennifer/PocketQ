@@ -72,6 +72,12 @@ export const chatResponseSchema = z.object({
 });
 export type ChatResponseDto = z.infer<typeof chatResponseSchema>;
 
+/** POST /api/problems/:problemId/suggestions 응답 스키마(Final QA MEDIUM-4 — 동적 후속 질문 제안). */
+export const suggestedQuestionsResponseSchema = z.object({
+  questions: z.array(z.string()),
+});
+export type SuggestedQuestionsResponseDto = z.infer<typeof suggestedQuestionsResponseSchema>;
+
 /** GET /api/problems 응답의 개별 이력 항목 */
 export const problemHistoryListItemSchema = z.object({
   problemId: z.string(),

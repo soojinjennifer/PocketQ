@@ -9,6 +9,7 @@ import { healthRouter } from "./modules/health/health.router";
 import { createProblemsRouter } from "./modules/problems/problems.router";
 import { createRecognitionRouter } from "./modules/recognition/recognition.router";
 import { createSolutionsRouter } from "./modules/solutions/solutions.router";
+import { createSuggestionsRouter } from "./modules/suggestions/suggestions.router";
 
 /**
  * Express 앱 구성. 미들웨어·라우트 등록만 담당하고 서버 실행은 server.ts가 맡는다.
@@ -28,6 +29,7 @@ export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
   app.use("/api", createRecognitionRouter(adapter));
   app.use("/api", createSolutionsRouter(adapter));
   app.use("/api", createChatRouter(adapter));
+  app.use("/api", createSuggestionsRouter(adapter));
   app.use("/api", createProblemsRouter());
 
   app.use(errorHandler);

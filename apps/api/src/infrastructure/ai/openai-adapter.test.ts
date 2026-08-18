@@ -134,3 +134,74 @@ describe("OpenAIAdapter.chat", () => {
     expect(userMessage?.content as string).toContain("왜 2인가요?");
   });
 });
+
+describe("OpenAIAdapter.suggestQuestions", () => {
+  it("Structured Outputs로 요청하고 파싱된 질문 배열을 반환한다(Final QA MEDIUM-4)", async () => {
+    createMock.mockResolvedValue({
+      output_text: JSON.stringify({ questions: ["다른 방법도 있나요?", "비슷한 문제 더 풀래요"] }),
+    });
+
+    const adapter = new OpenAIAdapter("test-model", "test-key");
+    const questions = await adapter.suggestQuestions({
+      problem: { recognizedText: "1+1=?", recognizedLatex: null },
+      solution: {
+        conceptMd: null,
+        solutionMd: null,
+        answerMd: "2입니다.",
+        conceptTags: [],
+        aiProvider: "openai",
+        aiModel: "test-model",
+      },
+      grade: "M2",
+    });
+
+    expect(questions).toEqual(["다른 방법도 있나요?", "비슷한 문제 더 풀래요"]);
+
+    const callArgs = createMock.mock.calls[0]?.[0] as RequestInput;
+    expect(callArgs.model).toBe("test-model");
+    expect(callArgs.text?.format.type).toBe("json_schema");
+    expect(callArgs.stream).toBeUndefined();
+  });
+
+  it("응답이 검증 스키마와 다르면 provider_error(502)를 던진다", async () => {
+    createMock.mockResolvedValue({ output_text: JSON.stringify({ unexpected: "shape" }) });
+
+    const adapter = new OpenAIAdapter("test-model", "test-key");
+
+    await expect(
+      adapter.suggestQuestions({
+        problem: { recognizedText: "1+1=?", recognizedLatex: null },
+        solution: {
+          conceptMd: null,
+          solutionMd: null,
+          answerMd: "2입니다.",
+          conceptTags: [],
+          aiProvider: "openai",
+          aiModel: "test-model",
+        },
+        grade: "M2",
+      }),
+    ).rejects.toMatchObject({ code: "provider_error", status: 502 });
+  });
+
+  it("응답이 JSON으로 파싱되지 않으면 provider_error(502)를 던진다", async () => {
+    createMock.mockResolvedValue({ output_text: "이건 JSON이 아님" });
+
+    const adapter = new OpenAIAdapter("test-model", "test-key");
+
+    await expect(
+      adapter.suggestQuestions({
+        problem: { recognizedText: "1+1=?", recognizedLatex: null },
+        solution: {
+          conceptMd: null,
+          solutionMd: null,
+          answerMd: "2입니다.",
+          conceptTags: [],
+          aiProvider: "openai",
+          aiModel: "test-model",
+        },
+        grade: "M2",
+      }),
+    ).rejects.toMatchObject({ code: "provider_error" });
+  });
+});
