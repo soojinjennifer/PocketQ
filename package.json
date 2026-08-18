@@ -8,10 +8,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "pnpm -F web typecheck",
-    "lint": "pnpm -F web lint",
-    "test": "pnpm -F web test",
-    "build": "pnpm -F web build",
+    "typecheck": "pnpm -F shared-types -F validation -F api -F web typecheck",
+    "lint": "pnpm -F shared-types -F validation -F api -F web lint",
+    "test": "pnpm -F shared-types -F validation -F api -F web test -- --run",
+    "build": "pnpm -F shared-types -F validation -F api -F web build",
     "dev": "pnpm -F web dev"
   },
   "devDependencies": {
