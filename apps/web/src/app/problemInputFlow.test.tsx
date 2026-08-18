@@ -32,6 +32,10 @@ vi.mock("../shared/api/chatMessage", () => ({
   sendChatMessage: vi.fn(),
 }));
 
+vi.mock("../shared/api/suggestedQuestions", () => ({
+  getSuggestedQuestions: vi.fn().mockResolvedValue({ questions: ["다른 방법도 있나요?", "비슷한 문제 더 풀래요"] }),
+}));
+
 // 마이페이지 "다시 풀기" 재수화 경로(`POST /api/problems/:id/reopen`). 같은 모듈의 나머지 export도
 // `MyPage`가 import하고 있어(라우트 트리 전체를 렌더링한다) 함께 mock해 둔다.
 vi.mock("../shared/api/problemHistory", () => ({
@@ -196,13 +200,17 @@ describe("필기 상태가 /solve/pencilcanvas ↔ /solve/landscape 이동 간 �
     });
     drawOneStroke(canvas);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
+    // 오너 확정: 옵션은 기본 둘 다 선택 상태라, 여기서는 "해제"라는 사용자 변경이 pencilcanvas→
+    // landscape 이동 간 유지되는지를 검증한다(기본값 그대로 유지되는 것만 보면 이 이동 로직이
+    // 실제로 상태를 옮기는지 확인할 수 없다).
     expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
+    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).not.toBeChecked();
 
     fireEvent.click(screen.getByRole("button", { name: "풀기" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked(),
+      expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).not.toBeChecked(),
     );
   });
 });
@@ -231,6 +239,53 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("테스트 스트리밍 텍스트")).not.toBeInTheDocument();
+  });
+
+  it("풀이 성공 후 AI가 만들어준 제안 질문 pill이 표시되고, 누르면 입력창을 채운다(Final QA MEDIUM-4)", async () => {
+    const { getSuggestedQuestions } = await import("../shared/api/suggestedQuestions");
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    expect(vi.mocked(getSuggestedQuestions)).toHaveBeenCalledWith("problem-1");
+
+    const pill = await screen.findByText("다른 방법도 있나요?");
+    expect(screen.getByText("비슷한 문제 더 풀래요")).toBeInTheDocument();
+
+    fireEvent.click(pill);
+    expect(screen.getByPlaceholderText("궁금증이 풀릴 때까지 물어보세요")).toHaveValue("다른 방법도 있나요?");
+  });
+
+  it("결과 화면에서 '수정'을 누르면 안내 후 필기 캔버스를 지우고 Result Panel을 닫는다(필기 입력, MEDIUM-3)", async () => {
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "수정" }));
+
+    expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    // 안내를 확인하면 이전 결과는 더 이상 유효하지 않으므로 Result Panel이 사라진다 —
+    // 사용자는 캔버스에 새로 그린 뒤 평소처럼 "풀기"를 눌러 다시 제출한다.
+    await waitFor(() => expect(screen.queryByText("풀이 결과")).not.toBeInTheDocument());
+    expect(screen.queryByText("문제를 다시 입력해주세요")).not.toBeInTheDocument();
   });
 
   it("done 이전 스트리밍 도중에도 지금까지 도착한 헤더 섹션이 완료 후와 같은 카드 구조로 실시간 표시된다", async () => {

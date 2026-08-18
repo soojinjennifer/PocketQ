@@ -29,6 +29,40 @@ vi.mock("../shared/lib/image/resizeImageBlob", () => ({
   resizeImageBlob: vi.fn((blob: Blob) => Promise.resolve(blob)),
 }));
 
+vi.mock("../shared/api/recognizeProblem", () => ({
+  recognizeProblem: vi.fn().mockResolvedValue({
+    problemId: "problem-1",
+    recognizedText: "사진으로 인식한 문제",
+    recognizedLatex: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
+  }),
+}));
+
+vi.mock("../shared/api/solveProblem", () => ({
+  solveProblemStream: vi.fn(function mockSolveProblemStream() {
+    async function* generate() {
+      await Promise.resolve();
+      yield { type: "chunk" as const, delta: "## 최종 답\n답" };
+      yield {
+        type: "done" as const,
+        result: {
+          conceptMd: null,
+          solutionMd: null,
+          answerMd: "답",
+          conceptTags: [],
+          aiProvider: "openai" as const,
+          aiModel: "gpt-5.6-terra",
+        },
+      };
+    }
+    return generate();
+  }),
+}));
+
+vi.mock("../shared/api/chatMessage", () => ({
+  sendChatMessage: vi.fn(),
+}));
+
 const stopTrack = vi.fn();
 const getUserMedia = vi.fn();
 
@@ -103,7 +137,7 @@ describe("사진 문제 입력 흐름", () => {
     revokeSpy.mockRestore();
   });
 
-  it("풀기 버튼은 사진과 체크박스 선택이 모두 있어야 활성화된다", async () => {
+  it("풀기 버튼은 사진이 있고 체크박스 선택이 하나 이상 있어야 활성화된다(개념설명/풀이 옵션은 기본 선택 상태)", async () => {
     renderApp(["/camera"]);
 
     await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
@@ -112,11 +146,49 @@ describe("사진 문제 입력 흐름", () => {
 
     await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
 
+    // 오너 확정: "개념설명해주기"/"풀이해주기" 둘 다 기본 선택 상태라, 사진만 있으면 바로 활성화된다.
     const solveButton = screen.getByRole("button", { name: "풀기" });
-    expect(solveButton).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "풀이해주기" })).toBeChecked();
+    expect(solveButton).not.toBeDisabled();
 
+    // 옵션을 모두 해제하면 다시 비활성화된다.
+    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
 
-    expect(solveButton).not.toBeDisabled();
+    expect(solveButton).toBeDisabled();
+  });
+
+  it("사진으로 풀이 완료 후 결과 화면에서 '수정'을 누르면 안내 후 Problem Card가 '다시 찍어 주세요'로 바뀐다(MEDIUM-3)", async () => {
+    // submitProblem()은 학년이 없으면 조용히 중단된다 — 이 파일의 기본 fake 세션엔 grade가 없어서
+    // (다른 기존 테스트는 pencilcanvas 진입까지만 확인해 필요 없었다) 이 테스트에서만 채워준다.
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: createFakeSession({ user_metadata: { grade: "M2" } }) },
+      error: null,
+    });
+
+    renderApp(["/camera"]);
+
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "촬영" }));
+    fireEvent.click(await screen.findByRole("button", { name: "사진 사용" }));
+    await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    // 풀이 성공 시 사진 Blob은 자동 정리되므로 이 시점엔 이미 이미지가 사라져 있다.
+    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "수정" }));
+    expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() => expect(screen.queryByText("풀이 결과")).not.toBeInTheDocument());
+    expect(screen.getByText("문제를 다시 찍어 주세요")).toBeInTheDocument();
+
+    // Problem Card를 누르면(다시 찍기 안내 상태) /camera로 돌아간다.
+    fireEvent.click(screen.getByText("문제를 다시 찍어 주세요"));
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
   });
 });

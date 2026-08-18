@@ -21,6 +21,9 @@ function createContextValue(
     undoStroke: () => undefined,
     clearStrokes: () => undefined,
     hasProblemInput: false,
+    lastInputType: null,
+    isRequestingReinput: false,
+    beginReinput: () => undefined,
     selectedOptionIds: new Set<string>(),
     toggleOption: () => undefined,
     recognizeStatus: "idle",
@@ -29,6 +32,7 @@ function createContextValue(
     solveStatus: "idle",
     streamedText: "",
     solveResult: null,
+    suggestedQuestions: null,
     submitErrorMessage: null,
     submitProblem: () => Promise.resolve(),
     resumeFromHistory: () => Promise.resolve(false),
@@ -93,6 +97,13 @@ describe("RequireProblemInputGuard", () => {
 
   it("재수화 진행 중(recognizeStatus=loading, state 소비 후)에도 튕기지 않는다", async () => {
     renderGuard(createContextValue({ recognizeStatus: "loading" }), "/solve/landscape");
+
+    expect(screen.getByText("LandscapePage")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("CameraPage")).not.toBeInTheDocument());
+  });
+
+  it("isRequestingReinput이면(결과 화면 '수정' 확인 직후) 입력이 없어도 튕기지 않는다(예외 3)", async () => {
+    renderGuard(createContextValue({ isRequestingReinput: true }), "/solve/landscape");
 
     expect(screen.getByText("LandscapePage")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText("CameraPage")).not.toBeInTheDocument());

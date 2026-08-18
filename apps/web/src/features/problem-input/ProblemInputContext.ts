@@ -32,6 +32,17 @@ export interface ProblemInputContextValue {
 
   /** 사진 또는 필기 획 중 하나라도 있으면 true. `/solve/*` "풀기" 버튼 활성화 조건에 사용한다. */
   hasProblemInput: boolean;
+  /** 마지막으로 제출한 입력이 사진인지 필기인지. 제출 전에는 `null`. 결과 화면의 "다시 풀기 위해
+   *  입력 다시 받기" 흐름(`RecognizedProblemBar`의 "수정")이 어느 입력을 초기화할지 판단하는 데
+   *  쓴다 — 풀이 성공 시 `capturedImage`는 지워지므로 그것만으로는 모달리티를 알 수 없다. */
+  lastInputType: "photo" | "handwriting" | null;
+  /** "수정"(다시 입력) 확인 직후 ~ 새 입력 제출 전 사이의 과도기 동안 true. `hasProblemInput`/
+   *  `problemId`가 둘 다 비는 이 짧은 구간에도 `RequireProblemInputGuard`가 `/solve/landscape`
+   *  접근을 계속 허용하도록 참조한다(아래 `beginReinput` 참고). */
+  isRequestingReinput: boolean;
+  /** "수정" 확인 시 호출한다 — recognize/solve/chat 상태를 초기화하고 `isRequestingReinput`을
+   *  켠다. 새 `submitProblem()`이 시작되면 자동으로 꺼진다. */
+  beginReinput: () => void;
 
   // "풀기" 버튼 옵션(개념설명/풀이) 선택 상태 — pencilcanvas↔landscape 이동 시에도 유지된다.
   selectedOptionIds: ReadonlySet<string>;
@@ -47,6 +58,9 @@ export interface ProblemInputContextValue {
   solveStatus: SolveStreamStatus;
   streamedText: string;
   solveResult: Solution | null;
+  /** 후속 질문 제안 pill 문구(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 채워진다. 아직
+   *  없거나 요청이 실패하면 `null`(별도 에러 UI 없이 pill 행 자체를 렌더링하지 않는다). */
+  suggestedQuestions: string[] | null;
   submitErrorMessage: string | null;
   /** "풀기" 클릭 시 호출한다: 입력 정규화 → recognize → solve를 순서대로 실행한다. */
   submitProblem: () => Promise<void>;

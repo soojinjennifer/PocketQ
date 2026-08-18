@@ -19,13 +19,6 @@ import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
 
 /**
- * Figma `174:614` 제안 질문 pill의 실제 문구는 인식된 문제/풀이 내용에 맞춰 자동 생성되어야
- * 하지만, 그런 추천 로직은 이번 범위 밖이다(결정 필요 — 오너 확인 후 실제 추천 로직으로 교체).
- * 지금은 어떤 문제에도 자연스럽게 통하는 정적 placeholder 문구만 보여준다.
- */
-const SUGGESTED_QUESTIONS = ["이 문제를 다른 방법으로도 풀 수 있나요?", "비슷한 문제를 더 풀어보고 싶어요"];
-
-/**
  * `/solve/landscape` — 문제풀기 결과 단계. `/solve/pencilcanvas`의 "풀기" 버튼 클릭 후 진입한다.
  * Pen Rail과 필기 캔버스를 동일하게 포함해서 결과 화면에서도 계속 필기할 수 있게 한다.
  *
@@ -54,6 +47,8 @@ export function SolveLandscapePage() {
     undoStroke,
     clearStrokes,
     hasProblemInput,
+    lastInputType,
+    beginReinput,
     selectedOptionIds,
     toggleOption,
     submitProblem,
@@ -64,6 +59,7 @@ export function SolveLandscapePage() {
     solveStatus,
     streamedText,
     solveResult,
+    suggestedQuestions,
     resetSubmission,
     chatMessages,
     chatStatus,
@@ -109,7 +105,39 @@ export function SolveLandscapePage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatMessages.length, chatStatus]);
 
-  const problemCardData: ProblemCardData = capturedImage ? { imageUrl: capturedImage.previewUrl } : null;
+  // "수정"(다시 입력) 흐름 — 오너 확정 UX(2026-08-17): 결과 화면에서 "수정"을 누르면 안내 메시지를
+  // 띄우고, 확인하면 입력 모달리티에 따라 필기는 캔버스를 지워 바로 다시 쓸 수 있게 하고 사진은
+  // Problem Card에 "다시 찍어 주세요" 안내로 바꾼다(사진 Blob 자체는 풀이 성공 시 이미 정리돼
+  // 있어 `ProblemCard`가 보여줄 게 없다). 그 다음은 평소 "풀기" 흐름과 동일하다.
+  const [isReinputModalOpen, setIsReinputModalOpen] = useState(false);
+  const [needsPhotoRetake, setNeedsPhotoRetake] = useState(false);
+
+  const handleRequestReinput = () => setIsReinputModalOpen(true);
+
+  const handleReinputConfirm = () => {
+    setIsReinputModalOpen(false);
+    // 이전 풀이/채팅 결과는 더 이상 유효하지 않으므로 지우고 Result Panel을 닫는다 — 이후
+    // 사용자는 평소 "풀기" 흐름 그대로 새 입력을 제출한다. `resetSubmission`이 아니라
+    // `beginReinput`을 쓰는 이유: 둘 다 recognize/solve/chat을 초기화하지만, `beginReinput`은
+    // 추가로 `isRequestingReinput`을 켜서 `RequireProblemInputGuard`가 이 과도기에도
+    // `/camera`로 튕기지 않게 한다(가드 JSDoc "예외 3" 참고).
+    beginReinput();
+    if (lastInputType === "photo") {
+      setNeedsPhotoRetake(true);
+    } else {
+      clearStrokes();
+    }
+  };
+
+  const handleRequestRetakePhoto = () => {
+    void navigate("/camera");
+  };
+
+  const problemCardData: ProblemCardData = needsPhotoRetake
+    ? { needsRetake: true }
+    : capturedImage
+      ? { imageUrl: capturedImage.previewUrl }
+      : null;
   const isSubmitting = recognizeStatus === "loading" || solveStatus === "loading";
   const isRecognizeError = recognizeStatus === "error";
   const hasError = isRecognizeError || solveStatus === "error";
@@ -160,7 +188,7 @@ export function SolveLandscapePage() {
           `ResultPanelShell`로 통합했다(위 JSDoc 참고) — ProblemCard만 남는다. */}
       <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10">
         <div className="mx-auto flex w-[448px] max-w-[calc(100%-3rem)] flex-col gap-3">
-          <ProblemCard data={problemCardData} />
+          <ProblemCard data={problemCardData} onRequestRetake={handleRequestRetakePhoto} />
         </div>
       </div>
 
@@ -176,20 +204,26 @@ export function SolveLandscapePage() {
             <ResultPanel
               category={solveResult.conceptTags[0]}
               recognizedText={recognizedText ?? ""}
+              onEdit={handleRequestReinput}
               conceptMd={solveResult.conceptMd}
               solutionMd={solveResult.solutionMd}
               answerMd={solveResult.answerMd}
               chatContent={
                 <>
-                  <div className="flex flex-wrap gap-2">
-                    {SUGGESTED_QUESTIONS.map((question) => (
-                      <SuggestionPill
-                        key={question}
-                        label={question}
-                        onClick={() => chatFooterRef.current?.fillAndFocus(question)}
-                      />
-                    ))}
-                  </div>
+                  {/* 제안 질문 pill(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 채워진다.
+                      아직 안 왔거나(로딩 중) 실패했으면 행 자체를 그리지 않는다(선택적 보조 UI라
+                      별도 로딩/에러 표시 없음). */}
+                  {suggestedQuestions && suggestedQuestions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedQuestions.map((question) => (
+                        <SuggestionPill
+                          key={question}
+                          label={question}
+                          onClick={() => chatFooterRef.current?.fillAndFocus(question)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                   {chatMessages.map((message, index) => (
                     // 메시지는 항상 끝에만 추가되고 재정렬/삭제되지 않아 index를 key로 써도 안전하다.
                     <ChatBubble key={index} role={message.role} content={message.content} />
@@ -270,6 +304,16 @@ export function SolveLandscapePage() {
           }
           actionLabel="확인"
           onAction={resetSubmission}
+        />
+      ) : null}
+
+      {isReinputModalOpen ? (
+        <Modal
+          icon="check"
+          title="문제를 다시 입력해주세요"
+          description="인식이 잘못됐다면 문제를 다시 촬영하거나 손글씨로 다시 써서 입력해 주세요."
+          actionLabel="확인"
+          onAction={handleReinputConfirm}
         />
       ) : null}
     </div>

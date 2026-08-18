@@ -6,8 +6,13 @@ import { useChatMessages } from "../follow-up-chat/useChatMessages";
 import { useRecognizeProblem } from "../problem-recognition/useRecognizeProblem";
 import { exportStrokesToPngBlob } from "../../shared/lib/canvas/exportStrokesToPngBlob";
 import { useDrawingStrokes } from "../../shared/lib/canvas/useDrawingStrokes";
+import { getSuggestedQuestions } from "../../shared/api/suggestedQuestions";
 import { blobToObjectUrl, revokeObjectUrl } from "../../shared/lib/image/objectUrl";
-import { toSolveOptions } from "../../shared/lib/solve/solveOptions";
+import {
+  SOLVE_OPTION_EXPLAIN,
+  SOLVE_OPTION_SOLVE,
+  toSolveOptions,
+} from "../../shared/lib/solve/solveOptions";
 import { ProblemInputContext, type CapturedImage } from "./ProblemInputContext";
 import { normalizeProblemInput } from "./normalizeProblemInput";
 
@@ -101,7 +106,10 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   } = useDrawingStrokes();
 
   // "풀기" 옵션(개념설명/풀이) 선택 상태
-  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<string>>(new Set());
+  // 오너 확정: "개념설명해주기"/"풀이해주기" 둘 다 기본 선택 상태로 시작한다.
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<string>>(
+    new Set([SOLVE_OPTION_EXPLAIN, SOLVE_OPTION_SOLVE]),
+  );
   const toggleOption = useCallback((id: string) => {
     setSelectedOptionIds((prev) => {
       const next = new Set(prev);
@@ -117,16 +125,54 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   const hasCaptureData = capturedImage !== null;
   const hasProblemInput = hasCaptureData || strokes.length > 0;
 
+  // 마지막으로 제출한 입력이 사진/필기 중 무엇이었는지 — "수정"(다시 입력) 흐름에서 어느 입력을
+  // 초기화할지 판단하는 데 쓴다. 풀이가 성공하면 `capturedImage`는 지워지지만(아래
+  // `clearCapturedImage` 호출) 이 값은 남아 있어야 결과 화면에서도 모달리티를 알 수 있다.
+  const [lastInputType, setLastInputType] = useState<"photo" | "handwriting" | null>(null);
+
+  // 후속 질문 제안 pill(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 문제/풀이에 맞는 짧은
+  // 질문 2개를 받는다. 선택적 보조 UI라 실패해도 조용히 숨긴다(별도 에러 UI 없음, 로딩 상태도
+  // 노출하지 않는다 — "간단하게" 요청 반영).
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[] | null>(null);
+  const fetchSuggestedQuestions = useCallback(async (targetProblemId: string) => {
+    try {
+      const response = await getSuggestedQuestions(targetProblemId);
+      setSuggestedQuestions(response.questions);
+    } catch {
+      setSuggestedQuestions(null);
+    }
+  }, [setSuggestedQuestions]);
+
+  // "수정"(다시 입력) 흐름 전용 플래그. `resetSubmission`/`beginReinput`이 `problemId`/`recognizeStatus`를
+  // idle로 되돌리면, 그 시점엔 아직 새 입력(사진/필기)이 없어 `hasProblemInput`도 false다 —
+  // `RequireProblemInputGuard`가 이 순간을 "입력 없음"으로 오해해 `/camera`로 튕겨버리면 사용자가
+  // Result Panel의 "수정" 안내(Problem Card의 "다시 찍어 주세요" 등)를 보기도 전에 페이지를
+  // 떠나게 된다. 이 플래그가 켜져 있는 동안은 가드가 계속 `/solve/landscape` 접근을 허용한다.
+  const [isRequestingReinput, setIsRequestingReinput] = useState(false);
+
+  const beginReinput = useCallback(() => {
+    resetRecognize();
+    resetSolve();
+    resetChat();
+    setSuggestedQuestions(null);
+    setIsRequestingReinput(true);
+  }, [resetRecognize, resetSolve, resetChat, setSuggestedQuestions]);
+
   const submitProblem = useCallback(async () => {
     if (!grade) {
       return;
     }
+
+    // 새 제출이 시작됐으니 "수정" 대기 상태는 끝난다(가드가 이제 `hasProblemInput`/`problemId`
+    // 자체로 접근을 판단하면 된다).
+    setIsRequestingReinput(false);
 
     // "풀기" 클릭 즉시(=새 제출 시작 시점) 이전 문제의 채팅을 초기화한다(PRD CHAT-9). recognize가
     // 진행되는 동안에는 `solveStatus`/`solveResult`가 아직 이전 문제 값 그대로 남아있어(solve()
     // 시작 시점에야 리셋됨, `useSolveStream.ts` 참고) `isResultReady`가 계속 true이고 이전 결과
     // 패널이 그대로 보인다 — 그 사이에도 최소한 채팅만은 섞이지 않도록 여기서 먼저 비운다.
     resetChat();
+    setSuggestedQuestions(null);
 
     const normalized = await normalizeProblemInput({
       photoBlob: capturedImage?.blob ?? null,
@@ -137,6 +183,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     if (!normalized) {
       return;
     }
+    setLastInputType(normalized.inputType);
 
     // 훅이 반환하는 값을 바로 쓴다(위 컨텍스트로 노출하는 `problemId` 상태는 아직 이 렌더에 반영되지
     // 않았을 수 있어 비동기 타이밍에 의존하지 않기 위함 — 기존 `submitProblem`의 `solution` 처리와
@@ -159,8 +206,20 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     // 훅 상태 업데이트의 비동기 타이밍(effect)에 의존하지 않는다.
     if (solution) {
       clearCapturedImage();
+      void fetchSuggestedQuestions(recognizedProblemId);
     }
-  }, [grade, capturedImage, strokes, selectedOptionIds, recognize, solve, clearCapturedImage, resetChat]);
+  }, [
+    grade,
+    capturedImage,
+    strokes,
+    selectedOptionIds,
+    recognize,
+    solve,
+    clearCapturedImage,
+    resetChat,
+    fetchSuggestedQuestions,
+    setSuggestedQuestions,
+  ]);
 
   /**
    * 마이페이지 "다시 풀기" 경로. 사진/필기가 전혀 없는 상태에서 시작하므로 `normalizeProblemInput`을
@@ -175,6 +234,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
 
       // 새 문제를 시작하는 시점이므로 이전 문제의 대화를 먼저 비운다(PRD CHAT-9, `submitProblem` 동일).
       resetChat();
+      setSuggestedQuestions(null);
 
       const resumedProblemId = await recognizeResumeFromHistory(historyProblemId);
       if (!resumedProblemId) {
@@ -187,9 +247,12 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
         problemId: resumedProblemId,
         options: { concept: true, solution: true },
       });
+      if (solution) {
+        void fetchSuggestedQuestions(resumedProblemId);
+      }
       return solution !== null;
     },
-    [grade, resetChat, recognizeResumeFromHistory, solve],
+    [grade, resetChat, recognizeResumeFromHistory, solve, fetchSuggestedQuestions, setSuggestedQuestions],
   );
 
   const resetSubmission = useCallback(() => {
@@ -215,6 +278,9 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       undoStroke,
       clearStrokes,
       hasProblemInput,
+      lastInputType,
+      isRequestingReinput,
+      beginReinput,
       selectedOptionIds,
       toggleOption,
       recognizeStatus,
@@ -223,6 +289,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveStatus,
       streamedText,
       solveResult,
+      suggestedQuestions,
       submitErrorMessage,
       submitProblem,
       resumeFromHistory,
@@ -246,6 +313,9 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       undoStroke,
       clearStrokes,
       hasProblemInput,
+      lastInputType,
+      isRequestingReinput,
+      beginReinput,
       selectedOptionIds,
       toggleOption,
       recognizeStatus,
@@ -254,6 +324,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveStatus,
       streamedText,
       solveResult,
+      suggestedQuestions,
       submitErrorMessage,
       submitProblem,
       resumeFromHistory,
