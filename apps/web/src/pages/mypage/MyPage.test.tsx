@@ -66,6 +66,8 @@ function renderMyPage() {
     user: createFakeSession({ user_metadata: { nickname: "지민", grade: "H1" } }).user,
     holdPublicRedirect: false,
     setHoldPublicRedirect: () => undefined,
+    isPasswordRecovery: false,
+    setIsPasswordRecovery: () => undefined,
   };
 
   return render(

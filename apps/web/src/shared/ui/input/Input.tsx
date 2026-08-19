@@ -1,3 +1,5 @@
+import type { HTMLAttributes } from "react";
+
 export interface InputFieldConfig {
   name: string;
   type?: string;
@@ -5,6 +7,10 @@ export interface InputFieldConfig {
   value: string;
   onChange: (value: string) => void;
   autoComplete?: string;
+  /** 네이티브 input의 inputMode. 예: 인증 코드처럼 숫자 키패드가 필요한 필드는 "numeric"을 지정한다. */
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
+  /** 입력 가능한 최대 문자 수. 예: 8자리 인증 코드 필드. */
+  maxLength?: number;
 }
 
 interface InputGroupProps {
@@ -30,6 +36,8 @@ export function InputGroup({ fields }: InputGroupProps) {
               value={field.value}
               onChange={(event) => field.onChange(event.target.value)}
               autoComplete={field.autoComplete}
+              inputMode={field.inputMode}
+              maxLength={field.maxLength}
               className="text-[16px] leading-[21px] text-label-primary w-full outline-none bg-transparent border-0 placeholder:text-label-tertiary"
             />
           </div>

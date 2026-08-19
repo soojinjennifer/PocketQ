@@ -17,6 +17,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<User | null>(null);
   const [holdPublicRedirect, setHoldPublicRedirect] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -29,12 +30,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
       setUser(session?.user ?? null);
       setStatus(session ? "authenticated" : "unauthenticated");
+      if (event === "PASSWORD_RECOVERY") {
+        // 재설정 메일 링크로 복귀한 경우다. 발급된 recovery 세션 때문에 PublicOnlyRoute가
+        // 로그인 화면을 떠나버리지 않도록 공개 라우트 리다이렉트를 함께 보류한다(AUTH-10).
+        setIsPasswordRecovery(true);
+        setHoldPublicRedirect(true);
+      }
       if (!session) {
         setHoldPublicRedirect(false);
+        setIsPasswordRecovery(false);
       }
     });
 
@@ -45,7 +53,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, holdPublicRedirect, setHoldPublicRedirect }}>
+    <AuthContext.Provider
+      value={{
+        status,
+        user,
+        holdPublicRedirect,
+        setHoldPublicRedirect,
+        isPasswordRecovery,
+        setIsPasswordRecovery,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

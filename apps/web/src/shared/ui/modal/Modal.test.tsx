@@ -112,4 +112,43 @@ describe("Modal", () => {
 
     expect(onAction).toHaveBeenCalledTimes(1);
   });
+
+  it("cancelLabel/onCancel을 전달하면 취소 버튼이 렌더링되고 클릭 시 onCancel을 호출한다", () => {
+    const onAction = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <Modal
+        icon="email"
+        title="이 기기에서 로그인한 기록이 없어요"
+        description="이메일을 다시 확인하거나 회원가입을 진행해 주세요"
+        actionLabel="회원가입하기"
+        onAction={onAction}
+        cancelLabel="취소"
+        onCancel={onCancel}
+      />,
+    );
+
+    const cancelButton = screen.getByRole("button", { name: "취소" });
+    expect(cancelButton).toBeInTheDocument();
+
+    fireEvent.click(cancelButton);
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it("cancelLabel을 전달하지 않으면 취소 버튼이 렌더링되지 않는다(하위 호환)", () => {
+    render(
+      <Modal
+        icon="check"
+        title="제목"
+        description="설명"
+        actionLabel="계속하기"
+        onAction={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "취소" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
 });

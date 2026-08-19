@@ -20,11 +20,13 @@ vi.mock("../../shared/lib/supabase/client", () => ({
 }));
 
 function AuthProbe() {
-  const { status, user } = useAuth();
+  const { status, user, holdPublicRedirect, isPasswordRecovery } = useAuth();
   return (
     <div>
       <div data-testid="status">{status}</div>
       <div data-testid="user-email">{user?.email ?? "none"}</div>
+      <div data-testid="hold-public-redirect">{String(holdPublicRedirect)}</div>
+      <div data-testid="is-password-recovery">{String(isPasswordRecovery)}</div>
     </div>
   );
 }
@@ -119,5 +121,76 @@ describe("AuthProvider", () => {
     await waitFor(() =>
       expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"),
     );
+  });
+
+  it("PASSWORD_RECOVERY 이벤트가 오면 isPasswordRecovery와 holdPublicRedirect가 모두 true가 된다", async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+
+    let capturedCallback: AuthStateListener | undefined;
+    vi.mocked(supabase.auth.onAuthStateChange).mockImplementation((callback) => {
+      capturedCallback = callback;
+      return {
+        data: {
+          subscription: { id: "test-subscription", callback: () => {}, unsubscribe: vi.fn() },
+        },
+      };
+    });
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"),
+    );
+    expect(screen.getByTestId("is-password-recovery")).toHaveTextContent("false");
+
+    void capturedCallback?.("PASSWORD_RECOVERY", createFakeSession());
+
+    await waitFor(() =>
+      expect(screen.getByTestId("is-password-recovery")).toHaveTextContent("true"),
+    );
+    expect(screen.getByTestId("hold-public-redirect")).toHaveTextContent("true");
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+  });
+
+  it("recovery 상태에서 세션이 사라지면 isPasswordRecovery와 holdPublicRedirect가 모두 false로 돌아온다", async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+
+    let capturedCallback: AuthStateListener | undefined;
+    vi.mocked(supabase.auth.onAuthStateChange).mockImplementation((callback) => {
+      capturedCallback = callback;
+      return {
+        data: {
+          subscription: { id: "test-subscription", callback: () => {}, unsubscribe: vi.fn() },
+        },
+      };
+    });
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    void capturedCallback?.("PASSWORD_RECOVERY", createFakeSession());
+    await waitFor(() =>
+      expect(screen.getByTestId("is-password-recovery")).toHaveTextContent("true"),
+    );
+
+    void capturedCallback?.("SIGNED_OUT", null);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("is-password-recovery")).toHaveTextContent("false"),
+    );
+    expect(screen.getByTestId("hold-public-redirect")).toHaveTextContent("false");
   });
 });

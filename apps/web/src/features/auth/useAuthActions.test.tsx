@@ -16,6 +16,9 @@ vi.mock("../../shared/lib/supabase/client", () => ({
       signUp: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
+      verifyOtp: vi.fn(),
+      updateUser: vi.fn(),
     },
   },
 }));
@@ -294,6 +297,150 @@ describe("useAuthActions", () => {
 
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/login"));
+  });
+
+  it("이메일 찾기 시 이 기기의 세션에서 닉네임과 이메일을 반환한다(AUTH-9)", async () => {
+    const session = createFakeSession({
+      email: "jimin@example.com",
+      user_metadata: { nickname: "새싹" },
+    });
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let account: { nickname: string | null; email: string } | null | undefined;
+    await act(async () => {
+      account = await result.current.findLocalAccount();
+    });
+
+    expect(account).toEqual({ nickname: "새싹", email: "jimin@example.com" });
+  });
+
+  it("이메일 찾기 시 이 기기에 세션이 없으면 null을 반환한다(AUTH-9)", async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let account: { nickname: string | null; email: string } | null | undefined;
+    await act(async () => {
+      account = await result.current.findLocalAccount();
+    });
+
+    expect(account).toBeNull();
+  });
+
+  it("비밀번호 재설정 메일 발송 시 이메일과 redirectTo를 전달한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.resetPasswordForEmail("student@example.com");
+    });
+
+    expect(actionResult?.error).toBeNull();
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("student@example.com", {
+      redirectTo: window.location.origin,
+    });
+  });
+
+  it("비밀번호 재설정 메일 발송 실패 시 오류 메시지를 반환한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({
+      data: null,
+      error: new AuthApiError("메일 발송에 실패했습니다.", 500, "unexpected_failure"),
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.resetPasswordForEmail("student@example.com");
+    });
+
+    expect(actionResult?.error).toBe("메일 발송에 실패했습니다.");
+  });
+
+  it("인증 코드 검증 성공 시 verifyOtp에 email/token/type을 전달한다(AUTH-10)", async () => {
+    const session = createFakeSession();
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { user: session.user, session },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.verifyPasswordResetOtp("student@example.com", "12345678");
+    });
+
+    expect(actionResult?.error).toBeNull();
+    expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+      email: "student@example.com",
+      token: "12345678",
+      type: "recovery",
+    });
+  });
+
+  it("인증 코드 검증 실패 시 Supabase 원본 오류 메시지를 그대로 반환한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired"),
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.verifyPasswordResetOtp("student@example.com", "00000000");
+    });
+
+    expect(actionResult?.error).toBe("Token has expired or is invalid");
+  });
+
+  it("비밀번호 갱신 성공 시 updateUser에 새 비밀번호를 전달하고 자체적으로 로그아웃하지 않는다(AUTH-10)", async () => {
+    const session = createFakeSession();
+    vi.mocked(supabase.auth.updateUser).mockResolvedValue({
+      data: { user: session.user },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.updatePassword("new-secure-pw");
+    });
+
+    expect(actionResult?.error).toBeNull();
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "new-secure-pw" });
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("비밀번호 갱신 실패 시 오류 메시지를 반환한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.updateUser).mockResolvedValue({
+      data: { user: null },
+      error: new AuthApiError("비밀번호가 너무 짧습니다.", 400, "weak_password"),
+    });
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    let actionResult: { error: string | null } | undefined;
+    await act(async () => {
+      actionResult = await result.current.updatePassword("short");
+    });
+
+    expect(actionResult?.error).toBe("비밀번호가 너무 짧습니다.");
   });
 
   it("비밀번호를 localStorage 등 별도 저장소에 직접 저장하지 않는다", async () => {

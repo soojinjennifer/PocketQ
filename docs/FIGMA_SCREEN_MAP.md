@@ -44,4 +44,4 @@
 
 | 컴포넌트 | Figma 인스턴스명 | Figma 위치 | 비고 |
 |---|---|---|---|
-| 알림 팝업 | `Popup/Register`, `Popup/Login`, `Popup/Emailcheck` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=97-309&t=LrZQeZ022Z7LUbtl-4) (`Popup` 섹션, node `97:309`) | 2026-08-01 실측. 회원가입 완료/로그인 완료/이메일 인증 대기 3종. `shared/ui/modal`로 컴포넌트화(`docs/COMPONENT_MAP.md` 참고) |
+| 알림 팝업 | `Popup/Register`, `Popup/Login`, `Popup/Emailcheck` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=97-309&t=LrZQeZ022Z7LUbtl-4) (`Popup` 섹션, node `97:309`) | 2026-08-01 실측. 회원가입 완료/로그인 완료/이메일 인증 대기 3종. `shared/ui/modal`로 컴포넌트화(`docs/COMPONENT_MAP.md` 참고). **2026-08-18 재조사**: AUTH-9/AUTH-10(이메일/비밀번호 찾기) 팝업 4종+새 비밀번호 설정 팝업은 이 `Popup` 섹션에 대응 프레임이 없음을 확인 — Figma 미디자인 상태로 오너 승인 하에 임시 구현됨, 상세는 `docs/COMPONENT_MAP.md` §1 참고 |

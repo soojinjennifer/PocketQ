@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../features/auth/AuthProvider";
+import { useAuth } from "../../features/auth/useAuth";
 import { supabase } from "../../shared/lib/supabase/client";
 import { createFakeSession } from "../../test/supabaseTestUtils";
 import { LoginPage } from "./LoginPage";
@@ -16,9 +17,21 @@ vi.mock("../../shared/lib/supabase/client", () => ({
       signUp: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
+      verifyOtp: vi.fn(),
+      updateUser: vi.fn(),
     },
   },
 }));
+
+/** AUTH-10 핵심 회귀 방지: 코드 검증 성공 시 holdPublicRedirect/isPasswordRecovery가
+ *  함께 true가 되는지 UI 밖에서 관찰하기 위한 프로브. */
+function AuthStateProbe() {
+  const { holdPublicRedirect, isPasswordRecovery } = useAuth();
+  return (
+    <div data-testid="auth-state">{`hold:${String(holdPublicRedirect)}|recovery:${String(isPasswordRecovery)}`}</div>
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,6 +47,7 @@ function renderLoginPage() {
   return render(
     <AuthProvider>
       <MemoryRouter initialEntries={["/login"]}>
+        <AuthStateProbe />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<div>RegisterPage</div>} />
@@ -181,5 +195,204 @@ describe("LoginPage", () => {
 
     expect(await screen.findByText("이메일 인증이 필요합니다.")).toBeInTheDocument();
     expect(screen.queryByText("이메일이나 비밀번호가 틀렸습니다")).not.toBeInTheDocument();
+  });
+
+  it("'이메일을 잊었어요!' 클릭 시 이 기기 세션의 닉네임/이메일 팝업을 표시하고, 확인 시 이메일 입력란을 채운다(AUTH-9)", async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: createFakeSession({ email: "jimin@example.com", user_metadata: { nickname: "새싹" } }) },
+      error: null,
+    });
+
+    renderLoginPage();
+    fireEvent.click(screen.getByRole("button", { name: "이메일을 잊었어요!" }));
+
+    expect(
+      await screen.findByText("새싹님, 가입하신 이메일은 jimin@example.com입니다"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "이메일 입력하기" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>("이메일").value).toBe("jimin@example.com"),
+    );
+  });
+
+  it("'이메일을 잊었어요!' 클릭 시 이 기기에 세션이 없으면 회원가입 유도 팝업을 표시하고 /register로 이동한다(AUTH-9)", async () => {
+    renderLoginPage();
+    fireEvent.click(screen.getByRole("button", { name: "이메일을 잊었어요!" }));
+
+    expect(await screen.findByText("이 기기에서 로그인한 기록이 없어요")).toBeInTheDocument();
+    expect(screen.getByText("회원가입을 진행하시겠어요?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "회원가입하기" }));
+
+    await waitFor(() => expect(screen.getByText("RegisterPage")).toBeInTheDocument());
+  });
+
+  it("회원가입 유도 팝업에서 취소 클릭 시 팝업이 닫히고 /register로 이동하지 않는다(AUTH-9)", async () => {
+    renderLoginPage();
+    fireEvent.click(screen.getByRole("button", { name: "이메일을 잊었어요!" }));
+
+    expect(await screen.findByText("이 기기에서 로그인한 기록이 없어요")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("이 기기에서 로그인한 기록이 없어요")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText("RegisterPage")).not.toBeInTheDocument();
+  });
+
+  it("'비밀번호를 잊었어요!' 클릭 시 이메일이 비어 있으면 인라인 오류를 표시하고 메일을 보내지 않는다(AUTH-10)", async () => {
+    renderLoginPage();
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+
+    expect(await screen.findByText("이메일을 먼저 입력해주세요")).toBeInTheDocument();
+    expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+
+  it("'비밀번호를 잊었어요!' 클릭 시 입력된 이메일로 인증 코드를 보내고 이메일을 노출하는 코드 입력 팝업을 표시한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+    expect(
+      screen.getByText("student@example.com로 보낸 인증 코드를 입력해 주세요"),
+    ).toBeInTheDocument();
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("student@example.com", {
+      redirectTo: window.location.origin,
+    });
+  });
+
+  it("'코드 다시 받기' 클릭 시 동일 이메일로 인증 코드를 재발송한다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "코드 다시 받기" }));
+
+    await waitFor(() =>
+      expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("student@example.com", {
+        redirectTo: window.location.origin,
+      }),
+    );
+  });
+
+  it("코드 입력 팝업에서 '로그인 화면으로 돌아가기' 클릭 시 signOut을 호출하지 않고 팝업만 닫는다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "로그인 화면으로 돌아가기" }));
+
+    await waitFor(() => expect(screen.queryByText("인증 코드 입력")).not.toBeInTheDocument());
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("코드가 틀리면 이메일 존재 여부를 노출하지 않는 일반 오류 메시지를 표시하고 팝업은 유지된다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired"),
+    });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("인증 코드 8자리 입력"), {
+      target: { value: "00000000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText("인증 코드가 올바르지 않거나 만료됐어요"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Token has expired or is invalid")).not.toBeInTheDocument();
+    expect(screen.getByText("인증 코드 입력")).toBeInTheDocument();
+  });
+
+  it("코드 검증 성공 시 holdPublicRedirect/isPasswordRecovery가 함께 true가 되고 새 비밀번호 입력 팝업으로 전환된다(AUTH-10 핵심 회귀 방지)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+    const session = createFakeSession();
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { user: session.user, session },
+      error: null,
+    });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+    expect(screen.getByTestId("auth-state")).toHaveTextContent("hold:false|recovery:false");
+
+    fireEvent.change(screen.getByPlaceholderText("인증 코드 8자리 입력"), {
+      target: { value: "12345678" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+      email: "student@example.com",
+      token: "12345678",
+      type: "recovery",
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("auth-state")).toHaveTextContent("hold:true|recovery:true"),
+    );
+    expect(await screen.findByLabelText("새 비밀번호")).toBeInTheDocument();
+    expect(
+      screen.getByText("student@example.com의 새 비밀번호를 설정해 주세요"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("인증 코드 입력")).not.toBeInTheDocument();
+  });
+
+  it("코드 검증 후 새 비밀번호 저장 성공 시 세션을 종료하고, 완료 팝업 확인 시 로그인 화면 이메일 입력란에 이메일을 채운다(AUTH-10)", async () => {
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null });
+    const session = createFakeSession();
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { user: session.user, session },
+      error: null,
+    });
+    vi.mocked(supabase.auth.updateUser).mockResolvedValue({
+      data: { user: session.user },
+      error: null,
+    });
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+
+    renderLoginPage();
+    fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호를 잊었어요!" }));
+    expect(await screen.findByText("인증 코드 입력")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("인증 코드 8자리 입력"), {
+      target: { value: "12345678" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(await screen.findByLabelText("새 비밀번호")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), { target: { value: "new-pw-1234" } });
+    fireEvent.change(screen.getByLabelText("비밀번호 확인"), { target: { value: "new-pw-1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호 변경하기" }));
+
+    expect(await screen.findByText("비밀번호가 변경되었습니다")).toBeInTheDocument();
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "new-pw-1234" });
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>("이메일").value).toBe("student@example.com"),
+    );
   });
 });
