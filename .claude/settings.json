@@ -224,7 +224,11 @@
       "Bash(curl -sk -w \"\\\\n[%{http_code}]\\\\n\" -X POST https://172.30.1.99:4000/api/problems/abc/reopen)",
       "Bash(git grep *)",
       "Bash(awk -F= '{if\\($1!=\"\"&&$1 !~ /^#/\\) print $1\": \"\\(length\\($2\\)>0?\"SET\":\"empty\"\\)}' apps/api/.env apps/web/.env)",
-      "Bash(pnpm -F web test -- --run cameraFlow)"
+      "Bash(pnpm -F web test -- --run cameraFlow)",
+      "Bash(ps -p 52686 -o pid,command)",
+      "Bash(curl -sL -o popup_section.png \"https://www.figma.com/api/mcp/asset/0ec5de6c-99b4-4c94-abc0-168d2b87b7bc.png\")",
+      "Bash(pnpm -F web test -- --run --reporter=verbose src/features/auth src/pages/login src/pages/register src/app/routing.test.tsx)",
+      "Bash(grep -nE \"#[0-9a-fA-F]{3,6}|rgb\\\\\\(|rgba\\\\\\(\")"
     ],
     "additionalDirectories": [
       "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath/references/claude-design/assets/icons"

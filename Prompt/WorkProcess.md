@@ -40,3 +40,26 @@ API 헬스체크	http://localhost:4000/health	불필요 ({"status":"ok"} 확인�
 풀이 생성	POST http://localhost:4000/api/problems/:problemId/solve	Bearer 토큰 필요
 
  http://172.30.1.69:5173/
+
+ # 1) 현재 IP 확인
+ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# 2) (IP가 바뀌었으면) 인증서 재발급 — <새IP> 자리에 실제 IP 넣기
+cd "/Users/soojin/Library/CloudStorage/OneDrive-개인/vibeStudy/WhyMath"
+mkcert -cert-file apps/web/.cert/cert.pem -key-file apps/web/.cert/key.pem localhost 127.0.0.1 <새IP>
+mkcert -cert-file apps/api/.cert/cert.pem -key-file apps/api/.cert/key.pem localhost 127.0.0.1 <새IP>
+
+# 3) (IP가 바뀌었으면) .env 2곳 수정
+#    apps/web/.env  → VITE_API_BASE_URL=https://<새IP>:4000
+#    apps/api/.env  → CORS_ORIGIN=http://localhost:5173,https://localhost:5173,https://<새IP>:5173
+
+# 4) 서버 기동 (각각 새 터미널 탭 또는 백그라운드)
+pnpm -F api dev
+pnpm -F web dev -- --host
+
+scripts/dev-lan.sh/dev-lan-stop.sh의 API 서버 pkill 패턴 버그를 고쳤어요 (--env-file=.env src/server.ts로 매칭 — 부모/자식 tsx 프로세스 둘 다 잡힘). 누적됐던 orphan 프로세스도 정리했고, 재테스트로 stop 스크립트가 이제 fallback 없이 바로 API 서버를 잡는 걸 확인했습니다.
+
+서버는 현재 정상 기동 중입니다: https://172.30.1.84:5173/ (iPad), https://172.30.1.84:4000/health (API).
+
+시작: ./scripts/dev-lan.sh
+중지: ./scripts/dev-lan-stop.sh
