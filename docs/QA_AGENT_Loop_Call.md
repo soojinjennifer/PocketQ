@@ -28,7 +28,7 @@ PRD 범위를 확대하지 말고 최소 변경으로 처리해줘.
 
 @final-qa-agent
 
-현재 WhyMath를 Release Candidate로 간주하고
+현재 PocketQ를 Release Candidate로 간주하고
 PRD 전체 기준 Final QA를 처음부터 수행해줘.
 이전 QA 결과를 신뢰하지 말고 실제 코드와 테스트 결과만으로 판정해줘.
 
@@ -38,13 +38,13 @@ claude --agent final-qa-agent
 
 이후:
 
-WhyMath MVP Final QA를 수행해줘.
+PocketQ MVP Final QA를 수행해줘.
 
 라고 하면 됩니다.
 
 앞으로의 개발 사이클
 
-이제 WhyMath의 개발 루프를 **Plan → Design(필요 시) → Development → Stage QA → Development Fix → Stage QA**로 고정하고, MVP가 완성된 시점에만 **Final QA → Release Blocker Fix → Final QA 재검증 → Release**를 수행하는 구조를 추천합니다.
+이제 PocketQ의 개발 루프를 **Plan → Design(필요 시) → Development → Stage QA → Development Fix → Stage QA**로 고정하고, MVP가 완성된 시점에만 **Final QA → Release Blocker Fix → Final QA 재검증 → Release**를 수행하는 구조를 추천합니다.
 
 특히 stage-qa-agent를 description에서 proactively 사용하도록 지정했기 때문에 Claude가 단계 완료 상황에서 자동 위임할 가능성도 높일 수 있습니다. 그래도 저는 중요한 검수에서는 직접 @stage-qa-agent를 호출하는 방식을 권합니다. 공식 문서상 이 방식이 가장 확실합니다.
 

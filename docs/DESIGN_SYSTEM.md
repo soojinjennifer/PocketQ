@@ -1,4 +1,4 @@
-# 왜수학 디자인 시스템
+# 포켓큐 디자인 시스템
 
 기준: Figma `WhyMath Design System` (`fileKey: ltyPrCk8UT8DsB3tFuw7Sr`). 2026-07-26에 Figma MCP(`get_variable_defs`, `get_metadata`, `get_screenshot`)로 6개 화면(로그인/학년선택/문제풀기/마이페이지/카메라 촬영·미리보기) 전체를 실측하여 작성했다. `references/claude-design`의 ZIP/`.dc.html` 자료는 대조용으로만 사용했으며, 값이 다를 경우 이 문서는 Figma 실측값을 채택한다.
 

@@ -40,17 +40,17 @@ describe("LoadingMark", () => {
     expect(text.className).toContain("text-label-secondary");
   });
 
-  it("size prop으로 마크 크기를 지정할 수 있다", () => {
+  it("size prop으로 마크 높이를 지정할 수 있다(원본이 정사각형이 아니므로 너비는 auto)", () => {
     render(<LoadingMark size={48} />);
 
     const img = screen.getByRole("status").querySelector("img");
-    expect(img).toHaveStyle({ width: "48px", height: "48px" });
+    expect(img).toHaveStyle({ width: "auto", height: "48px" });
   });
 
-  it("size 기본값은 36px이다", () => {
+  it("size 기본값은 높이 36px이다(너비는 auto)", () => {
     render(<LoadingMark />);
 
     const img = screen.getByRole("status").querySelector("img");
-    expect(img).toHaveStyle({ width: "36px", height: "36px" });
+    expect(img).toHaveStyle({ width: "auto", height: "36px" });
   });
 });

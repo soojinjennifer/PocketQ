@@ -1,2 +1,2 @@
-# WhyMath
-왜수학 서비스 
+# PocketQ
+포켓큐 서비스 

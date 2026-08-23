@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-lan.sh로 띄운 WhyMath API/Web 개발 서버를 종료한다.
+# dev-lan.sh로 띄운 포켓큐 API/Web 개발 서버를 종료한다.
 
 pkill -f -- "--env-file=.env src/server.ts" 2>/dev/null && echo "API 서버 종료" || echo "실행 중인 API 서버 없음"
 pkill -f "vite/bin/vite.js -- --host" 2>/dev/null && echo "Web 서버 종료" || echo "실행 중인 Web 서버 없음"

@@ -9,7 +9,7 @@
 
 ## 1. 프로젝트 개요
 
-왜수학(WhyMath) — iPad 중심 수학 개념 튜터 웹앱. 요구사항 최우선 기준 문서는 `docs/PRD_WHYMATH.md`.
+포켓큐(PocketQ) — iPad 중심 수학 개념 튜터 웹앱. 요구사항 최우선 기준 문서는 `docs/PRD_WHYMATH.md`.
 
 - 프론트엔드: `apps/web` — React 19 + TypeScript + Vite 8 + Tailwind CSS 4 + React Router 8 + Supabase Auth(anon key)
 - 백엔드: `apps/api` — Express 5 + TypeScript, 이번 세션에 처음부터 새로 만듦(이전엔 완전히 빈 디렉터리였음)
@@ -130,7 +130,7 @@ PRD `docs/PRD_WHYMATH.md` §4.5에 CHAT-5~10을 보완(작업트리에 초안이
 ### 3.10 "Initial" 로딩 마크 (2026-08-16, 미커밋)
 
 Claude 자체 채팅 UI처럼, 첫 풀이 로딩과 후속 질문 응답 대기 중 브랜드 마크("M", Figma node `190:866`, "Initial" 컴포넌트)를 펄스 애니메이션으로 띄우도록 요청받음. Figma에서 정확한 노드를 찾는 데 두 차례 시행착오(처음엔 `docs/FIGMA_SCREEN_MAP.md`의 예시 URL에 우연히 박혀있던 무관한 노드를 잘못 짚음 → 오너가 스크린샷+정확한 node-id 재전달 → 재확인).
-- 에셋은 Figma가 준 raw 이미지의 crop 좌표를 역산하는 대신, 배경이 baked-in된 정확한 렌더(`export_node.png`)에서 균일한 배경색(`#f5f5f5`)만 픽셀 단위로 chroma-key 제거해 투명 PNG 직접 생성(`apps/web/src/assets/logo/WhyMathInitial.png`) — 이 방식은 제가 직접 처리(Python/PIL), 별도 서브에이전트 없이.
+- 에셋은 Figma가 준 raw 이미지의 crop 좌표를 역산하는 대신, 배경이 baked-in된 정확한 렌더(`export_node.png`)에서 균일한 배경색(`#f5f5f5`)만 픽셀 단위로 chroma-key 제거해 투명 PNG 직접 생성(현재 경로: `apps/web/src/assets/logo/PocketQInitial.png` — 2026-08-23 리브랜딩으로 Figma "Q" 마스코트 에셋으로 교체되며 파일명 변경) — 이 방식은 제가 직접 처리(Python/PIL), 별도 서브에이전트 없이.
 - `apps/web/src/shared/ui/loading-mark/LoadingMark.tsx` 신규 — 펄스 애니메이션(opacity 0.4~1.0/scale 0.92~1.0/1.4초, Figma에 모션 스펙 없어 임시값)은 `global.css`의 `@keyframes loading-mark-pulse`. 기존 `Spinner`는 그대로 두고(다른 화면에서 계속 쓰임) 첫 풀이 로딩·후속 질문 로딩 두 자리만 `LoadingMark`로 교체.
 
 ### 3.11 6.5단계 완료 조건 재검증 + 후속 버그 수정 (2026-08-16, 미커밋)
@@ -201,7 +201,7 @@ Claude 자체 채팅 UI처럼, 첫 풀이 로딩과 후속 질문 응답 대기 
 - 프론트 오케스트레이션 훅: `apps/web/src/features/problem-recognition/useRecognizeProblem.ts`, `apps/web/src/features/ai-solution/useSolveStream.ts`, `apps/web/src/features/follow-up-chat/useChatMessages.ts`
 - 프론트 결과 화면(Result Panel, §3.7): `apps/web/src/features/ai-solution/{ResultPanel.tsx,ResultPanelShell.tsx,ResultPanelResizeHandle.tsx,ResultCard.tsx,AnswerBox.tsx,RecognizedProblemBar.tsx,parseStreamingSolve.ts,useKeyboardInset.ts}`, `apps/web/src/shared/lib/katex/renderMathText.tsx`, `apps/web/src/shared/ui/badge/Badge.tsx`
 - 프론트 후속 질문(채팅, §3.9): `apps/web/src/features/follow-up-chat/{ChatFooter.tsx,SuggestionPill.tsx,ChatBubble.tsx(임시),useChatMessages.ts}`
-- 로딩 마크(§3.10): `apps/web/src/shared/ui/loading-mark/LoadingMark.tsx`, 에셋 `apps/web/src/assets/logo/WhyMathInitial.png`
+- 로딩 마크(§3.10): `apps/web/src/shared/ui/loading-mark/LoadingMark.tsx`, 에셋 `apps/web/src/assets/logo/PocketQInitial.png`
 - 프론트 캔버스 유틸(이관됨): `apps/web/src/shared/lib/canvas/{useDrawingStrokes.ts,strokeToPath.ts,strokeStyle.ts,exportStrokesToPngBlob.ts}`
 - 프론트 필기 컴포넌트: `apps/web/src/features/drawing-canvas/{HandwritingCanvas.tsx,PenRail.tsx}`(`onPointerCancel` 포함)
 - 프론트 카메라: `apps/web/src/features/camera/*`

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WhyMath 개발 서버를 현재 LAN IP에 맞춰 기동한다.
+# 포켓큐 개발 서버를 현재 LAN IP에 맞춰 기동한다.
 #
 # iPad 등 다른 기기에서 접속하려면 mkcert 인증서와 .env의 CORS/API 주소가
 # 이 컴퓨터의 현재 LAN IP와 일치해야 하는데, Wi-Fi 재연결/재부팅으로 IP가

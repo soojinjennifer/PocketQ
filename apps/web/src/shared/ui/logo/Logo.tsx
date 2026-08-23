@@ -1,4 +1,4 @@
-import logoSrc from "../../../assets/logo/WhyMathLogo.png";
+import logoSrc from "../../../assets/logo/PocketQLogo.png";
 
 interface LogoProps {
   size?: "large" | "small";
@@ -10,7 +10,7 @@ const SIZE_PX: Record<NonNullable<LogoProps["size"]>, number> = {
 };
 
 /**
- * 왜수학 로고 (Figma `get_design_context` 실측 스타일 그대로 적용).
+ * 포켓큐 로고 (Figma `get_design_context` 실측 스타일 그대로 적용).
  * `size="large"`(76px, 기본) / `size="small"`(52px) variant를 지원한다.
  */
 export function Logo({ size = "large" }: LogoProps) {
@@ -21,7 +21,7 @@ export function Logo({ size = "large" }: LogoProps) {
       className="overflow-clip rounded-[18px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.1)]"
       style={{ width: px, height: px }}
     >
-      <img src={logoSrc} alt="왜수학 로고" className="size-full rounded-[18px] object-cover" />
+      <img src={logoSrc} alt="포켓큐 로고" className="size-full rounded-[18px] object-cover" />
     </div>
   );
 }

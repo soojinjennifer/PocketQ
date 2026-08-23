@@ -89,7 +89,7 @@ export function RegisterPage() {
     <div className="bg-bg-primary flex min-h-screen flex-col items-center justify-center gap-6 px-6">
       <div className="flex flex-col items-center gap-3 text-center">
         <Logo size="large" />
-        <h1 className="text-label-primary text-lg font-semibold">왜?수학</h1>
+        <h1 className="text-label-primary text-lg font-semibold">포켓큐</h1>
         <p className="text-label-secondary text-sm">
           궁금증이 풀릴 때까지 답해주는 수학 개념 튜터
         </p>
@@ -175,7 +175,7 @@ export function RegisterPage() {
         <Modal
           icon="check"
           title="회원가입이 완료 되었습니다"
-          description={`안녕하세요, 이제 우리"왜수학"에서 매일 만나요!`}
+          description={`안녕하세요, 이제 우리"포켓큐"에서 매일 만나요!`}
           actionLabel="로그인하기"
           onAction={() => {
             setHoldPublicRedirect(false);

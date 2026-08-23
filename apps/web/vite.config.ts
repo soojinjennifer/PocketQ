@@ -26,8 +26,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "왜수학",
-        short_name: "왜수학",
+        name: "포켓큐",
+        short_name: "포켓큐",
         display: "standalone",
         orientation: "landscape",
         start_url: "/",

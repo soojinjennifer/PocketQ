@@ -21,5 +21,5 @@ const httpsOptions =
 const server = httpsOptions ? createHttpsServer(httpsOptions, app) : createHttpServer(app);
 
 server.listen(env.port, () => {
-  console.log(`WhyMath API listening on port ${env.port} (${httpsOptions ? "https" : "http"})`);
+  console.log(`PocketQ API listening on port ${env.port} (${httpsOptions ? "https" : "http"})`);
 });

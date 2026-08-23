@@ -1,5 +1,5 @@
 /**
- * 왜수학 디자인 토큰 (Figma 실측, docs/DESIGN_TOKEN_MAP.md §1 기준)
+ * 포켓큐 디자인 토큰 (Figma 실측, docs/DESIGN_TOKEN_MAP.md §1 기준)
  * 순수 CSS Variables만 정의한다. Tailwind 문법을 사용하지 않는다.
  */
 :root {
