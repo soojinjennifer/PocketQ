@@ -1,0 +1,15 @@
+{
+  "name": "MathJK 고등수학 개념정리 PDF 모음",
+  "publisher": null,
+  "sourceUrl": "https://mathjk.tistory.com/3584",
+  "sourceType": "blog_pdf_collection",
+  "subject": ["ALG", "CALC1"],
+  "curriculumVersion": "2022",
+  "licenseType": "CC BY 4.0 (표시됨, 페이지 레벨)",
+  "licenseUrl": null,
+  "licenseVerified": false,
+  "usageMode": "REFERENCE_ONLY",
+  "attributionText": null,
+  "retrievedAt": "2026-08-25T00:00:00.000Z",
+  "notes": "블로그 페이지에 CC BY 4.0 표시가 있으나, 게시된 PDF 각각의 원저작권자 및 2차 출처(제3자 문제 재수록 여부)를 아직 검증하지 못했다. 검증 전까지 usageMode는 REFERENCE_ONLY로 고정하며, 문제 텍스트를 그대로 프로덕션에 노출하거나 파인튜닝/임베딩 데이터로 사용하지 않는다."
+}
