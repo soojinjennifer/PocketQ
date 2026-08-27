@@ -1,0 +1,15 @@
+{
+  "name": "2028학년도 대학수학능력시험 예시문항 문제지·정답표 (수학)",
+  "publisher": "교육부·한국교육과정평가원",
+  "sourceUrl": "https://www.kyeongin.com/article/1736305",
+  "sourceType": "official_sample_exam",
+  "subject": ["ALG", "CALC1"],
+  "curriculumVersion": "2022",
+  "licenseType": null,
+  "licenseUrl": null,
+  "licenseVerified": false,
+  "usageMode": "REFERENCE_ONLY",
+  "attributionText": "교육부·한국교육과정평가원, 2028학년도 대학수학능력시험 예시문항 문제지·정답표 (2025-04-15 공개)",
+  "retrievedAt": "2026-08-27T00:00:00.000Z",
+  "notes": "원저작권자/발행 주체는 교육부·한국교육과정평가원(www.moe.go.kr, www.kice.re.kr, www.suneung.re.kr)이며 2025-04-15 공식 공개됐다. 이 PDF 실물은 경인일보 기사(교육부, 2028학년도 대학수학능력시험 예시 문항 문제지 안내)에 첨부된 보도자료 원문을 통해 확보했다 — sourceUrl은 해당 기사 permalink(https://www.kyeongin.com/article/1736305)로 기록한다. 실제 PDF 파일은 네이버 정적 파일 서버(files-scs.pstatic.net)에 호스팅된 첨부본이며, 다운로드 직후 1페이지 텍스트에 \"한국교육과정평가원 [부록] 2028학년도 수능 예시문항 문제지ㆍ정답표\"가 그대로 포함돼 있어 원문임을 확인했다. 공식 기관 공개 자료이나 재배포 시 정확한 라이선스 조건(예: 공공누리 유형)이 별도 명시되어 있지 않아 MathJK와 동일하게 보수적으로 licenseVerified=false, usageMode=REFERENCE_ONLY로 고정한다."
+}

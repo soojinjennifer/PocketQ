@@ -8,7 +8,14 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "db:import-curriculum": "tsx --env-file=.env src/infrastructure/curriculum/cli/import-curriculum.ts",
+    "db:validate-curriculum": "tsx src/infrastructure/curriculum/cli/validate-curriculum.ts",
+    "reference:extract-pilot": "tsx --env-file=.env src/infrastructure/referenceAnalysis/cli/extract-reference-pilot.ts",
+    "reference:validate-features": "tsx src/infrastructure/referenceAnalysis/cli/validate-reference-features.ts",
+    "exam:ingest-gold-set": "tsx --env-file=.env src/infrastructure/examCalibration/cli/ingest-gold-set.ts",
+    "exam:validate-features": "tsx src/infrastructure/examCalibration/cli/validate-exam-features.ts",
+    "exam:calibrate-families": "tsx --env-file=.env src/infrastructure/examCalibration/cli/calibrate-problem-families.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.2",
@@ -16,6 +23,7 @@
     "express": "5.2.1",
     "multer": "2.2.0",
     "openai": "^7.4.0",
+    "pdfjs-dist": "^6.2.108",
     "shared-types": "workspace:*",
     "validation": "workspace:*",
     "zod": "4.4.3"

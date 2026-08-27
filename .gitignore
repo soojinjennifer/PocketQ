@@ -27,3 +27,6 @@ yarn-error.log*
 
 .cert/
 apps/web/public/rootCA.pem
+
+data/references/**/*.pdf
+data/references/**/.extraction-cache/

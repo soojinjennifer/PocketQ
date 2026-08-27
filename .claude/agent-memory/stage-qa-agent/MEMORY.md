@@ -1,3 +1,4 @@
 - [Test commands](test_commands.md) — correct root pnpm typecheck/lint/test/build gate + known jsdom canvas warning is not a failure
 - [Grep pitfall](grep_pitfall.md) — scope greps under apps/src or use --include; apps/web|api node_modules cause timeouts
 - [PocketQ naming conventions](naming_conventions.md) — which "WhyMath" leftovers are intentional (Figma file name, PRD filename, reference dirs) vs real bugs
+- [Problem DB pipeline](problem_db_pipeline.md) — Stage 1-6 architecture paths, `db:validate-curriculum` runs w/o Supabase creds, safety invariants to recheck each stage
