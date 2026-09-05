@@ -24,11 +24,13 @@
   --color-accent-purple: var(--color-accent-purple);
   --color-accent-orange: var(--color-accent-orange);
   --color-accent-yellow: var(--color-accent-yellow);
+  --color-accent-red: var(--color-accent-red);
 
   --color-separator: var(--color-separator);
   --color-fill-quaternary: var(--color-fill-quaternary);
   --color-fill-tint-brand: var(--color-fill-tint-brand);
   --color-fill-tint-green: var(--color-fill-tint-green);
+  --color-fill-tint-red: var(--color-fill-tint-red);
   --color-glass-fill: var(--color-glass-fill);
   --color-glass-border: var(--color-glass-border);
 

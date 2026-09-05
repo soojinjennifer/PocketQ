@@ -1,82 +1,126 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ActionBar } from "./ActionBar";
 
-/** ActionBar는 controlled 컴포넌트라 테스트에서도 선택 상태를 직접 관리하는 얇은 래퍼가 필요하다. */
-function ControlledActionBar({ hasProblem = true }: { hasProblem?: boolean }) {
-  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<string>>(new Set());
-
-  const toggle = (id: string) => {
-    setSelectedOptionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  return (
-    <ActionBar
-      hasProblem={hasProblem}
-      selectedOptionIds={selectedOptionIds}
-      onToggleOption={toggle}
-    />
-  );
-}
-
 describe("ActionBar", () => {
-  it("초기 상태(0개 선택)에서는 풀기 버튼이 비활성화된다(SOLVE-1)", () => {
-    render(<ControlledActionBar />);
-
-    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "풀이해주기" })).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "풀기" })).toBeDisabled();
-  });
-
-  it("체크박스를 1개 이상 선택하면 풀기 버튼이 활성화된다", () => {
-    render(<ControlledActionBar />);
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
-
-    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked();
-    expect(screen.getByRole("button", { name: "풀기" })).not.toBeDisabled();
-  });
-
-  it("사진이 없으면(hasProblem=false) 체크박스를 선택해도 풀기 버튼이 비활성화된다", () => {
-    render(<ControlledActionBar hasProblem={false} />);
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-
-    expect(screen.getByRole("button", { name: "풀기" })).toBeDisabled();
-  });
-
-  it("선택했던 체크박스를 다시 클릭하면 해제되고, 0개가 되면 다시 비활성화된다", () => {
-    render(<ControlledActionBar />);
-
-    const checkbox = screen.getByRole("checkbox", { name: "풀이해주기" });
-    fireEvent.click(checkbox);
-    expect(screen.getByRole("button", { name: "풀기" })).not.toBeDisabled();
-
-    fireEvent.click(checkbox);
-    expect(checkbox).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "풀기" })).toBeDisabled();
-  });
-
-  it("isSubmitting이 true면 선택이 있어도 풀기 버튼이 비활성화된다", () => {
+  it("INPUT 단계(problemId=null)에서는 '문제 인식하기'만 활성화된다", () => {
     render(
       <ActionBar
-        hasProblem
-        selectedOptionIds={new Set(["explain"])}
-        onToggleOption={() => {}}
-        isSubmitting
+        problemId={null}
+        hasProblemInput
+        recognizeStatus="idle"
+        solveStatus="idle"
       />,
     );
 
-    expect(screen.getByRole("button", { name: "풀기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "봐 주세요" })).toBeDisabled();
+  });
+
+  it("INPUT 단계에서 입력이 없으면(hasProblemInput=false) '문제 인식하기'도 비활성화된다", () => {
+    render(
+      <ActionBar
+        problemId={null}
+        hasProblemInput={false}
+        recognizeStatus="idle"
+        solveStatus="idle"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+  });
+
+  it("recognize 요청이 진행 중이면 '문제 인식하기'가 비활성화된다", () => {
+    render(
+      <ActionBar
+        problemId={null}
+        hasProblemInput
+        recognizeStatus="loading"
+        solveStatus="idle"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+  });
+
+  it("WORK 단계(problemId 있음, 진단 전)에서는 '아직 못 풀겠어요'/'봐 주세요'가 활성화되고 '문제 인식하기'는 비활성화된다", () => {
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        recognizeStatus="success"
+        solveStatus="idle"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "봐 주세요" })).not.toBeDisabled();
+  });
+
+  it("WORK 단계에서 진단(solve) 요청이 진행 중이면 '아직 못 풀겠어요'/'봐 주세요' 모두 비활성화된다", () => {
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        recognizeStatus="success"
+        solveStatus="loading"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "봐 주세요" })).toBeDisabled();
+  });
+
+  it("RESULT 단계(solveStatus=success)에서는 3개 버튼 모두 비활성화된다", () => {
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        recognizeStatus="success"
+        solveStatus="success"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "봐 주세요" })).toBeDisabled();
+  });
+
+  it("onRecognize가 있으면 '문제 인식하기' 클릭 시 호출된다", () => {
+    const handleRecognize = vi.fn();
+    render(
+      <ActionBar
+        problemId={null}
+        hasProblemInput
+        recognizeStatus="idle"
+        solveStatus="idle"
+        onRecognize={handleRecognize}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    expect(handleRecognize).toHaveBeenCalledTimes(1);
+  });
+
+  it("onGiveUp/onDiagnose가 있으면 WORK 단계에서 각 버튼 클릭 시 호출된다", () => {
+    const handleGiveUp = vi.fn();
+    const handleDiagnose = vi.fn();
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        recognizeStatus="success"
+        solveStatus="idle"
+        onGiveUp={handleGiveUp}
+        onDiagnose={handleDiagnose}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
+    fireEvent.click(screen.getByRole("button", { name: "봐 주세요" }));
+    expect(handleGiveUp).toHaveBeenCalledTimes(1);
+    expect(handleDiagnose).toHaveBeenCalledTimes(1);
   });
 });

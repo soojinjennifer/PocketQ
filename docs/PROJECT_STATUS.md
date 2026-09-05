@@ -228,6 +228,31 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 - **테스트**: `calibrateProblemFamilies.core.test.ts`에 `detectConflictingRepresentationTypes` 전용 5개 + `computeFamilyCalibration`의 모순 판정 통합 2개, 총 7개 신규 테스트 추가(기존 테스트는 `hasConflictingRepresentationTypes: false`를 옵션에서 제거하도록만 수정, 값 자체 변경 없음). 게이트 전체(루트 typecheck/lint/test/build) 통과 확인 — api 264개(Stage 3의 257개 + 신규 7개)/web 334개, 회귀 없음.
 - **범위 밖으로 명시적으로 남겨둔 것**: 임계값(cutoff 상수) 조정, family 상태 수동 승인/강제, 삼각함수/수열/미적분Ⅰ 단원의 `csatImportance` 보강, SILVER A(역대 기출) 확보, Stage 2 파일럿 코퍼스 확장(다른 단원 추가) — 전부 이번 Stage 3.5에서 만들지 않음.
 
+### 3.16 Solve v2.0 재구현 계획 (2026-09-04, plan-agent)
+
+`docs/PRD_WHYMATH.md` v2.0(문제 생성 DB → 학생 풀이 진단형 1:1 튜터링 피벗, `cc3b930`) 확정 이후, 변경된 Solve 화면 Figma 3개 프레임(`3-0 Solve/Default` node `260:423`, `3-1 Solve/Pencilcanvas` node `127:445`, `3-2 Solve/Landscape` node `38:21`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`)을 design-agent가 분석하고, plan-agent가 구조·문서 갱신 계획을 수립했다(둘 다 미커밋 — 계획 문서 갱신 및 코드 구현은 이번 절 이후 단계).
+
+- **핵심 결론 1 — 노드↔라우트 관계**: 3개 프레임이 3개의 새 라우트를 의미하지 않는다. `3-0`(INPUT, `problemId===null`)과 `3-1`(WORK, `problemId!==null`)은 기존 `/solve/pencilcanvas` 라우트 내부의 상태 분기이고, `3-2`는 기존 `/solve/landscape` 라우트를 유지한 채 콘텐츠만 DiagnosisCard/ResumeModeBar/ResumeResultCard로 전면 교체된다. PRD §3 "단계 전환에는 신규 라우트를 추가하지 않는다" 원칙과 일치.
+- **핵심 결론 2 — ActionBar 상태 머신**: 기존 2-체크박스(`~~SOLVE-1~~`, 폐기)를 "문제 인식하기/아직 못 풀겠어요/봐 주세요" 3분할로 대체. 단계별(INPUT/WORK/DIAG·RESUME) × (recognizeEnabled/giveUpEnabled/diagnoseEnabled) 상태표를 순수 함수 `getActionBarState()`(신규, `shared/lib/solve/actionBarState.ts`)로 계산.
+- **핵심 결론 3 — Provider 확장 판단**: 신규 Provider를 만들지 않고 기존 `ProblemInputProvider`(`features/problem-input/`)를 확장해 WORK/DIAG/RESUME/METHOD 상태를 추가(`useRecognizeWork`/`useDiagnose`/`useResume`/`useListMethods` 훅 추가). WORK 단계 캔버스는 INPUT 단계와 별개의 두 번째 `useDrawingStrokes()` 인스턴스 사용. `HandwritingCanvas.tsx` 내부는 수정하지 않고 `HandwritingHighlightOverlay`를 별도 sibling 레이어로 신설.
+- **핵심 결론 4 — 6개 결정 필요 항목 분류**(전체 목록은 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7): (1) **WORK-2/3 중간 상태 Figma 조회 완료(2026-09-04) — 결론: 해당 프레임 없음.** `MathService` 파일 전체를 조사했으나 줄 단위 인식/수정/저신뢰도 경고를 모두 갖춘 WORK-진행-중 프레임이 존재하지 않음(3-0/3-1/3-2 행에 물리적 빈 공간 없음, 인접 node-id 전수 확인). 참고 단서는 `Solve/Work Line` 심볼(`248:53`, `3-2` 진단 화면 전용, 정답 판정 배지만 있고 신뢰도 배지 없음)과 "인식된 문제" 행의 "수정" 텍스트 링크(`254:64`, 문제 텍스트 대상, 학생 풀이 줄 아님) 뿐(`docs/COMPONENT_MAP.md` §1/§3 참고). `WorkLineEditor`(work-order 3단계) 착수 전 오너가 (a) Figma 신규 프레임 제작 요청 또는 (b) 기존 배지 톤 팔레트 재사용 임시값(추후 교체 전제) 중 방향을 결정해야 함 — 여전히 착수 차단 상태. (2) 막힌 지점 데이터 모델(스트로크 구간/y좌표 매핑) 미정 — `HandwritingHighlightOverlay`(6단계) 착수 전 필요, (3) CAS 검증 서비스 연동 시점 — 미준비 시 결정론적 스텁으로 대체, (4) METHOD(§4.8) 화면 Figma 미확인 — 8단계 착수 전 별도 확인 필요, (5) `curriculum_nodes` 확장 컬럼 UI 노출 범위 미정, (6) "학생 풀이 골드셋" 공공데이터 연계 "추후 검토"(프론트 구현 범위 밖).
+- **작업 순서**: `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §1.3.1에 8단계 work order로 확정(ActionBar 재작성 → 목업 UI → WorkLineEditor[차단] → WORK/DIAG 백엔드 연동 → RESUME 백엔드 연동 → 하이라이트 오버레이[결정 필요] → CHAT 컨텍스트 확장 → METHOD 화면[Figma 미확인]).
+- **오너 승인 범위(2026-09-04)**: "(1) docs 5개 갱신 → (2) development-agent 1~2단계(ActionBar + 목업 UI) 착수 → (3) 병행하여 design-agent에 WORK-2/3 Figma 추가 조회 요청"까지만 진행. 기존 구현이 깨지지 않도록, 그리고 공통 컴포넌트(`shared/ui`)를 재사용하도록 development-agent에 명시적으로 지시. 3단계 이후는 별도 승인 필요.
+
+### 3.17 Solve v2.0 1~2단계 사후검수 결함 발견 및 수정 (2026-09-05, 미커밋)
+
+1~2단계 구현 완료 후 오너가 3단계(`WorkLineEditor`)를 "임시값으로 우선 구현" 방향으로 승인해 development-agent가 3단계까지 진행했다(각 단계 게이트를 내가 직접 재검증 — typecheck/lint/test/build 전부 통과, 최종 361개 테스트). 이어서 CLAUDE.md 표준 절차대로 1~2단계에 대한 design-agent 사후검수를 진행한 결과 **P0(즉시 수정) FAIL 2건**이 나왔다.
+
+- **결함 원인**: development-agent가 (앞선 세션에서 이미 존재하던, 이번 세션이 만든 것이 아닌) 코드 주석의 Figma node-id(`38:48`/`127:452`)를 근거로 ActionBar 구조를 재해석했는데, 이 두 node-id는 Figma MCP로 조회하면 **파일에 존재하지 않는 노드**였다. `WorkLineList`도 코드 작성 시점(design-agent의 WORK-2/3 조회와 병행 진행)에는 `Solve/Work Line`(`248:53`) 실측값이 아직 `docs/COMPONENT_MAP.md`에 반영되기 전이라, 다른 근거(신뢰도 표시 개념)로 임의 설계됐다.
+- **ActionBar 결함**: "독립 버튼 3개 + gap"이 아니라 실제로는 "세그먼트 컨트롤 1개"(컨테이너 `gap-[2px] p-[6px]` + divider 2개, 코드는 `gap-[10px] p-[10px]`로 임의 재해석)였다. 색상도 "고정 3색"이 아니라 "그 단계의 주 행동 1개만 `bg-brand-deep` 강조, 나머지는 배경 없는 텍스트"인데, 코드는 3개 버튼에 `pill-dark`/`pill-glass`/`pill-primary`를 단계 무관하게 고정 배정했고 강조색도 틀렸다(`--color-brand` vs 실제 `--color-brand-deep`). 그림자도 `Elevation/Tab Pill`(2겹, `NavTabBar`가 이미 쓰는 값)을 잘못 갖다 썼고 실제는 `Elevation/Floating Bar`(3겹+inset 2겹, `docs/DESIGN_SYSTEM.md` §4)였다.
+- **WorkLineList 결함**: 줄번호를 배지로 잘못 표현(실제는 순수 텍스트), 판정 배지 라벨이 "확인됨"(실제는 "확인")·크기가 안 맞음(`chip` 11px Regular vs 실제 999px pill `px-[8px] py-[2px]` 11px Semibold), 무엇보다 **Figma에 없는 "신뢰도 낮음"(`isLowConfidence`) 개념을 임의로 추가**했었다 — 이 심볼이 실제 표현하는 것은 "인식 신뢰도"가 아니라 "정답 판정(확인/막힌 지점)"이다.
+- **수정**: design-agent가 Figma MCP로 재조회한 정확한 실측값(node `256:405`/`249:69`/`260:92`/`260:101`, `248:53`)을 그대로 development-agent에게 프롬프트로 전달해(development-agent는 Figma MCP 접근 권한이 없음) `ActionBar.tsx`/`WorkLineList.tsx`(+테스트)를 전면 재작성, `ResumeModeBar.tsx`의 컨테이너 톤도 연쇄 반영, 페이지 2곳의 잘못된 node-id 주석도 정정. **신규 디자인 토큰 2개**(`--color-accent-red #c97b6e`/`--color-fill-tint-red rgba(201,123,110,0.2)`, 둘 다 Figma 실측값 근거, `docs/DESIGN_TOKEN_MAP.md` 갱신)와 **`Badge` 신규 variant/size**(`tint-red`/`judgment`)를 추가했다 — 임의 색상이 아니라 Figma 실측값이므로 `.claude/rules/frontend.md` §3.3 규칙 위반 아님.
+- **재검증**: 내가 직접 typecheck/lint/test(361개)/build를 재실행해 전부 통과 확인, 변경 파일(`ActionBar.tsx`/`WorkLineList.tsx`/`Badge.tsx`/`theme.css`/`tokens.css`)을 직접 읽어 프롬프트로 전달한 실측값과 일치하는지 대조 확인했다.
+- **교훈**: 코드 주석에 있는 Figma node-id를 그대로 신뢰하지 말고, 화면 구현 작업마다 design-agent가 실제로 조회한 실측값을 development-agent 프롬프트에 직접 명시해서 전달해야 한다(development-agent는 Figma MCP 접근 권한이 없어 스스로 검증 불가) — 이번 work-order 4단계 이후 착수 시에도 동일 원칙 적용 필요.
+- **재검수 결과(같은 날, 2회차 design-agent)**: 위 P0 수정 2건은 Figma MCP 재조회로 실제 일치를 확인(PASS). 다만 (a) `ActionBar.tsx` 세그먼트 텍스트가 `15px/20px`(근사 토큰)인데 실제 Figma 실측은 `14px/leading-normal`(P2), (b) 3단계 `WorkLineEditor.tsx`가 줄번호를 다시 `Badge`로 렌더링해 방금 고친 원칙을 재도입한 회귀(P1), (c) 편집 `<input>`이 `outline-none`만 있고 대체 포커스 스타일이 없는 접근성 결함(P1), (d) `WorkLineEditor.tsx`가 인용한 `RecognizedProblemBar`(Figma `39:39`)도 존재하지 않는 노드(P2, 인용만 정정 필요, 동작 변경 없음)를 추가로 발견 — development-agent에 즉시 수정 지시함.
+- **P1/P2 수정 완료 및 재검증(2026-09-05)**: `WorkLineEditor.tsx` 줄번호를 `WorkLineList.tsx`와 동일한 순수 텍스트 패턴(`<span className="text-label-tertiary w-[16px] shrink-0 text-[11px] font-bold">`)으로 교체(편집/비편집 두 상태 모두), 편집 `<input>`에 `focus-visible:ring-brand ring-2 ring-offset-2` 추가, 잘못된 `39:39` 노드 인용 문구 정정(동작 변경 없음). `ActionBar.tsx` 세그먼트 텍스트를 `text-[14px] leading-[normal]`로 정정. 내가 직접 diff를 읽고 typecheck/lint/test(361개)/build를 재검증해 전부 통과 확인 — 지시한 4개 항목 외 다른 파일은 손대지 않았음도 함께 확인. `RecognizedProblemBar` 라벨 불일치·`Badge` `chip` size 불일치·`elevatedCardStyle.ts` 중복 3건은 의도대로 이번 범위에서 제외되고 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7에 백로그로 기록됨.
+- **신규 발견 백로그(이번 범위 밖, 별도 처리 필요)**: `RecognizedProblemBar.tsx`의 배지 라벨이 "인식됨"인데 Figma 실측은 "인식된 문제"(기존 컴포넌트의 기존 결함, 이번 세션이 만든 것 아님); `shared/ui/badge/Badge.tsx`의 `chip` size가 `rounded-[6px]`/`font-normal`인데 실제 사용처(`254:61`) 실측은 `rounded-[8px]`/`font-[590]`(기존 부채); `elevatedCardStyle.ts`가 `features/ai-solution`과 `features/work-input`에 중복 존재(feature 간 직접 참조 금지 규칙 때문에 불가피했으나 `.claude/rules/frontend.md` §2 "3회 이상 반복 시 공통 컴포넌트로 분리" 기준 충족 — `shared/ui` 승격 검토 필요).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -258,6 +283,7 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ⏳ 1~3단계 완료 + design-agent 사후검수 2회 완료(2026-09-05, §3.17). 1회차: P0 결함 2건(ActionBar/WorkLineList 실측값 오류) 발견→수정→PASS. 2회차: P0 재검수 PASS 확인 + `WorkLineEditor`(3단계) 최초검수에서 P1 결함 2건(줄번호 배지 회귀, 편집창 포커스 접근성) 발견→수정 완료, 내가 직접 재검증(typecheck/lint/test 361개/build 전부 통과). 백로그 3건은 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7에 기록. 4단계(백엔드 연동) 이후는 별도 승인 필요 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
@@ -266,7 +292,8 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
 2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
 3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
-4. 오너에게 다음 우선순위를 확인:
+4. Solve v2.0 재구현(§3.16~3.17, §5 6.6단계) — 1~3단계 구현 + design-agent 사후검수 2회(P0/P1 결함 발견→수정→재검증) 모두 완료된 상태다. 오너에게 4단계(WORK/DIAG 백엔드 연동, CAS 스텁 포함) 착수 여부를 확인할 것. 백로그 3건(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7)은 이번 work-order와 무관하게 언제든 별도로 처리 가능.
+5. 오너에게 다음 우선순위를 확인:
    - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
    - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.
    - Footer의 후속 질문 스트리밍 표시(PRD CHAT-8, P1) 착수 여부.

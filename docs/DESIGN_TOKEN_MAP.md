@@ -24,10 +24,12 @@
 | `accent/purple` | `#9a93b0` | `--color-accent-purple` | `colors-pastel.css`의 `--accents-purple` (동일 값) |
 | `accent/orange` | `#d9a05b` | `--color-accent-orange` | `colors-pastel.css`의 `--accents-orange` (동일 값) |
 | `accent/yellow` | `#dcc08a` | `--color-accent-yellow` | `colors-pastel.css`의 `--accents-yellow` (동일 값) |
+| `accent/red` | `#c97b6e` | `--color-accent-red` | 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 |
 | `separator` | `#3c3c431f` | `--color-separator` | — |
 | `fill/quaternary` | `#7676801f` | `--color-fill-quaternary` | — |
 | `fill/tint-blue` | `#5e6e8229` | `--color-fill-tint-brand` | brand 16% 알파 |
 | `fill/tint-green` | `#6fa8982e` | `--color-fill-tint-green` | accent-green 18% 알파 |
+| `fill/tint-red` | `rgba(201,123,110,0.2)` | `--color-fill-tint-red` | 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 (accent-red 20% 알파, 행 배경은 같은 값의 50% 재사용인 `bg-fill-tint-red/50`으로 10% 알파 재현) |
 | `glass/fill` | `#fbfaf6f5` | `--color-glass-fill` | — |
 | `glass/border` | `#ffffffd9` | `--color-glass-border` | — |
 | `kakao/yellow` | `#fee500` | `--color-kakao-bg` | 신규 (소셜 로그인 전용) |

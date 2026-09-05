@@ -24,17 +24,20 @@ export function SolvePencilcanvasPage() {
     undoStroke,
     clearStrokes,
     hasProblemInput,
-    selectedOptionIds,
-    toggleOption,
     submitProblem,
+    problemId,
     recognizeStatus,
     solveStatus,
   } = useProblemInput();
 
   const problemCardData: ProblemCardData = capturedImage ? { imageUrl: capturedImage.previewUrl } : null;
-  const isSubmitting = recognizeStatus === "loading" || solveStatus === "loading";
 
-  const handleSolve = () => {
+  // "문제 인식하기"(INPUT 단계) 클릭 시 호출된다. 현재는 recognize와 solve를 분리 트리거하는
+  // WORK/DIAG 백엔드 연동이 아직 없어(`docs/FRONTEND_IMPLEMENTATION_PLAN.md` §1.3.1 4단계, 이번
+  // 작업 범위 밖) 기존과 동일하게 `submitProblem()`(recognize → solve)을 그대로 호출한다.
+  // "아직 못 풀겠어요"/"봐 주세요"(WORK 단계)는 problemId가 채워진 뒤에만 활성화되는데, 이 화면은
+  // 그 직후 바로 `/solve/landscape`로 이동하므로 여기서는 핸들러를 연결하지 않는다.
+  const handleRecognize = () => {
     void submitProblem();
     void navigate("/solve/landscape");
   };
@@ -58,17 +61,18 @@ export function SolvePencilcanvasPage() {
         <ProblemCard data={problemCardData} />
       </div>
 
-      {/* Action Bar: Figma 실측(node 127:452) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
+      {/* Action Bar: Figma 실측(`Solve/Action Bar` 인스턴스 node 256:405, `3-1 · Solve/Pencilcanvas`
+          `127:445` 내부) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
           40px 여백 — 기존 코드의 bottom-6(24px)보다 큰 값이라 오너가 "40px 위로"라고 요청한 값과 일치한다.
           iPad Safari 하단 툴바/홈 인디케이터에 가려지는 문제까지 함께 방지하기 위해 세이프에어리어
           inset도 더해서 실제 화면 여백은 항상 최소 40px 이상이 되도록 한다. */}
       <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
         <ActionBar
-          hasProblem={hasProblemInput}
-          selectedOptionIds={selectedOptionIds}
-          onToggleOption={toggleOption}
-          onSolve={handleSolve}
-          isSubmitting={isSubmitting}
+          problemId={problemId}
+          hasProblemInput={hasProblemInput}
+          recognizeStatus={recognizeStatus}
+          solveStatus={solveStatus}
+          onRecognize={handleRecognize}
         />
       </div>
     </div>

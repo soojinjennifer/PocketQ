@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 /** `"outline"`(신규, Figma `174:614` 제안 질문 pill) — 배경 없음, `border-brand` 보더/텍스트.
  *  `"tint-blue-flat"`(신규, Figma `4 · MyPage` History Row 개념 태그 chip `36:2`) — `tint-blue`와
  *  같은 톤이지만 **보더가 없다**. `tint-blue`는 2026-08-16 Figma 재실측으로 보더가 추가됐고 여러
- *  화면이 이미 그 모습을 쓰고 있어 수정하지 않고, 보더 없는 MyPage 실측값을 별도 variant로 추가했다. */
-type BadgeVariant = "tint-blue" | "tint-blue-flat" | "tint-green" | "outline";
+ *  화면이 이미 그 모습을 쓰고 있어 수정하지 않고, 보더 없는 MyPage 실측값을 별도 variant로 추가했다.
+ *  `"tint-red"`(신규, `Solve/Work Line` `248:53` 실측) — "막힌 지점" 판정 배지. `--color-accent-red`/
+ *  `--color-fill-tint-red`(2026-09-05 추가 토큰) 사용. */
+type BadgeVariant = "tint-blue" | "tint-blue-flat" | "tint-green" | "tint-red" | "outline";
 /** `"pill"`(기본): 카테고리/"새 문제"(Figma `39:33`/`39:35`) — 완전 라운드, 13px/590.
  *  `"chip"`: "인식됨"(Figma `39:39`) — 사각 chip(`rounded-[6px]`), 11px/Regular.
  *  `"tag"`(신규, Figma `174:618~625` 해시태그 pill): 완전 라운드, `px-[11px] py-[5px]`,
@@ -12,8 +14,10 @@ type BadgeVariant = "tint-blue" | "tint-blue-flat" | "tint-green" | "outline";
  *  `"footnote"`(신규, Figma `174:614` 제안 질문 pill): 완전 라운드, `px-[14px] py-[7px]`,
  *  13px/590(Footnote Semibold).
  *  `"tag-sm"`(신규, Figma `4 · MyPage` History Row 개념 태그 chip): 완전 라운드,
- *  `px-[10px] py-[2px]`, 12px/590 — `tag`보다 좌우/상하 여백이 좁다. */
-type BadgeSize = "pill" | "chip" | "tag" | "footnote" | "tag-sm";
+ *  `px-[10px] py-[2px]`, 12px/590 — `tag`보다 좌우/상하 여백이 좁다.
+ *  `"judgment"`(신규, `Solve/Work Line` `248:53` 실측): 완전 라운드, `px-[8px] py-[2px]`,
+ *  11px/590(Semibold) — 학생 풀이 줄의 정답 판정 배지("확인"/"막힌 지점") 전용. */
+type BadgeSize = "pill" | "chip" | "tag" | "footnote" | "tag-sm" | "judgment";
 
 interface BadgeProps {
   variant: BadgeVariant;
@@ -33,6 +37,7 @@ const VARIANT_STYLES: Record<BadgeVariant, string> = {
   // Figma `4 · MyPage` History Row 개념 태그 chip 실측 — 같은 톤이지만 보더가 없다(위 타입 주석 참고).
   "tint-blue-flat": "bg-fill-tint-brand text-brand",
   "tint-green": "bg-fill-tint-green text-accent-green",
+  "tint-red": "bg-fill-tint-red text-accent-red",
   outline: "border border-brand text-brand",
 };
 
@@ -44,6 +49,7 @@ const SIZE_STYLES: Record<BadgeSize, string> = {
   // 그대로 두면 2px 작게 렌더링된다(design-agent 사후검수 발견, 2026-08-16) — 명시적으로 오버라이드.
   footnote: "rounded-full px-[14px] py-[7px] text-[13px] leading-[18px] font-[590]",
   "tag-sm": "rounded-full px-[10px] py-[2px] text-[12px] font-[590]",
+  judgment: "rounded-full px-[8px] py-[2px] text-[11px] font-[590]",
 };
 
 const BASE_STYLE = "inline-flex items-center justify-center leading-4";

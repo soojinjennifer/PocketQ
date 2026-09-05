@@ -44,10 +44,6 @@ export interface ProblemInputContextValue {
    *  켠다. 새 `submitProblem()`이 시작되면 자동으로 꺼진다. */
   beginReinput: () => void;
 
-  // "풀기" 버튼 옵션(개념설명/풀이) 선택 상태 — pencilcanvas↔landscape 이동 시에도 유지된다.
-  selectedOptionIds: ReadonlySet<string>;
-  toggleOption: (id: string) => void;
-
   // recognize → solve 제출 오케스트레이션
   recognizeStatus: RecognizeStatus;
   /** recognize 성공 시 채워지는 문제 ID. `follow-up-chat`(`POST /api/problems/:problemId/chat`)이

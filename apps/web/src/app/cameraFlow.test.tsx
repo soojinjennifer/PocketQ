@@ -112,7 +112,7 @@ describe("사진 문제 입력 흐름", () => {
     fireEvent.click(screen.getByRole("button", { name: "사진 사용" }));
 
     await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeInTheDocument();
   });
 
   it("미리보기에서 '재촬영'을 누르면 objectURL을 해제하고 /camera로 돌아가며 상태가 초기화된다", async () => {
@@ -137,26 +137,19 @@ describe("사진 문제 입력 흐름", () => {
     revokeSpy.mockRestore();
   });
 
-  it("풀기 버튼은 사진이 있고 체크박스 선택이 하나 이상 있어야 활성화된다(개념설명/풀이 옵션은 기본 선택 상태)", async () => {
+  it("'문제 인식하기' 버튼은 사진이 있어야 활성화된다(v2.0 3분할 ActionBar, ~~SOLVE-1~~ 체크박스 폐기)", async () => {
     renderApp(["/camera"]);
 
+    // 사진이 아직 없는 /solve/pencilcanvas(INPUT 단계) 진입 시점에는 "문제 인식하기"가 비활성화돼
+    // 있다 — 이 화면은 카메라 촬영 흐름을 먼저 타야 하므로 직접 진입 검증 대신 아래에서 촬영 전/후
+    // 상태를 비교한다.
     await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole("button", { name: "촬영" }));
     fireEvent.click(await screen.findByRole("button", { name: "사진 사용" }));
 
     await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
 
-    // 오너 확정: "개념설명해주기"/"풀이해주기" 둘 다 기본 선택 상태라, 사진만 있으면 바로 활성화된다.
-    const solveButton = screen.getByRole("button", { name: "풀기" });
-    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "풀이해주기" })).toBeChecked();
-    expect(solveButton).not.toBeDisabled();
-
-    // 옵션을 모두 해제하면 다시 비활성화된다.
-    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-
-    expect(solveButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
   });
 
   it("사진으로 풀이 완료 후 결과 화면에서 '수정'을 누르면 안내 후 Problem Card가 '다시 찍어 주세요'로 바뀐다(MEDIUM-3)", async () => {
@@ -174,7 +167,7 @@ describe("사진 문제 입력 흐름", () => {
     fireEvent.click(await screen.findByRole("button", { name: "사진 사용" }));
     await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
     // 풀이 성공 시 사진 Blob은 자동 정리되므로 이 시점엔 이미 이미지가 사라져 있다.

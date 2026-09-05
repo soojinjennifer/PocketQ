@@ -8,8 +8,9 @@
 | 회원가입   | `0. Register/Desktop` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=83-138&t=LrZQeZ022Z7LUbtl-4) | 1194×834 | `/register`       | 미구현 |
 | 로그인   | `1. Login/Desktop` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=37-2&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/login`       | 미구현 |
 | 학년 선택 | `2. Grade Setup` |  [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=37-30&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/grade-setup` | 미구현 |
-| 문제 풀기 | `3 -1 · Solve/Pencilcanvas` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=127-445&t=4blrn7JcDarFlGoC-4) | 1194×834 | `/solve/pencilcanvas`       | 미구현 |
-| 문제 풀기 | `3-2 · Solve/Landscape` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=38-21&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/solve/landscape`       | 미구현 |
+| 문제 풀기(INPUT, v2.0 신규 확인) | `3-0 · Solve/Default` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=260-423&t=NusVNIzdXCZPYiCX-4) | 1194×834 | `/solve/pencilcanvas`(신규 라우트 아님 — 아래 비고) | 미구현 |
+| 문제 풀기 | `3 -1 · Solve/Pencilcanvas` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=127-445&t=NusVNIzdXCZPYiCX-4) | 1194×834 | `/solve/pencilcanvas`       | 미구현 |
+| 문제 풀기 | `3-2 · Solve/Landscape` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=38-21&t=NusVNIzdXCZPYiCX-4) | 1194×834 | `/solve/landscape`       | 미구현 |
 | 마이페이지 | `4 · MyPage` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=40-34&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/mypage`       | 미구현 |
 | 문제 촬영 · 카메라 | `5 · Capture.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=48-110&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera`       | 미구현 |
 | 문제 촬영 · 미리보기 | `6 · preview.Camera` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=51-129&t=BQOVa0ToV9nrqwFf-4) | 1194×834 | `/camera/preview` | 미구현 |
@@ -25,6 +26,7 @@
 - 로그인 화면은 Kakao/Google/이메일 3개 버튼이 모두 동일 컴포넌트(`Button/Login`) 인스턴스로 구현되어 있음 — variant 구분은 COMPONENT_MAP.md에서 별도 정리 필요.
 - 문제 풀기(Solve) 화면에서 `Problem Card`, `Action Bar`, `Result Panel`은 Figma 컴포넌트 인스턴스가 아니라 화면 전용 plain frame — 아직 재사용 컴포넌트로 정의되지 않음.
 - `docs/DESIGN_COMPONENT.md`에 있는 `Chat Bubble`, `Math Activity Card`는 이번에 확인한 6개 화면(빈 상태 스냅샷)에는 인스턴스로 나타나지 않음 — 최종 Variant 구현을 보류한다(아래 "구현 보류" 참고).
+- **2026-09-04 PRD v2.0 반영**: `3-0 · Solve/Default`(`problemId===null`, INPUT 단계)와 `3-1 · Solve/Pencilcanvas`(`problemId!==null`, WORK 단계)는 동일한 `/solve/pencilcanvas` 라우트 내부의 서로 다른 상태 분기이며, 신규 라우트를 추가하지 않는다(PRD §3 "단계 전환에는 신규 라우트를 추가하지 않는다" 원칙). `3-2 · Solve/Landscape`는 기존 라우트(`/solve/landscape`)를 유지하되 화면 내용이 개념/풀이 카드에서 DiagnosisCard/ResumeModeBar/ResumeResultCard로 전면 교체된다. 기존 `~~SOLVE-1~~`(체크박스 2개 액션바)는 폐기되고 ActionBar가 "문제 인식하기 / 아직 못 풀겠어요 / 봐 주세요" 3분할 구조로 대체된다.
 
 ## 확정 사항 (2026-07-29 오너 결정)
 

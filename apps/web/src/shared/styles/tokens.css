@@ -23,11 +23,15 @@
   --color-accent-purple: #9a93b0;
   --color-accent-orange: #d9a05b;
   --color-accent-yellow: #dcc08a;
+  /* 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 */
+  --color-accent-red: #c97b6e;
 
   --color-separator: #3c3c431f;
   --color-fill-quaternary: #7676801f;
   --color-fill-tint-brand: #5e6e8229;
   --color-fill-tint-green: #6fa8982e;
+  /* 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 */
+  --color-fill-tint-red: rgba(201, 123, 110, 0.2);
   --color-glass-fill: #fbfaf6f5;
   --color-glass-border: #ffffffd9;
 

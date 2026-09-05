@@ -26,6 +26,7 @@ whymath/
 │  │  │  │  ├─ auth/
 │  │  │  │  ├─ grade-setup/
 │  │  │  │  ├─ problem-input/
+│  │  │  │  ├─ work-input/             # v2.0: WORK 단계 줄 단위 손글씨 인식/수정
 │  │  │  │  ├─ drawing-canvas/
 │  │  │  │  ├─ camera/
 │  │  │  │  ├─ problem-recognition/

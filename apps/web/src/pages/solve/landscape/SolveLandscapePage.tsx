@@ -49,8 +49,6 @@ export function SolveLandscapePage() {
     hasProblemInput,
     lastInputType,
     beginReinput,
-    selectedOptionIds,
-    toggleOption,
     submitProblem,
     resumeFromHistory,
     problemId,
@@ -275,7 +273,8 @@ export function SolveLandscapePage() {
         </ResultPanelShell>
       ) : null}
 
-      {/* Action Bar: Figma 실측(node 127:452) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
+      {/* Action Bar: Figma 실측(`Solve/Action Bar` 인스턴스 node 256:405, `3-1 · Solve/Pencilcanvas`
+          `127:445` 내부) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
           40px 여백. iPad Safari 하단 툴바/홈 인디케이터 회피를 위해 세이프에어리어 inset도 더한다.
           이전에는 좌측(캔버스) 영역 안에서만 중앙정렬되도록 우측 예약폭(pr-*)을 뒀지만,
           design-agent의 Figma(`38:21`) 재실측 결과 Default 상태에서도 Result Panel과 10px
@@ -283,12 +282,16 @@ export function SolveLandscapePage() {
           기준으로 정상 중앙정렬한다 — 필요하면 `ResultPanelShell`(z-20)이 위에 겹쳐 보인다. */}
       <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10">
         <div className="mx-auto w-fit">
+          {/* "아직 못 풀겠어요"/"봐 주세요"(WORK 단계)는 줄 단위 풀이 인식/진단 백엔드 연동
+              (`docs/FRONTEND_IMPLEMENTATION_PLAN.md` §1.3.1 4단계, 이번 작업 범위 밖) 이후 연결한다
+              — 현재는 recognize/solve가 `submitProblem()` 안에서 함께 실행되어 problemId가 채워지는
+              시점에는 이미 진단(solve)도 진행 중이라 실질적으로 클릭 가능한 구간이 거의 없다. */}
           <ActionBar
-            hasProblem={hasProblemInput}
-            selectedOptionIds={selectedOptionIds}
-            onToggleOption={toggleOption}
-            onSolve={() => void submitProblem()}
-            isSubmitting={isSubmitting}
+            problemId={problemId}
+            hasProblemInput={hasProblemInput}
+            recognizeStatus={recognizeStatus}
+            solveStatus={solveStatus}
+            onRecognize={() => void submitProblem()}
           />
         </div>
       </div>

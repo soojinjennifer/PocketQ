@@ -64,7 +64,7 @@ describe("라우팅", () => {
 
     expect(screen.getByText("세션 확인 중")).toBeInTheDocument();
     expect(screen.queryByLabelText("이메일")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "풀기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "문제 인식하기" })).not.toBeInTheDocument();
 
     resolveGetSession({ data: { session: null }, error: null });
     await waitFor(() =>
@@ -90,7 +90,7 @@ describe("라우팅", () => {
 
     renderApp(["/"]);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeInTheDocument());
   });
 
   it("로그인된 사용자(학년 미설정)가 '/'에 접근하면 /grade-setup으로 이동한다", async () => {
@@ -155,11 +155,11 @@ describe("라우팅", () => {
     // 레이스 컨디션 회귀 방지: 팝업이 먼저 보여야 하고, SolvePage로의 이동은
     // 팝업의 "계속하기" 클릭 이후에만 일어나야 한다.
     expect(await screen.findByText("로그인 되었습니다")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "풀기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "문제 인식하기" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "계속하기" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeInTheDocument());
   });
 
   it("회원가입(가입 즉시 세션 발급 후 강제 로그아웃) 시 즉시 이동하지 않고 완료 팝업을 표시하며, '로그인하기' 클릭 후에만 /login으로 이동한다", async () => {
@@ -191,7 +191,7 @@ describe("라우팅", () => {
     // 레이스 컨디션 회귀 방지: signUp이 발급한 세션으로 인해 잠깐 authenticated 상태가 되더라도
     // PublicOnlyRoute가 RegisterPage를 먼저 언마운트해선 안 되며, 완료 팝업이 먼저 보여야 한다.
     expect(await screen.findByText("회원가입이 완료 되었습니다")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "풀기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "문제 인식하기" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "학년을 선택해 주세요" }),
     ).not.toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("라우팅", () => {
 
     renderApp(["/login"]);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeInTheDocument());
   });
 
   it("비로그인 사용자는 /register에 정상 접근할 수 있다", async () => {
@@ -233,7 +233,7 @@ describe("라우팅", () => {
 
     renderApp(["/register"]);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "풀기" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeInTheDocument());
   });
 
   it("비로그인 사용자의 보호 라우트(/solve/pencilcanvas) 접근은 /login으로 이동한다", async () => {

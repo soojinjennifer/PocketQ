@@ -177,41 +177,17 @@ describe("필기 상태가 /solve/pencilcanvas ↔ /solve/landscape 이동 간 �
 
     drawOneStroke(canvas);
 
-    // 필기만으로도(사진 없이) "풀기" 버튼이 활성화될 수 있어야 한다 — 옵션을 1개 선택한다.
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-    expect(screen.getByRole("button", { name: "풀기" })).not.toBeDisabled();
+    // 필기만으로도(사진 없이) "문제 인식하기" 버튼이 활성화될 수 있어야 한다(v2.0, ~~SOLVE-1~~
+    // 체크박스 옵션 선택은 더 이상 필요 없다).
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
 
     // 이 시점 이후의 fill() 호출만 세면, landscape로 이동한 뒤 새로 마운트되는 canvas가
     // 방금 그린 획을 전달받아 다시 그리는지(=상태가 유지되는지)를 정확히 검증할 수 있다.
     mockCtx.fillCallCount = 0;
 
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     await waitFor(() => expect(mockCtx.fillCallCount).toBeGreaterThan(0));
-  });
-
-  it("pencilcanvas에서 선택한 옵션(체크박스)이 landscape에서도 그대로 유지된다", async () => {
-    const { container } = renderApp(["/solve/pencilcanvas"]);
-
-    const canvas = await waitFor(() => {
-      const found = container.querySelector("canvas");
-      if (!found) throw new Error("canvas not found");
-      return found;
-    });
-    drawOneStroke(canvas);
-
-    // 오너 확정: 옵션은 기본 둘 다 선택 상태라, 여기서는 "해제"라는 사용자 변경이 pencilcanvas→
-    // landscape 이동 간 유지되는지를 검증한다(기본값 그대로 유지되는 것만 보면 이 이동 로직이
-    // 실제로 상태를 옮기는지 확인할 수 없다).
-    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).toBeChecked();
-    fireEvent.click(screen.getByRole("checkbox", { name: "개념설명해주기" }));
-    expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).not.toBeChecked();
-
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: "개념설명해주기" })).not.toBeChecked(),
-    );
   });
 });
 
@@ -225,9 +201,8 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     // done 이벤트 수신 후에는 raw 스트리밍 텍스트 대신 구조화된 Result Panel로 전환된다
     // (recognizeProblem mock의 recognizedText="1+1=?", solveProblemStream mock의 answerMd="답").
@@ -251,7 +226,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
     expect(vi.mocked(getSuggestedQuestions)).toHaveBeenCalledWith("problem-1");
@@ -272,8 +247,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
@@ -322,9 +296,8 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     // done 이벤트가 아직 오지 않았지만, "## 풀이" 헤더까지 도착한 내용이 바로 카드에 채워진다.
     expect(await screen.findByText("1단계: 스트리밍 중간 표시 확인")).toBeInTheDocument();
@@ -350,9 +323,8 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
     expect(
@@ -362,7 +334,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "풀기" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
   });
 });
 
@@ -378,8 +350,7 @@ describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결"
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
@@ -417,8 +388,7 @@ describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결"
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("checkbox", { name: "풀이해주기" }));
-    fireEvent.click(screen.getByRole("button", { name: "풀기" }));
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 

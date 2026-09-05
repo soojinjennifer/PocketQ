@@ -8,11 +8,6 @@ import { exportStrokesToPngBlob } from "../../shared/lib/canvas/exportStrokesToP
 import { useDrawingStrokes } from "../../shared/lib/canvas/useDrawingStrokes";
 import { getSuggestedQuestions } from "../../shared/api/suggestedQuestions";
 import { blobToObjectUrl, revokeObjectUrl } from "../../shared/lib/image/objectUrl";
-import {
-  SOLVE_OPTION_EXPLAIN,
-  SOLVE_OPTION_SOLVE,
-  toSolveOptions,
-} from "../../shared/lib/solve/solveOptions";
 import { ProblemInputContext, type CapturedImage } from "./ProblemInputContext";
 import { normalizeProblemInput } from "./normalizeProblemInput";
 
@@ -105,23 +100,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     clear: clearStrokes,
   } = useDrawingStrokes();
 
-  // "풀기" 옵션(개념설명/풀이) 선택 상태
-  // 오너 확정: "개념설명해주기"/"풀이해주기" 둘 다 기본 선택 상태로 시작한다.
-  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<string>>(
-    new Set([SOLVE_OPTION_EXPLAIN, SOLVE_OPTION_SOLVE]),
-  );
-  const toggleOption = useCallback((id: string) => {
-    setSelectedOptionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
   const hasCaptureData = capturedImage !== null;
   const hasProblemInput = hasCaptureData || strokes.length > 0;
 
@@ -197,9 +175,11 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       return;
     }
 
+    // v2.0(SOLVE-1 폐기)부터는 개념설명/풀이를 사용자가 체크박스로 고르지 않는다 — `resumeFromHistory`
+    // (아래)와 동일하게 항상 개념 + 풀이를 모두 요청한다.
     const solution = await solve({
       problemId: recognizedProblemId,
-      options: toSolveOptions(selectedOptionIds),
+      options: { concept: true, solution: true },
     });
     // 오너 확정: 풀이 스트리밍이 성공적으로 끝나면 더 이상 필요 없는 사진 Blob 참조를 정리한다
     // (실패 시에는 재시도할 수 있어야 하므로 그대로 유지한다). `solve()`의 반환값으로 바로 판단해서
@@ -212,7 +192,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     grade,
     capturedImage,
     strokes,
-    selectedOptionIds,
     recognize,
     solve,
     clearCapturedImage,
@@ -281,8 +260,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       lastInputType,
       isRequestingReinput,
       beginReinput,
-      selectedOptionIds,
-      toggleOption,
       recognizeStatus,
       problemId,
       recognizedText,
@@ -316,8 +293,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       lastInputType,
       isRequestingReinput,
       beginReinput,
-      selectedOptionIds,
-      toggleOption,
       recognizeStatus,
       problemId,
       recognizedText,

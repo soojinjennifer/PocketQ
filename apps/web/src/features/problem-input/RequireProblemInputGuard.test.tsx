@@ -24,8 +24,6 @@ function createContextValue(
     lastInputType: null,
     isRequestingReinput: false,
     beginReinput: () => undefined,
-    selectedOptionIds: new Set<string>(),
-    toggleOption: () => undefined,
     recognizeStatus: "idle",
     problemId: null,
     recognizedText: null,
