@@ -18,7 +18,11 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-08-10, 6단계 + 관련 버그 수정 — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-05, Solve v2.0 ActionBar/WORK·DIAG·RESUME 목업 UI — 정확한 해시는 `git log`로 확인):
+```
+8b5df7f Rebuild Solve ActionBar for v2.0 and add WORK/DIAG/RESUME mock UI   ← 이번 세션, §3.16~3.17 참고
+```
+이전 커밋들(2026-08-10, 6단계 + 관련 버그 수정 이후 순서):
 ```
 (6단계 프론트 문제 제출 연결 + CORS/HTTPS 인프라 수정 + 문서 갱신, 이 커밋들 직후)
 320950b Fix parseSolveOutput truncating answers containing braces      ← 2026-08-09, 스모크 테스트로 발견한 버그 수정
