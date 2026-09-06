@@ -18,9 +18,13 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-09-05, Solve v2.0 ActionBar/WORK·DIAG·RESUME 목업 UI — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-07, Solve v2.0 WORK/DIAG 백엔드+흐름 단순화+RESUME 완성 — 정확한 해시는 `git log`로 확인):
 ```
-8b5df7f Rebuild Solve ActionBar for v2.0 and add WORK/DIAG/RESUME mock UI   ← 이번 세션, §3.16~3.17 참고
+b8b45de Complete Solve v2.0 WORK/DIAG backend, flow simplification, and RESUME   ← 이번 세션, §3.18~3.23 전체 반영
+```
+이전 커밋(2026-09-05, Solve v2.0 ActionBar/WORK·DIAG·RESUME 목업 UI):
+```
+8b5df7f Rebuild Solve ActionBar for v2.0 and add WORK/DIAG/RESUME mock UI   ← §3.16~3.17 참고
 ```
 이전 커밋들(2026-08-10, 6단계 + 관련 버그 수정 이후 순서):
 ```
