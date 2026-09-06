@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
+import type { Diagnosis } from "shared-types";
 import { describe, expect, it } from "vitest";
-import { DiagnosisCard, type Diagnosis } from "./DiagnosisCard";
+import { DiagnosisCard } from "./DiagnosisCard";
 
 const BASE_DIAGNOSIS: Diagnosis = {
   lastValidLine: 2,
@@ -10,6 +11,10 @@ const BASE_DIAGNOSIS: Diagnosis = {
   relatedConcepts: ["이차함수 최대·최소"],
   reachedAnswerWithNotes: false,
   isLowConfidence: false,
+  conceptExplanations: [],
+  identifiedMethod: null,
+  isMethodApplicable: true,
+  methodApplicabilityNote: null,
 };
 
 describe("DiagnosisCard", () => {

@@ -1,7 +1,19 @@
-import type { AiProvider, Grade, RecognizedProblem, Solution } from "shared-types";
+import type {
+  AiProvider,
+  ConceptExplanation,
+  Diagnosis,
+  Grade,
+  RecognizedProblem,
+  ResumeStreamEvent,
+  ResumeSolution,
+  Solution,
+  WorkLine,
+} from "shared-types";
 import type {
   ChatRequest,
+  DiagnoseRequest,
   LLMAdapter,
+  ResumeRequest,
   SolveRequest,
   SolveStreamEvent,
   SuggestQuestionsRequest,
@@ -9,6 +21,16 @@ import type {
 
 const FAKE_RECOGNIZED_TEXT = "이차함수 y = x^2 - 4x + 3의 최솟값을 구하시오.";
 const FAKE_RECOGNIZED_LATEX = "y = x^{2} - 4x + 3";
+
+/** `diagnose`가 결정론적으로 채우는 고정된 식별 해법(실제 `method_catalog` 테이블이 없어 하드코딩). */
+const FAKE_IDENTIFIED_METHOD = { methodId: "perfect-square", methodName: "완전제곱식" };
+
+/** `recognizeWork`가 이미지 내용과 무관하게 항상 반환하는 고정된 학생 풀이 줄들. */
+const FAKE_WORK_LINES: WorkLine[] = [
+  { lineNo: 1, latex: "y = x^{2} - 4x + 3", isLowConfidence: false },
+  { lineNo: 2, latex: "y = (x - 2)^{2} - 1", isLowConfidence: false },
+  { lineNo: 3, latex: "\\text{최솟값은 } -1", isLowConfidence: false },
+];
 
 /**
  * 실제 Vision/LLM 호출 없이 고정된 가짜 결과를 반환하는 어댑터.
@@ -64,6 +86,83 @@ export class FakeLLMAdapter implements LLMAdapter {
     return Promise.resolve(["이 문제를 다른 방법으로도 풀 수 있나요?", "비슷한 문제를 더 풀어보고 싶어요"]);
   }
 
+  /** 실제 Vision 호출 없이, 전달받은 이미지의 실제 내용을 들여다보지 않고 고정된 학생 풀이를 반환한다. */
+  recognizeWork(_image: Buffer, _grade: Grade): Promise<WorkLine[]> {
+    return Promise.resolve(FAKE_WORK_LINES);
+  }
+
+  /**
+   * 입력된 `casVerification`을 반영해 결정적으로 진단한다 — 실제 오류 분류 LLM 호출 없이,
+   * 첫 `isValid: false` 줄 직전까지를 `lastValidLine`으로, 그 줄을 `stallLine`으로 삼는다.
+   * 모든 줄이 유효하면 오류 없음(중단형 아님)으로 간주해 마지막 줄까지를 `lastValidLine`으로 삼는다.
+   */
+  diagnose(req: DiagnoseRequest): Promise<Diagnosis> {
+    const sorted = [...req.casVerification].sort((a, b) => a.lineNo - b.lineNo);
+    const firstInvalid = sorted.find((line) => !line.isValid);
+
+    if (!firstInvalid) {
+      const lastLine = sorted.at(-1)?.lineNo ?? 0;
+      return Promise.resolve({
+        lastValidLine: lastLine,
+        stallLine: null,
+        errorTypeLabel: null,
+        errorDetail: null,
+        relatedConcepts: [],
+        reachedAnswerWithNotes: false,
+        isLowConfidence: false,
+        conceptExplanations: [],
+        identifiedMethod: FAKE_IDENTIFIED_METHOD,
+        isMethodApplicable: true,
+        methodApplicabilityNote: null,
+      });
+    }
+
+    const relatedConcepts = ["이차함수 > 완전제곱식"];
+
+    return Promise.resolve({
+      lastValidLine: firstInvalid.lineNo - 1,
+      stallLine: firstInvalid.lineNo,
+      errorTypeLabel: "부호 오류",
+      errorDetail: `${firstInvalid.lineNo}번째 줄의 계산을 다시 확인해보세요.`,
+      relatedConcepts,
+      reachedAnswerWithNotes: false,
+      isLowConfidence: false,
+      conceptExplanations: buildFakeConceptExplanations(relatedConcepts),
+      identifiedMethod: FAKE_IDENTIFIED_METHOD,
+      isMethodApplicable: true,
+      methodApplicabilityNote: null,
+    });
+  }
+
+  /** `solve`와 동일한 결정론적 청크 스트리밍 패턴으로 이어풀기(RESUME) 결과를 생성한다. */
+  async *resume(req: ResumeRequest): AsyncIterable<ResumeStreamEvent> {
+    await Promise.resolve();
+
+    const chunks = this.buildResumeChunks(req);
+    for (const delta of chunks) {
+      yield { delta };
+    }
+
+    const result: ResumeSolution = {
+      mode: req.mode,
+      // `methodName`은 해법 이름이 아니라 "이어가는 지점 요약"이다(2026-09 design-agent Figma
+      // 실측 `255:92` 반영, `shared-types`의 `ResumeSolution.methodName` JSDoc 참고).
+      methodName:
+        req.mode === "own" ? `${req.diagnosis.lastValidLine + 1}번째 줄부터 이어가기` : "새로운 방법으로 처음부터 풀기",
+      solutionMd: chunks.join(""),
+      answerMd: "최솟값은 -1입니다.",
+      verified: false,
+    };
+
+    yield { done: true, result };
+  }
+
+  private buildResumeChunks(req: ResumeRequest): string[] {
+    return req.mode === "own"
+      ? ["## 이어풀기\n", `${req.diagnosis.lastValidLine + 1}번째 줄부터 이어서 진행합니다.\n\n`, "최솟값은 -1입니다."]
+      : ["## 다른 방법으로\n", "판별식을 이용해 처음부터 다시 풀어봅시다.\n\n", "최솟값은 -1입니다."];
+  }
+
   private buildChunks(req: SolveRequest): string[] {
     const chunks: string[] = [];
 
@@ -77,4 +176,16 @@ export class FakeLLMAdapter implements LLMAdapter {
 
     return chunks;
   }
+}
+
+/**
+ * `relatedConcepts` 각 이름에 대해 고정된 제목+설명을 결정적으로 생성한다(실제 수학적으로 정확할
+ * 필요는 없다 — 테스트가 결정적으로 검증할 수 있는 값이면 충분하다).
+ */
+function buildFakeConceptExplanations(relatedConcepts: string[]): ConceptExplanation[] {
+  return relatedConcepts.map((name) => ({
+    name,
+    title: `${name} 개념 정리`,
+    explanationMd: `${name}은(는) 이 문제를 푸는 데 필요한 핵심 개념입니다. 정의와 핵심 원리를 다시 확인해보세요.`,
+  }));
 }

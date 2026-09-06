@@ -1,23 +1,7 @@
+import type { Diagnosis } from "shared-types";
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
 import { Badge } from "../../shared/ui/badge/Badge";
 import { ELEVATED_CARD_STYLE } from "./elevatedCardStyle";
-
-export interface Diagnosis {
-  /** 마지막으로 유효했던 줄 번호(1-base). 첫 줄부터 막혔으면 0. */
-  lastValidLine: number;
-  /** 최초로 부적합했던 줄 번호(DIAG-2 "막힌 지점"). 오류 없이 중단된 경우(DIAG-4 "중단형")면 `null`. */
-  stallLine: number | null;
-  /** `error_taxonomy.name`(DIAG-3). 오류가 없으면 `null`. */
-  errorTypeLabel: string | null;
-  /** 오류 상세 설명(DIAG-2). */
-  errorDetail: string | null;
-  /** 막힌 지점과 연결된 개념(DIAG-2 "관련 개념"). */
-  relatedConcepts: string[];
-  /** 정답에 도달했지만 표기·논리 비약이 있는 경우(DIAG-6). */
-  reachedAnswerWithNotes: boolean;
-  /** 진단 신뢰도가 임계값 미만이면 단정하지 않고 완화 표현으로 전환한다(DIAG-5). */
-  isLowConfidence: boolean;
-}
 
 interface DiagnosisCardProps {
   diagnosis: Diagnosis;

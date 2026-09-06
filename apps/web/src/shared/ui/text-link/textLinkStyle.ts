@@ -5,4 +5,4 @@
  * (스타일 드리프트 방지를 위해 지역 상수로 복제하지 않는다).
  */
 export const TEXT_LINK_STYLE =
-  "text-brand text-[15px] leading-[20px] font-[590] underline disabled:opacity-50";
+  "text-brand text-[15px] leading-[20px] font-[590] underline disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";

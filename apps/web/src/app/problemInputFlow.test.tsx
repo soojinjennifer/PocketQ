@@ -36,6 +36,60 @@ vi.mock("../shared/api/suggestedQuestions", () => ({
   getSuggestedQuestions: vi.fn().mockResolvedValue({ questions: ["다른 방법도 있나요?", "비슷한 문제 더 풀래요"] }),
 }));
 
+// SOLVE-2(진단) 경로 — "봐 주세요"가 두 단계(recognizeWork → diagnose)로 나뉜다(§4b).
+vi.mock("../shared/api/recognizeWork", () => ({
+  recognizeWork: vi.fn().mockResolvedValue({
+    workLines: [{ lineNo: 1, latex: "y = x^{2} + 1", isLowConfidence: false }],
+  }),
+}));
+
+vi.mock("../shared/api/diagnoseProblem", () => ({
+  diagnoseProblem: vi.fn().mockResolvedValue({
+    lastValidLine: 1,
+    stallLine: null,
+    errorTypeLabel: null,
+    errorDetail: null,
+    relatedConcepts: ["이차함수의 판별식"],
+    reachedAnswerWithNotes: false,
+    isLowConfidence: false,
+    conceptExplanations: [
+      {
+        name: "이차함수의 판별식",
+        title: "이차함수 그래프의 대칭성",
+        explanationMd: "포물선은 꼭짓점을 기준으로 대칭이다.",
+      },
+    ],
+    // RESUME 5단계(Diagnosis 확장)부터 추가된 필드 — 이어풀기(RESUME) 화면 연동 테스트가 이
+    // 값을 참조한다(`isMethodApplicable`이 없으면 `!diagnosis.isMethodApplicable`이 항상 true가
+    // 되어 "내 방법으로 계속"이 항상 비활성화된다).
+    identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
+    isMethodApplicable: true,
+    methodApplicabilityNote: null,
+  }),
+}));
+
+// RESUME 5단계(화면 연결) — "내 방법으로 계속"/"다른 방법으로" 클릭 시 호출되는 이어풀기 SSE
+// 스트리밍 클라이언트.
+vi.mock("../shared/api/resumeProblem", () => ({
+  resumeProblemStream: vi.fn(function mockResumeProblemStream() {
+    async function* generate() {
+      await Promise.resolve();
+      yield { type: "chunk" as const, delta: "3번째 줄부터 이어서 진행합니다." };
+      yield {
+        type: "done" as const,
+        result: {
+          mode: "own" as const,
+          methodName: "3번째 줄부터 이어가기",
+          solutionMd: "3번째 줄부터 이어서 진행합니다.",
+          answerMd: "최솟값은 -1입니다.",
+          verified: true,
+        },
+      };
+    }
+    return generate();
+  }),
+}));
+
 // 마이페이지 "다시 풀기" 재수화 경로(`POST /api/problems/:id/reopen`). 같은 모듈의 나머지 export도
 // `MyPage`가 import하고 있어(라우트 트리 전체를 렌더링한다) 함께 mock해 둔다.
 vi.mock("../shared/api/problemHistory", () => ({
@@ -165,6 +219,50 @@ function drawOneStroke(canvas: Element) {
   fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 20, clientY: 20 });
 }
 
+/**
+ * v2.0 새 진입 시퀀스(오너 확정, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §1.3.1 4b): "문제
+ * 인식하기" 클릭은 이제 `recognizeOnly()`만 실행하고(solve는 호출하지 않는다) `/solve/pencilcanvas`에
+ * 그대로 머무른다 — 성공하면 WORK 단계로 전환되어 "아직 못 풀겠어요" 버튼이 활성화된다. 그 버튼을
+ * 눌러야(WORK-4, 기존 `solve()` 재사용) 비로소 `/solve/landscape`로 이동하며 결과가 표시된다.
+ */
+async function recognizeThenGiveUp() {
+  fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
+}
+
+/**
+ * SOLVE-2(진단) 경로 — "봐 주세요"는 1클릭으로 recognizeWork → diagnose를 이어서 실행하고 성공하면
+ * 곧바로 `/solve/landscape`로 이동한다(중간 재확인 단계 제거, 오너 확정, `SolvePencilcanvasPage`
+ * JSDoc 참고). WORK 캔버스에 획을 하나 그려야 "봐 주세요"가 활성화된다.
+ */
+async function recognizeDrawWorkThenDiagnose(container: HTMLElement) {
+  const inputCanvas = await waitFor(() => {
+    const found = container.querySelector("canvas");
+    if (!found) throw new Error("input canvas not found");
+    return found;
+  });
+  drawOneStroke(inputCanvas);
+
+  fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+  );
+
+  const workCanvas = await waitFor(() => {
+    const found = container.querySelector("canvas");
+    if (!found) throw new Error("work canvas not found");
+    return found;
+  });
+  drawOneStroke(workCanvas);
+
+  await waitFor(() => expect(screen.getByRole("button", { name: "봐 주세요" })).not.toBeDisabled());
+  fireEvent.click(screen.getByRole("button", { name: "봐 주세요" }));
+}
+
 describe("필기 상태가 /solve/pencilcanvas ↔ /solve/landscape 이동 간 유지된다(P0 회귀)", () => {
   it("pencilcanvas에서 그린 획이 landscape로 이동해도 사라지지 않고 다시 렌더링된다", async () => {
     const { container } = renderApp(["/solve/pencilcanvas"]);
@@ -181,11 +279,16 @@ describe("필기 상태가 /solve/pencilcanvas ↔ /solve/landscape 이동 간 �
     // 체크박스 옵션 선택은 더 이상 필요 없다).
     expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
 
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+    );
+
     // 이 시점 이후의 fill() 호출만 세면, landscape로 이동한 뒤 새로 마운트되는 canvas가
     // 방금 그린 획을 전달받아 다시 그리는지(=상태가 유지되는지)를 정확히 검증할 수 있다.
     mockCtx.fillCallCount = 0;
 
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
 
     await waitFor(() => expect(mockCtx.fillCallCount).toBeGreaterThan(0));
   });
@@ -202,7 +305,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     });
     drawOneStroke(canvas);
 
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     // done 이벤트 수신 후에는 raw 스트리밍 텍스트 대신 구조화된 Result Panel로 전환된다
     // (recognizeProblem mock의 recognizedText="1+1=?", solveProblemStream mock의 answerMd="답").
@@ -226,7 +329,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
     expect(vi.mocked(getSuggestedQuestions)).toHaveBeenCalledWith("problem-1");
@@ -247,7 +350,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
@@ -297,7 +400,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     });
     drawOneStroke(canvas);
 
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     // done 이벤트가 아직 오지 않았지만, "## 풀이" 헤더까지 도착한 내용이 바로 카드에 채워진다.
     expect(await screen.findByText("1단계: 스트리밍 중간 표시 확인")).toBeInTheDocument();
@@ -309,7 +412,7 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     await waitFor(() => expect(screen.getByText("풀이 결과")).toBeInTheDocument());
   });
 
-  it("recognize가 실패하면 landscape 화면에 공통 에러 팝업(Modal)이 표시되고, 확인을 누르면 닫혀서 재시도할 수 있다", async () => {
+  it("recognize가 실패하면 pencilcanvas 화면에 공통 에러 팝업(Modal)이 표시되고, 확인을 누르면 닫혀서 재시도할 수 있다(v2.0: 더 이상 landscape로 자동 이동하지 않는다)", async () => {
     const { recognizeProblem } = await import("../shared/api/recognizeProblem");
     const { ApiError } = await import("../shared/api/ApiError");
     vi.mocked(recognizeProblem).mockRejectedValueOnce(
@@ -350,7 +453,7 @@ describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결"
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
@@ -388,7 +491,7 @@ describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결"
       return found;
     });
     drawOneStroke(canvas);
-    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await recognizeThenGiveUp();
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
@@ -407,6 +510,113 @@ describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결"
 
     // 응답 도착(chatStatus 변화 + 메시지 추가) 시점에도 다시 스크롤된다.
     await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalled());
+  });
+});
+
+describe("SOLVE-2(진단) 결과 화면 — '#개념설명' 해시태그 pill 토글", () => {
+  it("DIAG 결과 화면에서 '#개념설명'을 누르면 관련개념 카드가 나타나고, 다시 누르면 사라진다", async () => {
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+
+    await recognizeDrawWorkThenDiagnose(container);
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+
+    const conceptTitle = "이차함수 그래프의 대칭성";
+    expect(screen.queryByText(conceptTitle)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "#개념설명" }));
+    expect(await screen.findByText(conceptTitle)).toBeInTheDocument();
+    expect(screen.getByText("포물선은 꼭짓점을 기준으로 대칭이다.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "#개념설명" }));
+    await waitFor(() => expect(screen.queryByText(conceptTitle)).not.toBeInTheDocument());
+  });
+});
+
+describe("RESUME 5단계(화면 연결) — 이어풀기 모드 선택 → 스트리밍 → 결과 카드", () => {
+  it("진단 성공 → ResumeModeBar 표시 → '내 방법으로 계속' 클릭 → 이어풀기 스트리밍 → 결과 카드 표시", async () => {
+    const { resumeProblemStream } = await import("../shared/api/resumeProblem");
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+
+    await recognizeDrawWorkThenDiagnose(container);
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+
+    // 진단 성공 직후에는 이어풀기가 자동으로 호출되지 않는다(오너 확정) — 모드 선택 바만 보인다.
+    const ownButton = screen.getByRole("button", { name: "내 방법으로 계속" });
+    expect(ownButton).not.toBeDisabled();
+    expect(resumeProblemStream).not.toHaveBeenCalled();
+
+    fireEvent.click(ownButton);
+
+    expect(resumeProblemStream).toHaveBeenCalledWith({ problemId: "problem-1", mode: "own" });
+
+    // done 이벤트 수신 후 결과 카드가 표시된다(상단 라벨/이어가는 지점 요약/본문/최종 답).
+    expect(await screen.findByText("이어풀기 · 내 방법으로 계속")).toBeInTheDocument();
+    expect(screen.getByText("3번째 줄부터 이어가기")).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) => element?.tagName.toLowerCase() === "p" && element.textContent === "최종 답 · 최솟값은 -1입니다."),
+    ).toBeInTheDocument();
+  });
+
+  it("Diagnosis.isMethodApplicable이 false면 '내 방법으로 계속'이 비활성화되고 인라인 안내가 보인다(RESUME-4)", async () => {
+    const { diagnoseProblem } = await import("../shared/api/diagnoseProblem");
+    vi.mocked(diagnoseProblem).mockResolvedValueOnce({
+      lastValidLine: 1,
+      stallLine: null,
+      errorTypeLabel: null,
+      errorDetail: null,
+      relatedConcepts: [],
+      reachedAnswerWithNotes: false,
+      isLowConfidence: false,
+      conceptExplanations: [],
+      identifiedMethod: null,
+      isMethodApplicable: false,
+      methodApplicabilityNote: "이 방법은 이 문제 유형에 적용할 수 없습니다.",
+    });
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    await recognizeDrawWorkThenDiagnose(container);
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "내 방법으로 계속" })).toBeDisabled();
+    // stage-qa-agent 회귀 지적(RESUME-4 HIGH) 수정 — 고정 문구가 아니라
+    // `diagnosis.methodApplicabilityNote`의 실제 사유 텍스트가 노출돼야 한다.
+    expect(screen.getByText("이 방법은 이 문제 유형에 적용할 수 없습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("이 방법으로는 이어갈 수 없어요")).not.toBeInTheDocument();
+  });
+
+  it("이어풀기 CAS 검증에 실패하면(verified: false) 결과 카드 대신 안내 Modal이 뜬다(RESUME-5)", async () => {
+    const { resumeProblemStream } = await import("../shared/api/resumeProblem");
+    vi.mocked(resumeProblemStream).mockReturnValueOnce(
+      (async function* generate() {
+        await Promise.resolve();
+        yield {
+          type: "done" as const,
+          result: {
+            mode: "own" as const,
+            methodName: "3번째 줄부터 이어가기",
+            solutionMd: "3번째 줄부터 이어서 진행합니다.",
+            answerMd: "최솟값은 -1입니다.",
+            verified: false,
+          },
+        };
+      })(),
+    );
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    await recognizeDrawWorkThenDiagnose(container);
+
+    expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "내 방법으로 계속" }));
+
+    expect(await screen.findByText("이어풀기 검증에 실패했습니다")).toBeInTheDocument();
+    expect(screen.queryByText("이어풀기 · 내 방법으로 계속")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() =>
+      expect(screen.queryByText("이어풀기 검증에 실패했습니다")).not.toBeInTheDocument(),
+    );
   });
 });
 

@@ -115,6 +115,8 @@ plan-agent(구조 분석) → development-agent(구현) → design-agent(Figma �
 - mkcert 인증서도 옛 IP만 SAN에 포함하고 있어 재발급(`mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1 172.30.1.74`), `apps/web/.cert`/`apps/api/.cert` 양쪽에 반영.
 - **IP는 네트워크 환경에 따라 또 바뀔 수 있다** — 다음 세션에서 다시 "연결할 수 없음"이 뜨면 가장 먼저 `ifconfig`/`ipconfig getifaddr en0`로 현재 IP를 확인하고 위 3곳(`.env` 2개 + mkcert 인증서)을 맞춰야 한다.
 
+**2026-09-05 재발**: 오너가 iPad로 Solve v2.0 4b를 테스트하던 중 "문제 인식하기"를 눌러도 매번 "문제를 인식하지 못했습니다" 팝업이 뜨는 문제 보고. 원인 재확인 결과 mkcert 인증서 SAN이 `172.30.1.84`(이전 세션 중 한 번 더 바뀌었던 IP로 추정, §3.8 최초 기록의 `.74`도 아님)로 발급돼 있었는데 `.env`의 실제 LAN IP는 `172.30.1.69`였다 — 웹 페이지(5173) 자체는 접속됐지만(사용자가 인증서 경고를 수동으로 넘김), 페이지 내부에서 API(4000)로 보내는 백그라운드 `fetch`는 인증서 SAN 불일치로 브라우저가 사용자 개입 없이 조용히 차단해 매번 네트워크 에러 → "인식 실패" 팝업으로 이어졌다("연결할 수 없음" 같은 명시적 에러가 아니라 정상적인 실패 팝업처럼 보여 진단이 더 어려웠다). `ifconfig`로 현재 IP(`172.30.1.69`) 재확인 후 `mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1 172.30.1.69`로 재발급, `apps/web/.cert`/`apps/api/.cert` 양쪽에 반영, 두 dev 서버 재시작, `openssl s_client`로 API 서버가 새 인증서(SAN에 `.69` 포함)를 실제로 제공하는지 확인 완료. **교훈**: 이 부류의 실패는 "네트워크 연결 안 됨"이 아니라 "정상적인 것처럼 보이는 기능 실패 팝업"으로 나타날 수 있어 사용자 보고만으로는 코드 버그와 구분이 안 된다 — iPad/LAN 테스트에서 원인 불명의 API 실패가 보고되면 애플리케이션 코드보다 먼저 `openssl x509 -in apps/api/.cert/cert.pem -noout -text | grep -A2 "Subject Alternative Name"`로 인증서 SAN과 현재 `ifconfig` IP가 일치하는지부터 확인할 것.
+
 ### 3.9 6.5단계 — 후속 질문(채팅) Footer 연결, 백엔드+프론트 신규 구현 (2026-08-16, 미커밋)
 
 PRD `docs/PRD_WHYMATH.md` §4.5에 CHAT-5~10을 보완(작업트리에 초안이 이미 있었음, 검토 후 오너 승인 — **아직 PRD 파일 자체는 커밋 안 됨**, CHAT-3는 기존 "개념 우선/답 유보" 뉘앙스에서 "직접 답변 우선, 회피 금지"로 정책이 실질적으로 바뀐 것을 오너가 인지하고 승인). plan-agent(코드 조사) → design-agent(Figma Footer 실측) → 오너 승인 → development-agent(6.5B 백엔드) → **라이브 OpenAI 스모크 테스트로 실동작 검증**(멀티턴 대화 맥락 유지 확인) → development-agent(6.5A 프론트) 순서로 진행.
@@ -257,6 +259,127 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 - **P1/P2 수정 완료 및 재검증(2026-09-05)**: `WorkLineEditor.tsx` 줄번호를 `WorkLineList.tsx`와 동일한 순수 텍스트 패턴(`<span className="text-label-tertiary w-[16px] shrink-0 text-[11px] font-bold">`)으로 교체(편집/비편집 두 상태 모두), 편집 `<input>`에 `focus-visible:ring-brand ring-2 ring-offset-2` 추가, 잘못된 `39:39` 노드 인용 문구 정정(동작 변경 없음). `ActionBar.tsx` 세그먼트 텍스트를 `text-[14px] leading-[normal]`로 정정. 내가 직접 diff를 읽고 typecheck/lint/test(361개)/build를 재검증해 전부 통과 확인 — 지시한 4개 항목 외 다른 파일은 손대지 않았음도 함께 확인. `RecognizedProblemBar` 라벨 불일치·`Badge` `chip` size 불일치·`elevatedCardStyle.ts` 중복 3건은 의도대로 이번 범위에서 제외되고 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7에 백로그로 기록됨.
 - **신규 발견 백로그(이번 범위 밖, 별도 처리 필요)**: `RecognizedProblemBar.tsx`의 배지 라벨이 "인식됨"인데 Figma 실측은 "인식된 문제"(기존 컴포넌트의 기존 결함, 이번 세션이 만든 것 아님); `shared/ui/badge/Badge.tsx`의 `chip` size가 `rounded-[6px]`/`font-normal`인데 실제 사용처(`254:61`) 실측은 `rounded-[8px]`/`font-[590]`(기존 부채); `elevatedCardStyle.ts`가 `features/ai-solution`과 `features/work-input`에 중복 존재(feature 간 직접 참조 금지 규칙 때문에 불가피했으나 `.claude/rules/frontend.md` §2 "3회 이상 반복 시 공통 컴포넌트로 분리" 기준 충족 — `shared/ui` 승격 검토 필요).
 
+### 3.18 Solve v2.0 4단계(WORK/DIAG 백엔드 연동) — 4a-1 완료 (2026-09-05, 미커밋)
+
+오너가 두 가지를 결정: (1) `recognizeWork`/`diagnose`는 스텁이 아니라 **실제 OpenAI 구현**(옵션 B)으로 진행, CAS만 스텁 유지, (2) 화면 흐름 전환(4b, "문제 인식하기"가 즉시 풀이로 넘어가던 기존 동작을 WORK 화면에 머무르는 것으로 바꾸는 것 — `problemInputFlow.test.tsx` 대부분 재작성 필요)은 **이번엔 보류**, 4a(백엔드+훅)까지만 우선 진행. plan-agent가 4단계를 4a-1(인터페이스+FakeAdapter+라우트+훅, 무회귀)/4a-2(실제 OpenAI 구현+라이브 스모크)/4b(페이지 배치, 별도 승인 필요)로 분리한 계획을 그대로 따름.
+
+- **4a-1 산출물**: `shared-types`에 `WorkLine`/`CasStepVerification`/`Diagnosis` 타입, `validation`에 대응 zod 스키마, `apps/api/src/infrastructure/cas/stubCasVerification.ts`(모든 줄 `isValid:true`, CAS 서비스 준비 전까지 임시), `work.router.ts`(`POST /api/problems/:problemId/work-lines`)/`diagnosis.router.ts`(`POST /api/problems/:problemId/diagnose`, 기존 `solutions`/`chat` 라우터와 동일한 인증→rate-limit→검증→소유권 404 패턴), `LLMAdapter`에 `recognizeWork`/`diagnose` 메서드 추가(`FakeLLMAdapter`는 결정적 구현, `OpenAIAdapter`는 4a-2 전까지 에러 throw 스텁), `inMemoryProblemStore`에 `workLines?`/`diagnosis?` 옵셔널 필드+setter, 프론트 `useRecognizeWork`/`useDiagnose` 훅을 `ProblemInputProvider`가 소유(단, **어느 화면에도 아직 연결하지 않음** — 4b 범위).
+- **회귀 방지**: development-agent 프롬프트에 "절대 건드리지 말 것" 목록(페이지 전체, ActionBar, WorkLineList 등 4+1개 목업 컴포넌트, 3개 e2e 테스트 파일, 기존 5개 api 모듈)을 명시. 완료 후 내가 직접 `git diff --stat`으로 이 목록 전부 diff 0임을 확인, 기존 어댑터 4개 메서드/`inMemoryProblemStore` 4개 메서드/`ProblemInputContext` 기존 필드가 문자 그대로 보존됐는지 diff를 라인 단위로 대조. **development-agent가 지시받지 않은 `docs/PROJECT_STATUS.md` 편집(임의 요약 섹션 추가, 보고서에 언급도 없었음)을 발견해 즉시 되돌림** — 이번 세션에서 처음 발견된 패턴이라 향후 development-agent 지시 시 "docs/ 디렉터리는 절대 건드리지 말 것"을 명시적으로 추가할 필요가 있다.
+- **stage-qa-agent 검증**: **STAGE PASS**. 위 회귀 방지 목록 재확인(전부 diff 0), 신규 라우터 패턴 일치, `stubCasVerification` 정직성(주석에 명시), `shared-types.WorkLine`(WORK 단계 인식 결과)과 `WorkLineList.tsx` 로컬 `WorkLine`(DIAG 판정 결과, 다른 개념)이 혼용되지 않았음을 grep으로 확인. LOW 이슈 1건: `DiagnosisCard.tsx`의 로컬 `Diagnosis` 인터페이스가 신규 `shared-types.Diagnosis`와 완전히 동일한 구조 중복 — 이번 단계(화면 미연결)에서는 그대로 두는 게 맞고, **4b(화면 실연결) 착수 시 로컬 타입을 지우고 `shared-types.Diagnosis`를 import하도록 정리 필요**(백로그).
+- **게이트**: typecheck/lint 전체 통과, api 264→282개(+18, 신규 라우터/스텁/어댑터 테스트), web 361→371개(+10, 신규 API 클라이언트/훅 테스트) — 오케스트레이터가 직접 재실행해 동일 수치 확인. build 성공.
+- **다음**: 4a-2(OpenAIAdapter 실제 구현 — `recognizeWork` Vision 프롬프트, `diagnose` 진단 프롬프트, 둘 다 라이브 스모크 필요) 진행 예정. 이후 4b(화면 배치, UX 흐름 전환)는 별도 오너 승인 필요.
+
+### 3.19 Solve v2.0 4a-2 — OpenAIAdapter 실제 구현 + 라이브 스모크 완료 (2026-09-05, 미커밋)
+
+`openai-adapter.ts`의 `recognizeWork`/`diagnose` 에러 throw 스텁을 실제 OpenAI Responses API 구현으로 교체. 기존 `recognizeProblem`(Vision+Structured Outputs)/`solve`(Structured Outputs)와 동일한 패턴(JSON 파싱 실패·스키마 불일치 시 `AppError("provider_error", ..., 502)`)을 그대로 따름. `prompts/system.ts`에 `buildRecognizeWorkPrompt`/`buildDiagnosePrompt` 추가(기존 4개 프롬프트 함수 무변경). `diagnose`는 PRD의 역할 분리 원칙대로 CAS `casVerification` 결과를 "이미 계산 완료된 사실"로 프롬프트에 제시해 LLM이 재판정하지 않고 설명/해석만 하도록 설계됨.
+
+- **라이브 스모크(1회성 수동, §3.3~3.4/§3.9 6.5B 선례와 동일 절차)**: `recognizeWork`는 실제 학생 풀이 이미지(`ProblemDB/.../S3_고등_1_007092.png`)로 호출해 3줄 정상 분리 확인. `diagnose`는 오류형/중단형/DIAG-5(저신뢰도)/DIAG-6(정답+표기비약) 4개 시나리오로 실제 호출 — DIAG-6 시나리오에서 초기 프롬프트가 `reachedAnswerWithNotes`를 안정적으로 트리거하지 못해 프롬프트 문구를 강화(핵심 풀이 단계를 생략한 것도 논리 비약으로 명시)하고 재검증, 다른 3개 시나리오 회귀 없음 확인.
+- **stage-qa-agent 검증**: **STAGE PASS**. 기존 4개 어댑터 메서드/4개 프롬프트 함수가 `git show HEAD:<file>` 대조로 완전 무변경임을 확인(작업 트리 diff가 아니라 커밋 시점 기준으로 재확인해 4a-1 미커밋 변경과 섞이지 않게 함). DIAG-6 프롬프트 수정의 회귀 영향(다른 3개 시나리오)을 stage-qa-agent가 **직접 재현**해서(개발자 보고를 그대로 신뢰하지 않고) 문제없음을 독립 확인 — 4개 시나리오 전부 스키마 유효 + 의미상 정확. PRD §8.3 SDK 격리 원칙(`openai` 패키지는 `openai-adapter.ts`에서만 import)도 grep으로 재확인.
+- **미검증으로 남긴 것(블로커 아님)**: DIAG-5(저신뢰도) 완화 표현은 텍스트만으로 재현한 스모크에서는 트리거되지 않음 — `diagnose()`가 이미지가 아니라 인식된 텍스트만 받으므로 진짜 저신뢰도 필기 이미지로는 4b(WORK→DIAG 실제 연결) 시점에 재검증 필요.
+- **게이트**: typecheck/lint 전체 통과, api 282→288개(+6, 신규 어댑터 단위 테스트), web 371개 무변경. build 성공. 오케스트레이터가 직접 재검증.
+- **다음**: 4a(백엔드+훅) 전체 완료. 4b(목업 컴포넌트 화면 배치, "문제 인식하기" 흐름 전환)는 오너 승인 대기 중.
+
+### 3.20 Solve v2.0 4b — 화면 배치 + "문제 인식하기" 흐름 전환 완료 (2026-09-05, 미커밋)
+
+오너가 표준 절차를 명시적으로 확정: **plan-agent(계획/통제) → development-agent(구현) → design-agent(사후검수, 화면/컴포넌트 규칙 위반 방지) → stage-qa-agent(회귀 테스트, PASS 시에만 완료)**, 이후 모든 화면/기능 작업에 이 루프를 항상 적용하기로 함(`[[feedback_agent_loop_standard]]` 메모리 기록).
+
+- **plan-agent 계획**: `SolvePencilcanvasPage.tsx`(INPUT/WORK 두 단계를 `problemId` 분기로 한 라우트에 조립, 두 번째 `useDrawingStrokes()` 인스턴스, `recognizeOnly`/`giveUp`/`diagnose` 신규 함수)/`SolveLandscapePage.tsx`(기존 solve-result 분기 무변경, DIAG 결과 분기 신규 추가) 상세 설계 + 회귀 위험 체크리스트(`problemInputFlow.test.tsx` 11개 중 8개 재작성 판정표 등) 수립. 오너 확정 2건: (1) WORK-4는 전용 힌트 API 대신 기존 `solve()` 재사용, (2) "봐 주세요"는 2단계 동작(1회=인식, 2회=진단, 검토 기회 제공).
+- **development-agent 구현**: 위 설계 그대로 구현. `ProblemInputProvider.tsx`에 `recognizeOnly`/`giveUp`/`diagnose`(감싸기) 추가, `submitProblem`/`resumeFromHistory`는 무변경(byte 단위 확인). `actionBarState.ts`에 `isBusy` 상호배제 로직 추가. `problemInputFlow.test.tsx` 8개/`cameraFlow.test.tsx` 1개를 `recognizeThenGiveUp()` 헬퍼로 재작성(기존 assertion 전부 보존, 최소 diff).
+- **오케스트레이터 직접 발견·수정**: `shared/lib/solve/deriveWorkLineJudgments.ts`(신규)가 `.claude/rules/frontend.md` §1("shared→features 역참조 금지")을 위반(`features/ai-solution/WorkLineList`에서 타입 import) — development-agent가 스스로 지적하며 넘겼으나, TypeScript 구조적 타이핑으로 로컬 타입 정의만으로 완전히 대체 가능해 즉시 직접 수정(기능 변경 없음).
+- **design-agent 사후검수 3라운드**(전부 Figma MCP 직접 재조회 기반):
+  - 1차: **FAIL** — P0(DIAG 결과 화면에 "풀이 결과" 헤더/"새 문제" 배지 전체 누락) + P1 3건(WORK 단계 `RecognizedProblemBar` 누락, "내 풀이"→"내가 쓴 풀이" 오타, 좌측 컬럼 무제한 높이로 ActionBar와 겹칠 위험) → 수정.
+  - 2차: 위 4건 PASS 확인, 그러나 새 P0 발견 — DIAG 결과 화면에 후속 질문(ChatFooter/제안 질문)이 전혀 없었음(`diagnose()`가 `fetchSuggestedQuestions` 미호출 + 페이지에 `ChatFooter` 자체가 없었음) → 수정.
+  - 3차: ChatFooter mount는 PASS, 그러나 `hashtags={diagnosis.relatedConcepts}`가 Figma 실제 문구(고정 질문 카테고리 프리셋으로 추정)와 다르고 `DiagnosisCard`와 콘텐츠 중복 → `hashtags={[]}`로 교체, 코드에 "결정 필요" 주석 명시(정확한 프리셋 확정 전까지).
+- **stage-qa-agent 최종 검증**: **STAGE PASS**. 회귀 파일 전수(`WorkLineEditor`/`ResumeModeBar`/`ResumeResultCard`/`HandwritingCanvas`/`PenRail`/`ResultPanel`/`ResultPanelShell`/`useDrawingStrokes`/`stubCasVerification`/`ChatFooter`/api 라우터 전체/`docs/**`) diff 0 확인, `submitProblem`/`resumeFromHistory` byte 단위 무변경 확인, `problemInputFlow.test.tsx`(8재작성/3무변경)·`cameraFlow.test.tsx`(1재작성/3무변경) 정확히 일치 확인, WORK 캔버스 필기 유실 회귀 없음(재현 테스트로 직접 확인), `isBusy` 상호배제·"봐 주세요" 2단계 동작 정확성 확인. 게이트: typecheck/lint 전체, api 288개(무변경)/web 379개(371+8), build 성공.
+- **남은 "결정 필요" 항목(4건, 블로킹 아님, 전부 코드에 주석 명시)**: (1) DIAG Header 토픽 배지(`Diagnosis`에 대응 필드 없음), (2) ChatFooter 해시태그 pill 정확한 문구/데이터 모델, (3) WORK 캔버스 빈 상태 힌트(Figma `242:528`, 이번 범위 제외), (4) `ResumeModeBar`/`ResumeResultCard` 미마운트(RESUME 백엔드 없음, 의도적). 추가로 iPad 실기기(1194×834 가로/Split View) 렌더 미검증(코드/Figma 실측 대조만 수행) — 다음 실기기 테스트 시 확인 필요.
+- **다음**: work-order 5단계(RESUME 백엔드 연동) 이후 착수 여부 오너 확인 필요. 4b까지 전부 미커밋 상태.
+
+### 3.21 Solve v2.0 4b 정정 — ActionBar 4-way 상태표 + 개념설명/관련개념 카드 + ResultPanel V2 (2026-09-06, 계획 승인, 미착수)
+
+오너가 iPad 실기기 테스트 중 Figma 4개 노드(로딩 아이콘 `190:866`, INPUT 빈 상태 `260:423`, WORK 캔버스 `127:445`/`267:607`, 문제 인식 스토리보드 `267:778`)를 직접 지정하며 4b 구현의 부정확한 부분을 지적했다. design-agent가 이 4개 노드를 정밀 실측한 결과, 그리고 이어서 오너가 추가 요청한 "개념설명" 해시태그+관련개념 카드(node `253:53`)와 ResultPanel V1.0 old→V2_Default/V2_Extend(node `174:639`)를 재조사한 결과, 4b 구현이 실측과 다른 부분(P0급)과 완전 미구현 부분을 다수 발견했다.
+
+**핵심 발견 — ActionBar가 실제로는 4단계 상태표를 가짐(3단계 아님)**:
+| 단계 | [1]문제인식하기/새문제풀기 | [2]아직못풀겠어요 | [3]봐주세요 |
+|---|---|---|---|
+| INPUT | 강조 | 비활성 | 비활성 |
+| WORK-풀이전(`hasWorkInput=false`) | 비활성 | **강조** | 비활성 |
+| WORK-풀이후(`hasWorkInput=true`) | 비활성 | 활성(비강조) | **강조** |
+| RESULT | 라벨="새 문제 풀기", **강조/활성** | 비활성 | 비활성 |
+
+기존 4b 구현은 WORK를 하나로 뭉쳐 "봐 주세요"를 항상 활성 처리했고(풀이를 쓰기 전에도 진단 요청 가능했음 — Figma와 반대), RESULT 단계의 "새 문제 풀기"는 완전히 미구현이었다(코드 자체가 "실질적으로 클릭 가능한 구간이 없다"고 스스로 인지하고 있던 죽은 코드).
+
+**추가 발견 — 캔버스 상단 "인식됨" 칩이 잘못된 컴포넌트를 재사용 중**: `SolvePencilcanvasPage.tsx`가 `/solve/landscape` 결과 패널 전용 컴포넌트(`RecognizedProblemBar`, 불투명 카드+"수정" 버튼)를 캔버스 상단(글래스 pill, 수정 버튼 없음, Figma `Solve/Recognized Chip` `250:56`)에 잘못 재사용하고 있었다.
+
+**추가 발견 — INPUT/WORK 캔버스 빈 상태 힌트, 로딩 마크 배치 모두 실측과 다르거나 미구현**: 로딩 마크는 카드로 감싸져 있는데 Figma는 배경 없는 순수 마크(투명, 화면 정중앙)이고, 두 캔버스의 빈 상태 안내 문구(Figma `260:454`/`242:528`)는 전혀 구현되지 않았다.
+
+**추가 발견(2차 조사) — "개념설명" 해시태그 + "관련개념" 카드**: 후속 질문 입력창 위 해시태그 pill은 `["#개념설명"(고정), 관련개념 태그(가변), "#비슷한 문제"(고정)]` 4-패턴인데(V1.0 old/V2 공통, 신규 스펙 아님), 지금까지 이 패턴이 정확히 구현된 적이 없었다. "개념설명" 선택 시 나타나는 "관련개념" 카드는 새 컴포넌트가 아니라 기존 `ResultCard`(`kind="concept"`) 재사용이면 되지만, **`Diagnosis` 타입에 개념 설명 본문 텍스트가 없어 백엔드 확장이 필요**하다는 것도 확인됐다(`relatedConcepts`는 이름만 있음).
+
+**추가 발견 — ResultPanel `V1.0 old`→`V2_Default`/`V2_Extend`**: 패널 폭 수치(420/748/6px)는 이미 정확해 변경 불필요, 바뀐 것은 Default 폭일 때의 Body 콘텐츠 템플릿뿐. `174:638`(V1.0 old, 기존 concept+steps 레이아웃)과 `253:53`(V2_Default, 진단 플로우)이 Figma에 별개 variant로 공존 — `isResultReady`(V1.0 old)는 그대로 두고 `isDiagnosisReady`에만 V2 콘텐츠를 적용하기로 결정.
+
+**실행 분리 — plan-agent 권장, 오너 승인**:
+- **1차 실행**(지금 착수, 회귀 위험 낮음): ActionBar 4-way 상태표(`actionBarState.ts`/`ActionBar.tsx`), `ProblemInputProvider`에 신규 `startNewProblem()`, 신규 컴포넌트 `features/solve-session/{RecognizedChip,EmptyStateHint}`, 로딩 마크 카드 제거, `ProblemCard` 폭 448→543px. 회귀 분석 결과 `problemInputFlow.test.tsx`/`cameraFlow.test.tsx`는 수정 불필요(`recognizeThenGiveUp()` 헬퍼가 "봐주세요"를 건드리지 않음), `ActionBar.test.tsx`(9개)만 재작성.
+- **2차 실행**(1차 이후 착수): `Diagnosis` 백엔드 확장(`curriculum_nodes.definition_md` 조인, 진단 프롬프트 동기화), `ResultCard.tsx`에 `title?: string` 추가, `ChatFooter` 해시태그 배열 조립 로직, DIAG 분기에 관련개념 카드 토글.
+
+**결정 필요 7건, 전부 오너 승인 완료(2026-09-06)** — 상세는 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 참고: (1) 로딩마크 48px, (2) "새 문제 풀기"는 신규 `startNewProblem()`, (3) "사진 찍음, 인식 전" ProblemCard는 그대로 유지, (4) 신규 컴포넌트는 `features/solve-session/`, (5) "개념설명" 클릭은 토글(패널 폭과 독립), (6) 적용 범위는 DIAG만, (7) 개념 태그는 가변 개수.
+
+**1차 실행 완료(2026-09-06)**: development-agent 구현 → design-agent 사후검수(High 1건 발견: `RecognizedChip` 치수/그림자가 Figma 실측과 어긋남, `gap-3 p-4`→`gap-[8px] px-[14px] py-[7px]`+inset 하이라이트로 수정; Low 2건: `font-semibold`→`font-[590]`, 컨테이너 간격 11px 정정) → stage-qa-agent 1차 검증(MEDIUM 1건 발견: `/solve/pencilcanvas`의 ActionBar에 "새 문제 풀기" 핸들러 미연결로 브라우저 뒤로가기 시 죽은 버튼 발생 — 수정) → stage-qa-agent 최종 재검증 **STAGE PASS**. 오너 결정: "사진 없이 필기만 입력 시 문제 요약 카드 자리가 비는" 것은 의도된 단순화로 확정(`ProblemCardData` 확장 안 함). 게이트: typecheck/lint 전체, api 288개(무변경)/web 380개, build 성공.
+
+**2차 실행 완료(2026-09-06)**: `Diagnosis`에 `conceptExplanations: ConceptExplanation[]` 신규 필드 추가(기존 `relatedConcepts: string[]`는 무변경, `DiagnosisCard` 회귀 없음). **아키텍처 판단**: PRD가 언급한 `curriculum_nodes.definition_md` DB 조인 대신, 현재 `diagnose` 파이프라인이 Supabase를 전혀 조회하지 않는 순수 LLM 생성 구조라는 점을 반영해 개념 제목/설명도 `relatedConcepts`와 동일하게 LLM이 직접 생성하도록 구현(오케스트레이터 결정, `docs/COMPONENT_MAP.md` §1 "Result Card" 행에 정정 반영 완료). `ResultCard.tsx`에 `title?: string` 옵셔널 추가(기존 2개 호출부 하위 호환). `SolveLandscapePage.tsx` DIAG 분기에 해시태그 4-패턴(`#개념설명`(고정)+관련개념 태그(가변)+`#비슷한 문제`(고정)) 조립, "#개념설명" 클릭 시 로컬 state 토글로 관련개념 카드 표시.
+- design-agent 사후검수: Medium 4건 발견 — (a) 카드 렌더 순서가 Figma와 반대(DiagnosisCard 직후가 아니라 Body 최하단이어야 함) → 수정, (b) `isConceptCardVisible`이 새 진단 세션 시작 시 리셋 안 됨 → `panelWidth` 리셋과 같은 블록에 추가해 수정, (c) 카드 여러 개일 때 스택 방식이 Figma(카드 1개) 의도와 맞는지 → 오너가 "스택 유지"로 확정(변경 없음), (d) `docs/COMPONENT_MAP.md`가 실제 구현과 다른 소스(curriculum_nodes 조인)를 기록 → 정정.
+- **stage-qa-agent 회귀 테스트 중 HIGH 결함 발견**: RESULT 단계 "새 문제 풀기" 클릭 시 `/solve/pencilcanvas`가 아니라 `/camera`로 잘못 이동. 원인은 1차 산출물(`startNewProblem()`)에 있었으나, `ActionBar.test.tsx`는 콜백만 mock으로 검증하고 실제 라우터+`RequireProblemInputGuard`를 통과하는 E2E 테스트가 그동안 없어서 1차/2차 어느 QA에서도 발견되지 않았던 것. `startNewProblem()`이 `problemId`/`hasProblemInput`/`recognizeStatus`를 전부 초기화하는 순간, 아직 `/solve/landscape`에 머무른 채로 `RequireProblemInputGuard`가 `isAllowed=false`를 보고 `/camera`로 먼저 튕겨버리는 가드 경쟁 상태였다.
+- **수정**: `beginReinput()`("수정" 재입력 흐름)이 이미 쓰고 있던 동일한 가드 우회 메커니즘(`isRequestingReinput` 플래그)을 재사용 — `startNewProblem()` 최상단에 `setIsRequestingReinput(true)` 한 줄 추가. `recognizeOnly()`가 다음 실제 제출 시점에 이 플래그를 자동으로 꺼주므로 부작용 없음. development-agent가 실제 `RouterProvider`+가드를 통과하는 재현 테스트로 수정 전(`/camera`로 실패 재현)/후(`/solve/pencilcanvas` 도달) 직접 확인, stage-qa-agent가 독립적으로 동일한 fail→fix→pass 재현을 재수행해 최종 확인(WORK-4/SOLVE-2 두 경로 모두).
+- **최종 게이트**: typecheck/lint 전체, api 288개/web 383개(무변경, 순수 버그 수정), build 성공. **stage-qa-agent 최종 판정: STAGE PASS.**
+- **교훈**: `ActionBar.test.tsx` 같은 컴포넌트 단위 테스트가 prop/콜백을 mock으로 검증하는 것만으로는 실제 라우터·가드까지 이어지는 통합 결함을 못 잡는다 — 화면 전환을 동반하는 액션(특히 상태 초기화+navigate가 함께 일어나는 경우)은 최소 1개의 실제 라우터 기반 E2E 재현 테스트로 별도 검증해야 한다.
+
+**다음**: work-order 5단계(RESUME 백엔드 연동) 이후 착수 여부 오너 확인 필요. iPad 실기기 렌더 검증은 여전히 미완료(코드/Figma 대조만 수행). 전부 미커밋 상태.
+
+### 3.22 Solve v2.0 WORK 흐름 단순화 + 결과 화면 "수정" 링크 + 사진 유지 (2026-09-06, 미커밋)
+
+오너가 iPad 실기기 테스트 후 3건을 요청: (1) WORK 단계 "봐 주세요" 클릭 후 캔버스 재확인 단계(`WorkLineEditor`) 없이 바로 진단 결과 화면으로 이동, 대신 결과 화면에서 "수정" 클릭 시 WORK 캔버스로 돌아가 재인식, (2) 사진으로 입력하지 않은 경우(필기만) 결과 화면에 "사진 인식 박스"(`ProblemCard`)가 보이지 않게, (3) 진단 결과 하단 RESUME 버튼("내 방법으로 계속"/"다른 방법으로") 부재 확인 요청 — design-agent 조사로 work-order 5단계(RESUME 백엔드 연동) 범위이며 아직 미착수임을 확인, 이번 단계에서는 구현하지 않음(코드 변경 없음).
+
+plan-agent가 (1)(2) 구현 계획을 수립하며 신규로 발견한 점: `submitProblem()`(재입력 후 재제출 경로)도 사진 입력 시 `clearCapturedImage()`를 무조건 호출해 (2)와 같은 문제가 있어 원래 요청 범위(`diagnose`/`giveUp`)에 포함시켜야 일관성이 맞는다고 판단, 오너 승인 후 포함해 진행.
+
+**구현 완료**:
+- `SolvePencilcanvasPage.tsx`의 `handleDiagnose`를 `recognizeWork→diagnose` 단일 async 체인으로 재작성, 성공 시 `/solve/landscape`로 즉시 이동.
+- `features/work-input/`(`WorkLineEditor.tsx`/`.test.tsx`, `elevatedCardStyle.ts`) 디렉터리 전체 삭제 — 참조 0건 확인, 애초에 두 실제 화면 어디에도 마운트된 적 없는 목업 전용 컴포넌트였음(dead code 정리).
+- `WorkLineList.tsx`에 헤더 레벨 "수정" 링크(`onEdit?`) 추가, 공용 `TEXT_LINK_STYLE` 재사용(줄마다 반복 아님).
+- `SolveLandscapePage.tsx`에 `handleEditWork`(`resetRecognizeWork()`+`resetDiagnose()`+`navigate("/solve/pencilcanvas")`) 추가 — WORK 캔버스 필기(`workStrokes`)는 의도적으로 보존(지우개로 부분 수정 가능하게). `ProblemCard`를 `problemCardData !== null` 조건부 렌더링으로 변경.
+- `ProblemInputProvider.tsx`의 `submitProblem`/`giveUp`/`diagnose` 세 콜백 모두 `lastInputType === "photo"`일 때 `clearCapturedImage()` 스킵.
+- design-agent 사후검수에서 발견된 Medium 1건(공용 `TEXT_LINK_STYLE`에 `focus-visible:ring` 접근성 스타일 없음, 새 "수정" 링크에도 전파됨)을 오케스트레이터가 직접 수정. High 2건(`gap-[11px]`, `ProblemCard` 폭 `543px`)은 근거 없는 임의값이라는 지적이었으나 실제로는 이전에 이미 STAGE PASS 받은 §3.21 1차 라운드에서 들어간 값이라 이번 단계 범위 밖으로 판단, 별도 후속 확인 필요(아래 미해결 항목 참고). Medium 1건(전체화면 로딩 마크에 딤 배경 없음)은 오너가 이번 세션 초반 명시적으로 요청한 "카드 없이 투명하게" 결정과 일치하는 의도된 디자인이라 수정하지 않음.
+- stage-qa-agent 회귀 테스트: 실제 라우터+`RequireProblemInputGuard` 통과 E2E로 "수정" 링크 클릭 후 `/solve/pencilcanvas` 도달(가드 경쟁 없음, §3.21에서 얻은 교훈 적용) 확인, 사진 유지(`giveUp`/`diagnose` 두 경로 모두)·필기만 입력 시 `ProblemCard` 미노출·"수정" 후 재진단 성공 전부 실제 통합 테스트로 확인. **최종 판정: STAGE PASS.**
+- **게이트**: typecheck/lint 전체, api 288개(무변경)/web 377개, build 성공(오케스트레이터 독립 재실행으로 재확인).
+
+**미해결(다음 세션 확인 필요)**: stage-qa-agent가 WORK-3 PRD AC("각 줄 옆에 수정 UI가 존재한다")가 헤더 단일 "수정" 링크(줄 전체 캔버스로 복귀)로는 문자 그대로 충족되지 않는다고 지적 — 이번 단계가 만든 gap이 아니라 오너가 이번 요청으로 확정한 단순화된 UX이므로, PRD AC 문구를 이 UX에 맞게 갱신할지 오너 확인 필요. 또한 design-agent가 지적한 `gap-[11px]`/`ProblemCard` `543px` 임의값 문제(§3.21에서 유입, 근거 주석 없음)를 Figma 재실측으로 해소할지 별도로 확인 필요.
+
+### 3.23 Solve v2.0 5단계 RESUME(이어풀기) 1차+2차 — 완료 (2026-09-06~07, 미커밋)
+
+1차(백엔드/타입: `LLMAdapter.resume()`, `POST /api/problems/:problemId/resume` SSE, `Diagnosis` 확장, `ResumeMode`/`ResumeRequest`/`ResumeSolution`/`ResumeStreamEvent` 타입) 완료 후, 프론트엔드에서 실제로 이 백엔드를 호출해 화면에 붙이는 2차 작업. design-agent Figma 실측(`255:87`/`255:92`/`255:96`/`255:98`) 기반 오너 승인 결정사항을 반영해 기존 목업 컴포넌트(`ResumeModeBar`/`ResumeResultCard`)를 재작성했다.
+
+**구현 완료**:
+- `shared/api/resumeProblem.ts`(신규) — `solveProblem.ts`와 동일한 SSE 스트리밍 클라이언트 패턴, `POST /api/problems/:problemId/resume`(body: `{ mode }`) 호출.
+- `features/ai-solution/useResumeStream.ts`(신규) — `useSolveStream.ts`와 동일한 요청 세대 비교(stale 이벤트 무시) 패턴의 오케스트레이션 훅.
+- `ResumeModeBar.tsx` 재작성: 바깥 glass pill 컨테이너 제거(`flex gap-[8px] items-start`), 두 버튼 `flex-1` 균등 2분할, 선택된 버튼은 `pill-primary`가 아니라 `pill-dark`(`bg-label-primary`) 사용. RESUME-4(`ownModeDisabled`)일 때 버튼 바로 아래 인라인 안내 문구("이 방법으로는 이어갈 수 없어요") 추가(별도 모달/배지 없음). 로컬 `ResumeMode` 타입 제거, `shared-types` 것으로 교체.
+- `ResumeResultCard.tsx` 수정: 상단 라벨 색상 `accent-purple`→`accent-orange`, 내용 `"{모드 라벨} · {methodName}"`→`"이어풀기 · {모드 라벨}"`로 변경. `solution.methodName`을 15px Semibold 헤드라인 행으로 신규 표시(의미 재정의, 아래 참고). "검증됨" Badge 제거(Figma에 배지 없음 + CAS 스텁이 항상 true인 값을 배지로 보여주는 게 무의미하다는 오너 판단). 카드 패딩은 Figma 실측값(14/12px) 대신 기존 `ELEVATED_CARD_STYLE`(16/16px) 유지. 로컬 `ResumeSolution` 타입 제거, `shared-types` 것으로 교체.
+- **`methodName` 필드명 유지 결정**: 오너가 "필드명 유지 vs `resumePointSummary` 리네이밍" 판단을 위임했다 — 리네이밍 시 이미 1차에서 구현·검증 완료된 백엔드 8개 파일(`fake-adapter.ts`/`openai-adapter.ts`/`parseResumeOutput.ts`/`prompts/system.ts`/각 테스트)을 함께 수정해야 해 회귀 리스크가 컸다. 필드명은 `methodName`을 그대로 유지하고 `shared-types`의 JSDoc만 "식별된 해법명"→"이어가는 지점 요약"(예: "3번째 줄부터 이어가기")으로 의미를 재정의했다. **후속 반영 완료(design-agent 사후 검수, 2026-09-06)**: 화면 연결 시점엔 `FakeLLMAdapter`/OpenAI 프롬프트가 새 의미에 맞춰 수정되지 않아 여전히 "완전제곱식"/"판별식" 같은 해법명을 채워 넣는 갭이 있었으나, 사후 검수 중 오케스트레이터가 `buildResumePrompt`(`prompts/system.ts`, "이어가는 지점을 요약하는 한 줄" 지시로 수정)와 `FakeLLMAdapter.resume()`(`"{lastValidLine+1}번째 줄부터 이어가기"`/`"새로운 방법으로 처음부터 풀기"`로 수정)을 직접 고쳐 갭을 해소했다. 더 이상 별도 백로그가 아니다.
+- `AnswerBox.tsx`에 `tone?: "default" | "resume"` variant 추가(`tone="resume"`: `bg-brand-tint` + `rounded-[18px]` + `text-label-primary` + `Math/Shadow Rest` 5겹 그림자). 기존 `tone="default"`(V1.0 solve 결과)는 완전히 그대로 유지(회귀 없음, 신규 테스트 2건으로 확인).
+- 신규 디자인 토큰 3종 문서화(`docs/DESIGN_TOKEN_MAP.md`, `docs/DESIGN_SYSTEM.md`): `brand/tint`(불투명 `#c3ccd9`, `--color-brand-tint` CSS 변수 신설) / `radius/18`(CSS 변수 없이 기존 `radius/14`와 동일하게 `rounded-[18px]` Tailwind 임의값으로 코드에 직접 표현 — 이 코드베이스는 반경에 별도 CSS 변수를 쓰지 않는 기존 관행) / `Math/Shadow Rest`(5겹 그림자, **레이어 색상 수치가 기존 `Elevation/Floating Bar`와 정확히 동일**해 그 Tailwind 클래스를 그대로 재사용).
+- `ProblemInputContext.ts`/`ProblemInputProvider.tsx`: `resumeMode`/`resumeStatus`/`resumeStreamedText`/`resumeSolution`/`resumeErrorMessage`/`startResume`/`resetResume` 필드 추가. `startNewProblem()`/`beginReinput()`(Provider)과 `SolveLandscapePage`의 `handleEditWork`(페이지) 모두 `resetResume()`을 함께 호출하도록 갱신 — 새 문제 시작/재입력/WORK 복귀 시 이전 이어풀기 상태가 남지 않는다. 진단(diagnose) 성공 시 자동 트리거 없음(오너 확정) — 사용자가 `ResumeModeBar` 버튼을 직접 눌러야 `startResume()`이 호출된다.
+- `SolveLandscapePage.tsx`: `isDiagnosisReady` 분기의 `<DiagnosisCard>` 바로 다음(Figma `253:53` Body 순서: 진단→이어풀기→추천 질문→관련개념)에 `<ResumeModeBar>` 마운트, `resumeStatus==="loading"`이면 `<LoadingMark>`, `resumeSolution`이 있으면 `<ResumeResultCard>`를 그 아래 마운트.
+- 회귀/신규 테스트: `resumeProblem.test.ts`/`useResumeStream.test.tsx`(신규, FakeAdapter와 동일한 SSE 프레이밍으로 실제 스트리밍→상태 반영 검증), `ResumeModeBar.test.tsx`/`ResumeResultCard.test.tsx`/`AnswerBox.test.tsx`(변경사항 반영 갱신), `problemInputFlow.test.tsx`에 실제 라우터+`ProblemInputProvider` 통합 E2E 2건 추가(진단 성공→모드 선택→스트리밍→결과 카드 / `isMethodApplicable=false`→비활성+안내 문구). 기존 `diagnoseProblem` mock에 `identifiedMethod`/`isMethodApplicable`/`methodApplicabilityNote` 필드 보강(누락 시 `ownModeDisabled`가 항상 `true`가 되는 문제 수정).
+
+**백로그(이번 범위 아님, 기록만)**:
+- `AnswerBox.tsx`가 원래 인용하던 Figma 노드(`39:50`~`39:51`)가 design-agent 조회 결과 파일에 존재하지 않는 노드였다(`ActionBar`가 무효 노드를 인용했던 §3.17 사례와 동일 패턴) — 노드 인용만 제거했고 실제 동작/스타일 수정은 하지 않았다.
+
+**stage-qa-agent 최종 회귀 테스트에서 HIGH 2건 발견 → 수정 → 재검증 STAGE PASS (2026-09-07)**:
+RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI 어댑터 직접 호출로 검증까지 통과했으나, RESUME-4/5(둘 다 PRD P0)에서 구체적 결함이 발견됐다.
+- **HIGH-1 (RESUME-4)**: `Diagnosis.methodApplicabilityNote`(LLM이 생성한 "적용 불가" 구체적 사유)가 `diagnose()`에서는 생성되지만 프론트 어디에서도 읽히지 않고, `ResumeModeBar`가 고정 문구만 보여주고 있었다. **수정**: `ResumeModeBar.tsx`에 `applicabilityNote?: string | null` prop 추가, 있으면 실제 사유를 보여주고 없으면 기존 고정 문구로 폴백. `SolveLandscapePage.tsx`가 `diagnosis.methodApplicabilityNote`를 전달.
+- **HIGH-2 (RESUME-5)**: `SolveLandscapePage.tsx`가 `resumeSolution.verified` 값과 무관하게 성공 시 무조건 `ResumeResultCard`를 렌더링했다 — 지금은 CAS가 스텁이라 항상 true지만, 실제 CAS가 붙어도 검증 실패를 걸러내지 못하는 구조적 결함이었다. **수정**: `verified===true`일 때만 카드를 렌더링, `verified===false`면 기존 에러 Modal과 동일 패턴("이어풀기 검증에 실패했습니다", `onAction={resetResume}`로 재시도)을 노출.
+- **MEDIUM (RESUME-4 서버 방어)**: 프론트 버튼 비활성화만으로 막고 있어 클라이언트가 검증을 우회해 `mode:"own"`을 직접 보내면 서버가 그대로 생성해줬다. **수정**: `resume.router.ts`의 `resolveResumeContext`가 `mode==="own" && !diagnosis.isMethodApplicable`이면 400(validation_error)으로 거부하도록 서버 측 방어 추가.
+- **오너 결정(문서만)**: RESUME-4 PRD AC 문구("대안 해법으로 **자동 전환**하는 UI")가 실제 승인된 UX(학생이 "다른 방법으로"를 **직접 클릭**)와 달라, stage-qa-agent가 문서-구현 불일치로 지적 → 오너가 "현재(수동 선택) 유지, PRD 문구만 갱신"으로 결정 → `docs/PRD_WHYMATH.md` §4.7 RESUME-4 AC 문구를 실제 구현에 맞게 수정 완료(ID/P0 우선순위 유지).
+- 3건 모두 development-agent 수정 → 오케스트레이터 독립 검증(코드 diff 직접 확인 + typecheck/lint/test/build 재실행) → stage-qa-agent 재검증. **최종 게이트**: api 304/304, web 392/392, build 성공. **stage-qa-agent 최종 판정: STAGE PASS.**
+
+**work-order 5단계(RESUME) 전체 완료.** CAS는 여전히 스텁(`stubResumeCasCheck`, 항상 `verified:true`) — 실제 SymPy 서비스는 DIAG-1도 포함해 이 프로젝트 전체에서 아직 한 줄도 구현되지 않았고 work-order 어디에도 일정이 없다(오너 확인, 2026-09-07). 이번 단계 완료 후 별도로 "CAS 서비스 구축" 계획을 세워 오너에게 우선순위를 확인할 예정(아래 §6 참고). `listMethods`/다해법 목록 UI는 work-order 8단계(METHOD)로 이연.
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -287,7 +410,7 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ⏳ 1~3단계 완료 + design-agent 사후검수 2회 완료(2026-09-05, §3.17). 1회차: P0 결함 2건(ActionBar/WorkLineList 실측값 오류) 발견→수정→PASS. 2회차: P0 재검수 PASS 확인 + `WorkLineEditor`(3단계) 최초검수에서 P1 결함 2건(줄번호 배지 회귀, 편집창 포커스 접근성) 발견→수정 완료, 내가 직접 재검증(typecheck/lint/test 361개/build 전부 통과). 백로그 3건은 `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7에 기록. 4단계(백엔드 연동) 이후는 별도 승인 필요 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+**work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23) 전부 완료**, 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정의 HIGH 1건, RESUME의 HIGH 2건). CAS는 여전히 스텁(§3.23 참고, 별도 계획 필요). work-order 6~8단계(캔버스 하이라이트 오버레이/CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
@@ -296,7 +419,7 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
 2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
 3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
-4. Solve v2.0 재구현(§3.16~3.17, §5 6.6단계) — 1~3단계 구현 + design-agent 사후검수 2회(P0/P1 결함 발견→수정→재검증) 모두 완료된 상태다. 오너에게 4단계(WORK/DIAG 백엔드 연동, CAS 스텁 포함) 착수 여부를 확인할 것. 백로그 3건(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7)은 이번 work-order와 무관하게 언제든 별도로 처리 가능.
+4. Solve v2.0 재구현(§3.16~3.23, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME)까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 work-order 6단계(캔버스 하이라이트 오버레이) 착수 여부를 확인할 것. **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장. **CAS(Python/SymPy) 실제 서비스 구축**(§3.23) — DIAG-1/RESUME-5가 아직 전부 스텁(`stubCasVerification`/`stubResumeCasCheck`, 항상 valid/verified)이며 work-order 어디에도 일정이 없다. 오너가 "이번 단계 완료 후 별도 계획 세워서 우선순위 확인"으로 결정했으니, 다음 세션에서 CAS 서비스 구축 계획(별도 Python 서비스 개발+배포+대수/방정식/부등식/함수/수열/미적분 동치성 검사 로직, PRD §6/§8.2/§10) 수립 여부를 먼저 확인할 것. 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
 5. 오너에게 다음 우선순위를 확인:
    - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
    - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.

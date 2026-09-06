@@ -122,3 +122,66 @@ export const problemHistoryDetailSchema = z.object({
   ),
 });
 export type ProblemHistoryDetailDto = z.infer<typeof problemHistoryDetailSchema>;
+
+/** 줄 단위 인식 결과(`shared-types.WorkLine`) 응답 스키마 — `POST /api/problems/:problemId/work-lines`. */
+export const workLinesResponseSchema = z.object({
+  workLines: z.array(
+    z.object({
+      lineNo: z.number(),
+      latex: z.string(),
+      isLowConfidence: z.boolean(),
+    }),
+  ),
+});
+export type WorkLinesResponseDto = z.infer<typeof workLinesResponseSchema>;
+
+/**
+ * `POST /api/problems/:problemId/diagnose` 요청 스키마.
+ * 클라이언트가 확인/수정한 줄만 보낸다(`isLowConfidence` 등 인식 메타데이터는 서버가 다시 필요로
+ * 하지 않는다).
+ */
+export const diagnoseRequestSchema = z.object({
+  workLines: z.array(
+    z.object({
+      lineNo: z.number(),
+      latex: z.string(),
+    }),
+  ),
+});
+export type DiagnoseRequestDto = z.infer<typeof diagnoseRequestSchema>;
+
+/** `POST /api/problems/:problemId/diagnose` 응답 스키마(`shared-types.Diagnosis`와 필드 동일). */
+export const diagnoseResponseSchema = z.object({
+  lastValidLine: z.number(),
+  stallLine: z.number().nullable(),
+  errorTypeLabel: z.string().nullable(),
+  errorDetail: z.string().nullable(),
+  relatedConcepts: z.array(z.string()),
+  reachedAnswerWithNotes: z.boolean(),
+  isLowConfidence: z.boolean(),
+  conceptExplanations: z.array(
+    z.object({
+      name: z.string(),
+      title: z.string(),
+      explanationMd: z.string(),
+    }),
+  ),
+  identifiedMethod: z
+    .object({
+      methodId: z.string(),
+      methodName: z.string(),
+    })
+    .nullable(),
+  isMethodApplicable: z.boolean(),
+  methodApplicabilityNote: z.string().nullable(),
+});
+export type DiagnoseResponseDto = z.infer<typeof diagnoseResponseSchema>;
+
+/**
+ * `POST /api/problems/:problemId/resume` 요청 스키마(RESUME). problemId는 URL 파라미터로
+ * 전달되므로 body에는 `mode`만 담는다.
+ */
+export const resumeRequestSchema = z.object({
+  mode: z.enum(["own", "alternative"]),
+});
+export type ResumeRequestDto = z.infer<typeof resumeRequestSchema>;

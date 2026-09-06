@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { WorkLineList, type WorkLine } from "./WorkLineList";
 
 const MOCK_LINES: WorkLine[] = [
@@ -39,5 +39,21 @@ describe("WorkLineList", () => {
 
     expect(screen.queryByText("확인")).not.toBeInTheDocument();
     expect(screen.queryByText("막힌 지점")).not.toBeInTheDocument();
+  });
+
+  it("onEdit이 없으면 '수정' 링크를 렌더링하지 않는다", () => {
+    render(<WorkLineList lines={MOCK_LINES} />);
+
+    expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+  });
+
+  it("onEdit이 있으면 헤더에 '수정' 링크를 보여주고, 누르면 호출된다", () => {
+    const onEdit = vi.fn();
+    render(<WorkLineList lines={MOCK_LINES} onEdit={onEdit} />);
+
+    const editLink = screen.getByRole("button", { name: "수정" });
+    fireEvent.click(editLink);
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
   });
 });

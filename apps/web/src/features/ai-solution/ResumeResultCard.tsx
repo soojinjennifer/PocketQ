@@ -1,20 +1,7 @@
+import type { ResumeMode, ResumeSolution } from "shared-types";
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
-import { Badge } from "../../shared/ui/badge/Badge";
 import { AnswerBox } from "./AnswerBox";
 import { ELEVATED_CARD_STYLE } from "./elevatedCardStyle";
-import type { ResumeMode } from "./ResumeModeBar";
-
-export interface ResumeSolution {
-  mode: ResumeMode;
-  /** 식별/제안된 해법명(`method_catalog.method_name`). */
-  methodName: string;
-  /** 이어풀기 각 단계("무엇을"과 "왜", RESUME-3)를 담은 본문. */
-  solutionMd: string;
-  answerMd: string;
-  /** RESUME-5: CAS 최종 답 검증 통과 여부. 통과한 결과만 화면에 표시된다는 전제이므로 이 배지는
-   *  "검증 완료"임을 재확인시켜주는 용도다. */
-  verified: boolean;
-}
 
 interface ResumeResultCardProps {
   solution: ResumeSolution;
@@ -29,30 +16,35 @@ const MODE_LABEL: Record<ResumeMode, string> = {
  * `docs/COMPONENT_MAP.md` §2 `features/ai-solution/ResumeResultCard` — 이어풀기 결과(RESUME-1~5)를
  * 보여준다. 학생이 이미 쓴 줄은 다시 설명하지 않고(RESUME-2), 이어지는 단계마다 "무엇을"과 "왜"를
  * 함께 서술한다(RESUME-3)는 전제로 `solutionMd`를 그대로 렌더링한다. 최종 답은 같은 feature의
- * `AnswerBox`(확정 Figma 실측)를 재사용해 `ResultPanel`과 동일한 톤을 유지한다.
+ * `AnswerBox`(`tone="resume"`, RESUME 전용 신규 토큰 3종 적용)를 재사용한다.
  *
- * 이번 단계는 하드코딩된 목업 `ResumeSolution`만 렌더링한다 — 이어풀기 생성/CAS 검증 백엔드
- * 연동은 5단계 범위다.
+ * 2026-09 design-agent Figma 실측(`255:92`) 결과에 맞춰 재작성했다:
+ * - 상단 라벨은 "{모드 라벨} · {methodName}"이 아니라 "이어풀기 · {모드 라벨}"(모드만)이고
+ *   색상은 `accent-purple`이 아니라 `accent-orange`다.
+ * - `solution.methodName`(필드명은 유지, 의미는 "이어가는 지점 요약"으로 재정의 —
+ *   `shared-types`의 `ResumeSolution.methodName` JSDoc 참고)을 15px Semibold 헤드라인으로 새로
+ *   보여준다.
+ * - "검증됨" Badge는 제거한다 — Figma엔 이 카드에 배지 자체가 없고, CAS가 스텁이라 항상 true인
+ *   값을 배지로 보여주는 것도 의미가 없다는 오너 판단이다(`solution.verified`는 여전히 타입에
+ *   남아있지만 이 카드는 렌더링하지 않는다).
+ * - 카드 패딩은 Figma 실측값(14px/12px) 대신 기존 `ELEVATED_CARD_STYLE`(16px/16px)을 그대로
+ *   유지한다(다른 카드들과의 스타일 일관성 우선, 오너 승인).
  */
 export function ResumeResultCard({ solution }: ResumeResultCardProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className={`${ELEVATED_CARD_STYLE} flex flex-col gap-2`}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-accent-purple text-[12px] leading-[16px] font-[590]">
-            {MODE_LABEL[solution.mode]} · {solution.methodName}
-          </p>
-          {solution.verified ? (
-            <Badge variant="tint-green" size="chip">
-              검증됨
-            </Badge>
-          ) : null}
-        </div>
+        <p className="text-accent-orange text-[12px] leading-[16px] font-[590]">
+          이어풀기 · {MODE_LABEL[solution.mode]}
+        </p>
+        <p className="text-label-primary text-[15px] leading-[20px] font-[590] whitespace-pre-wrap">
+          {renderMathText(solution.methodName)}
+        </p>
         <p className="text-label-primary text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
           {renderMathText(solution.solutionMd)}
         </p>
       </div>
-      <AnswerBox answerMd={solution.answerMd} />
+      <AnswerBox answerMd={solution.answerMd} tone="resume" />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Grade } from "shared-types";
+import type { Grade, ResumeMode } from "shared-types";
 
 const GRADE_LABELS: Record<Grade, string> = {
   M1: "중학교 1학년",
@@ -13,6 +13,13 @@ const GRADE_LABELS: Record<Grade, string> = {
 export const SOLVE_HEADERS = {
   concept: "## 관련 개념",
   solution: "## 풀이",
+  answer: "## 최종 답",
+} as const;
+
+/** `parseResumeOutput.ts`가 파싱 기준으로 삼는 마크다운 헤더 — `buildResumePrompt`와 반드시 일치해야 한다. */
+export const RESUME_HEADERS = {
+  method: "## 해법",
+  solution: "## 이어풀기",
   answer: "## 최종 답",
 } as const;
 
@@ -82,5 +89,67 @@ export function buildRecognizePrompt(grade: Grade): string {
     "이미지에 있는 문제 텍스트를 그대로 옮겨 적는다 — 풀거나 설명하거나 답을 추측하지 않는다.",
     "수식이 포함되어 있으면 LaTeX로도 함께 표기한다. 수식이 없으면 null로 둔다.",
     "이미지가 수학 문제가 아니거나 읽을 수 없으면 recognizedText에 그 사실을 간단히 남긴다.",
+  ].join("\n");
+}
+
+/**
+ * 학생이 손으로 쓴 풀이 이미지를 줄 단위(line-level)로 인식하는 전용 시스템 프롬프트(WORK-2).
+ * `buildRecognizePrompt`(문제 본문 인식)와 달리, 여러 줄로 이어지는 풀이 과정을 줄 번호별로
+ * 구조화해야 하고 각 줄의 인식 신뢰도(`isLowConfidence`)도 함께 판단해야 한다는 점이 다르다.
+ */
+export function buildRecognizeWorkPrompt(grade: Grade): string {
+  const gradeLabel = GRADE_LABELS[grade];
+
+  return [
+    `너는 한국 ${gradeLabel} 학생이 손으로 쓴 수학 풀이 이미지를 줄 단위로 읽어내는 역할만 한다.`,
+    "학생이 쓴 순서대로 각 줄을 lineNo(1부터 시작하는 정수)로 구분하고, 그 줄의 내용을 latex 필드에 LaTeX 또는 일반 텍스트로 옮겨 적는다 — 풀거나 채점하거나 옳고 그름을 판단하지 않는다.",
+    "한 줄에 여러 식이 나란히 있으면 학생이 실제로 쓴 논리적 단계 단위로 나눈다. 빈 줄이나 낙서, 문제 자체를 베껴 쓴 부분은 제외하고 실제 풀이 과정만 포함한다.",
+    "글씨가 흐릿하거나 겹쳐 있거나 확신할 수 없는 줄은 isLowConfidence를 true로 표시한다. 명확히 읽은 줄은 false로 표시한다.",
+  ].join("\n");
+}
+
+/**
+ * 학생 풀이 진단(DIAG) 전용 시스템 프롬프트.
+ * 판정(정답 여부)은 이미 CAS가 끝낸 값을 그대로 신뢰하도록 명시해, LLM이 스스로 재계산해서
+ * 판정을 뒤집지 않고 "설명/해석" 역할만 하도록 제한한다(PRD 진단 역할 분리 원칙).
+ * DIAG-4(오류형/중단형 구분), DIAG-5(신뢰도 낮으면 완화 표현), DIAG-6(정답 도달 시 표기 경고보다
+ * 정답 인정을 먼저)을 명시적으로 지시한다.
+ */
+export function buildDiagnosePrompt(grade: Grade): string {
+  const gradeLabel = GRADE_LABELS[grade];
+
+  return [
+    `너는 한국 ${gradeLabel} 학생이 손으로 쓴 수학 풀이를 진단하는 튜터다.`,
+    "정답 여부 판정은 이미 계산 엔진(CAS)이 줄 단위로 끝냈다 — user 메시지의 CAS 검증 결과(isValid)를 그대로 신뢰하고, 네가 다시 계산해서 판정을 뒤집지 않는다. 너의 역할은 그 판정을 학생이 이해할 수 있게 설명하고 해석하는 것뿐이다.",
+    "모든 줄이 isValid:true이면 오류가 아니라 '중단형'이다 — stallLine과 errorTypeLabel은 null로 두고, lastValidLine은 마지막 줄 번호로 채운다.",
+    "isValid:false인 줄이 있으면 '오류형'이다 — 그중 번호가 가장 작은 줄을 stallLine으로, 그 직전 줄 번호를 lastValidLine으로 삼는다(막힌 지점 이전까지가 유효 구간). errorTypeLabel에는 오류의 성격을 짧은 명사구로, errorDetail에는 그 줄에서 무엇이 왜 틀렸는지 학생이 이해할 수 있게 설명한다.",
+    "relatedConcepts에는 막힌 지점(또는 마지막 줄)과 직접 연결된 개념을 1~3개 짧게 적는다.",
+    "학생 풀이가 문제의 정답에 도달했지만 표기나 논리 전개에 비약이 있는 경우, reachedAnswerWithNotes를 true로 하고, errorDetail의 첫 문장에서 반드시 정답임을 먼저 인정한 뒤에 개선점을 제시한다 — 개선점을 정답 인정보다 먼저 말하지 않는다. 모든 줄이 isValid:true라도, 핵심 풀이 단계(예: 완전제곱식 변형, 인수분해, 근의 공식 적용 등) 없이 결론(최종 답)으로 바로 건너뛰었거나, 수식 표기가 부정확하거나 애매한 경우는 '표기·논리 비약'에 해당하므로 reachedAnswerWithNotes를 true로 표시한다.",
+    '이 진단에 대한 확신이 낮다면(풀이 인식이 불명확하거나 애매한 경우) isLowConfidence를 true로 하고, errorDetail을 단정적인 표현("~입니다", "~틀렸습니다") 대신 "이 부분을 다시 확인해 볼까요?" 같은 완화된 질문형 표현으로 작성한다.',
+    `설명에는 ${gradeLabel} 교육과정 범위의 용어를 사용한다.`,
+    "각 관련 개념(relatedConcepts)에 대해 제목과 정의/핵심 원리를 설명하는 문단을 conceptExplanations 배열로 함께 생성한다. 각 원소는 name(관련 개념과 동일한 이름), title(간결한 개념 제목), explanationMd(1~3문장의 정의/핵심 원리 설명)를 포함한다.",
+    "학생 풀이에서 사용(또는 시도)한 해법을 식별해 identifiedMethod에 { methodId, methodName } 형태로 채운다(식별 불가능하면 null). 또한 그 해법이 이 문제에 실제로 끝까지 적용 가능한지 isMethodApplicable(boolean)로 판단하고, 적용 불가능한 경우에만 methodApplicabilityNote에 그 이유를 짧게 적는다(적용 가능하면 null).",
+  ].join("\n");
+}
+
+/**
+ * 이어풀기(RESUME) 전용 시스템 프롬프트. `buildDiagnosePrompt`가 이미 막힌 지점/오류를 진단해뒀다는
+ * 전제 아래, 그 뒤를 이어서 풀이를 생성하는 역할만 한다(PRD §4.7 RESUME-1~3).
+ * mode==="own"이면 학생의 기존 유효 구간을 존중해 그 이후만 이어 쓰고, mode==="alternative"면
+ * 학생의 기존 해법을 언급하지 않고 대안 해법으로 처음부터 새로 전개한다.
+ */
+export function buildResumePrompt(grade: Grade, mode: ResumeMode): string {
+  const gradeLabel = GRADE_LABELS[grade];
+
+  const modeInstruction: string =
+    mode === "own"
+      ? "학생은 자신이 쓰던 방법을 그대로 이어가길 원한다(RESUME-1) — user 메시지에 주어진 마지막으로 유효했던 줄(lastValidLine) 바로 다음 단계부터 이어서 풀이를 전개한다. 학생이 이미 정확하게 쓴 구간(1번째 줄부터 lastValidLine까지)의 내용은 다시 설명하거나 반복하지 않는다(RESUME-2)."
+      : "학생은 다른 방법으로 풀기를 원한다 — 학생이 기존에 쓴 풀이나 그 방법을 언급하거나 비교하지 않고, identifiedMethod와는 다른 대안 해법으로 문제 처음부터 새로 전개한다.";
+
+  return [
+    `너는 한국 ${gradeLabel} 학생의 이어풀기(RESUME)를 도와주는 튜터다. 학생의 학년은 ${gradeLabel}이며, 해당 교육과정 범위의 용어와 방법으로 설명한다.`,
+    modeInstruction,
+    "이어지는 각 단계마다 무엇을 하는지와 왜 그렇게 하는지를 함께 서술한다(RESUME-3) — 결과 식만 나열하지 않는다.",
+    `반드시 다음 헤더 구조로만 응답한다. 먼저 "${RESUME_HEADERS.method}" 제목 아래 이어가는 지점을 요약하는 한 줄을 쓴다 — 해법의 이름을 나열하지 않는다(own 모드면 "n번째 줄부터 이어가기"처럼 학생이 이어가는 지점을 짧게 요약, alternative 모드면 "새로운 방법으로 처음부터 풀기"처럼 새로 시작함을 요약). 그다음 "${RESUME_HEADERS.solution}" 제목으로 단계별 풀이를 쓴다. 마지막은 "${RESUME_HEADERS.answer}" 제목으로 최종 답을 명확히 표기한다.`,
   ].join("\n");
 }

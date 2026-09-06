@@ -1,4 +1,4 @@
-import type { Grade, RecognizedProblem, Solution } from "shared-types";
+import type { Diagnosis, Grade, RecognizedProblem, ResumeSolution, Solution, WorkLine } from "shared-types";
 
 export interface StoredProblem {
   problemId: string;
@@ -12,6 +12,12 @@ export interface StoredProblem {
    * chat 핸들러가 문제/풀이 컨텍스트를 함께 조회하기 위해 존재한다(6.5B단계).
    */
   solution?: Solution;
+  /** `recognizeWork`가 끝난 뒤 채워지는 줄 단위 인식 결과(WORK-2). 아직 인식 전이면 undefined. */
+  workLines?: WorkLine[];
+  /** `diagnose`가 끝난 뒤 채워지는 진단 결과(DIAG). 아직 진단 전이면 undefined. */
+  diagnosis?: Diagnosis;
+  /** `resume`이 끝난 뒤 채워지는 이어풀기 결과(RESUME). 아직 이어풀기 전이면 undefined. */
+  resumeSolution?: ResumeSolution;
 }
 
 /**
@@ -39,6 +45,39 @@ export const inMemoryProblemStore = {
       return;
     }
     problems.set(problemId, { ...stored, solution });
+  },
+  /**
+   * `recognizeWork`가 끝난 뒤 그 결과를 기존에 저장된 문제 엔트리에 덧붙인다.
+   * `setSolution`과 동일한 패턴 — 대상 problemId가 저장소에 없으면 조용히 무시한다.
+   */
+  setWorkLines(problemId: string, workLines: WorkLine[]): void {
+    const stored = problems.get(problemId);
+    if (!stored) {
+      return;
+    }
+    problems.set(problemId, { ...stored, workLines });
+  },
+  /**
+   * `diagnose`가 끝난 뒤 그 결과를 기존에 저장된 문제 엔트리에 덧붙인다.
+   * `setSolution`과 동일한 패턴 — 대상 problemId가 저장소에 없으면 조용히 무시한다.
+   */
+  setDiagnosis(problemId: string, diagnosis: Diagnosis): void {
+    const stored = problems.get(problemId);
+    if (!stored) {
+      return;
+    }
+    problems.set(problemId, { ...stored, diagnosis });
+  },
+  /**
+   * `resume`이 끝난 뒤 그 결과를 기존에 저장된 문제 엔트리에 덧붙인다.
+   * `setDiagnosis`와 동일한 패턴 — 대상 problemId가 저장소에 없으면 조용히 무시한다.
+   */
+  setResumeSolution(problemId: string, resumeSolution: ResumeSolution): void {
+    const stored = problems.get(problemId);
+    if (!stored) {
+      return;
+    }
+    problems.set(problemId, { ...stored, resumeSolution });
   },
   clear(): void {
     problems.clear();

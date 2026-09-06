@@ -19,6 +19,9 @@
 
   --color-brand: #5e6e82;
   --color-brand-deep: #46536a;
+  /* `brand/tint`(불투명, Figma `255:96` 이어풀기 최종 답 배너 실측, 2026-09) — 기존
+     `--color-fill-tint-brand`(반투명 `#5e6e8229`)와는 다른 별도 신규 색상 토큰이다. */
+  --color-brand-tint: #c3ccd9;
   --color-accent-green: #6fa898;
   --color-accent-purple: #9a93b0;
   --color-accent-orange: #d9a05b;

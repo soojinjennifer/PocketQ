@@ -1,10 +1,15 @@
 import type {
   AiProvider,
+  CasStepVerification,
   ChatMessage,
+  Diagnosis,
   Grade,
   RecognizedProblem,
+  ResumeMode,
+  ResumeStreamEvent,
   Solution,
   SolveOptions,
+  WorkLine,
 } from "shared-types";
 import { env } from "../../config/env";
 import { OpenAIAdapter } from "./openai-adapter";
@@ -33,6 +38,27 @@ export interface SuggestQuestionsRequest {
   grade: Grade;
 }
 
+/** 학생 풀이 진단(DIAG) 요청 — 문제/줄 단위 풀이/CAS 검증 결과를 함께 전달한다. */
+export interface DiagnoseRequest {
+  problem: string;
+  workLines: WorkLine[];
+  casVerification: CasStepVerification[];
+  grade: Grade;
+}
+
+/**
+ * 이어풀기(RESUME) 요청 — `DiagnoseRequest`와 마찬가지로 문제 원문과 학생 풀이 컨텍스트를
+ * 전달하되, 이미 끝난 진단 결과(`diagnosis`)와 이어풀기 모드(`mode`)를 함께 넘겨 어댑터가
+ * "어디서부터, 어떻게 이어갈지"를 판단할 수 있게 한다.
+ */
+export interface ResumeRequest {
+  problem: string;
+  workLines: WorkLine[];
+  diagnosis: Diagnosis;
+  mode: ResumeMode;
+  grade: Grade;
+}
+
 /**
  * PRD §8.3 LLM Adapter 인터페이스.
  * 실제 SDK(OpenAI/Anthropic) 타입은 절대 노출하지 않고 shared-types 도메인 타입만 사용한다.
@@ -52,6 +78,16 @@ export interface LLMAdapter {
    * 로딩이 오래 걸리지 않도록 최소한의 프롬프트/응답만 요구한다.
    */
   suggestQuestions(req: SuggestQuestionsRequest): Promise<string[]>;
+  /** 이미지에서 학생이 손으로 쓴 풀이를 줄 단위로 인식한다(WORK-2). */
+  recognizeWork(image: Buffer, grade: Grade): Promise<WorkLine[]>;
+  /** 문제/줄 단위 풀이/CAS 검증 결과를 바탕으로 막힌 지점·오류 유형을 진단한다(DIAG). */
+  diagnose(req: DiagnoseRequest): Promise<Diagnosis>;
+  /**
+   * 진단 결과를 이어서 풀이를 생성한다(RESUME) — 스트리밍. `verified`(CAS 검증)는 어댑터가
+   * 채우지 않고 항상 `false`로 yield하며, 호출부(`resume.router.ts`)가 `stubResumeCasCheck()`
+   * 결과로 덮어쓴다(CAS 검증은 어댑터의 책임이 아니다).
+   */
+  resume(req: ResumeRequest): AsyncIterable<ResumeStreamEvent>;
 }
 
 /**

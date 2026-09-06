@@ -38,6 +38,7 @@
 | `accent/purple` | `#9a93b0` |
 | `accent/orange` | `#d9a05b` |
 | `accent/yellow` | `#dcc08a` |
+| `brand/tint`(불투명, 신규) | `#c3ccd9` — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너). 기존 `fill/tint-blue`(반투명 `#5e6e8229`)와 다른 별도 색상 |
 
 ### 2.4 Fill / Separator / Glass
 | 토큰 | 값 |
@@ -89,12 +90,13 @@
 | `Elevation/Photo Card` | drop-shadow(0,3,0) `#232B3829` + (0,10,20) `#232B3824` + (0,22,40) `#232B3817` |
 | `Elevation/Floating Bar` | drop-shadow 3겹(`#232B3836`/`#232B3824`/`#232B3814`) + inner-shadow(0,2,0) `#FFFFFFE5` + inner-shadow(0,-2,0) `#232B3812` |
 | `Elevation/Glass Panel` | drop-shadow 3겹(`#232B3836`/`#232B382E`/`#232B381A`) + inner-shadow 2겹 (위와 동일 패턴) |
+| `Math/Shadow Rest`(신규) | drop-shadow 3겹(`#232B3836`/`#232B3824`/`#232B3814`) + inner-shadow 2겹(`#FFFFFFE5`/`#232B3812`) — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). **레이어 색상 수치가 위 `Elevation/Floating Bar`와 정확히 동일하다**(우연히 같은 그림자 스타일을 Figma가 다른 이름으로 재정의한 것으로 보인다) — 별도 CSS로 새로 만들지 않고 `Elevation/Floating Bar`와 같은 Tailwind 임의값 문법(`drop-shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_16px_rgba(35,43,56,0.14),0px_20px_34px_rgba(35,43,56,0.08)] shadow-[inset_0px_2px_0px_rgba(255,255,255,0.9),inset_0px_-2px_0px_rgba(35,43,56,0.07)]`)을 그대로 재사용한다. |
 
 이 값은 참고 ZIP의 `math-material.css`(`--math-shadow-ink: 35,43,56` = `#232B38`)와 일치한다 — 해당 파일의 elevation 로직을 참고해도 되지만, 정확한 레이어 수치는 위 Figma 실측값을 기준으로 한다.
 
 ## 5. Radius
 
-Figma에서 실측 확인된 토큰: `radius/14` (카메라 화면, 값 `14`). 그 외 반경(카드 `28px`, 버튼 pill `100px` 등 참고 ZIP의 `math-material.css` 수치)은 이번 조사에서 Figma 변수로 직접 확인되지 않았다 — **결정 필요**: 화면별로 실제 사용된 모서리 반경을 컴포넌트 단위로 재확인해야 한다.
+Figma에서 실측 확인된 토큰: `radius/14` (카메라 화면, 값 `14`), `radius/18`(신규, 2026-09 design-agent Figma 실측 `255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). 그 외 반경(카드 `28px`, 버튼 pill `100px` 등 참고 ZIP의 `math-material.css` 수치)은 이번 조사에서 Figma 변수로 직접 확인되지 않았다 — **결정 필요**: 화면별로 실제 사용된 모서리 반경을 컴포넌트 단위로 재확인해야 한다.
 
 ## 6. 다크 모드
 

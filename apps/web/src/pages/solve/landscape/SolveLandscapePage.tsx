@@ -3,11 +3,15 @@ import { useLocation, useNavigate } from "react-router";
 import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
+import { DiagnosisCard } from "../../../features/ai-solution/DiagnosisCard";
 import { parseStreamingSolve } from "../../../features/ai-solution/parseStreamingSolve";
 import { RecognizedProblemBar } from "../../../features/ai-solution/RecognizedProblemBar";
 import { ResultCard } from "../../../features/ai-solution/ResultCard";
 import { ResultPanel } from "../../../features/ai-solution/ResultPanel";
 import { ResultPanelShell, type ResultPanelWidth } from "../../../features/ai-solution/ResultPanelShell";
+import { ResumeModeBar } from "../../../features/ai-solution/ResumeModeBar";
+import { ResumeResultCard } from "../../../features/ai-solution/ResumeResultCard";
+import { WorkLineList } from "../../../features/ai-solution/WorkLineList";
 import { ChatBubble } from "../../../features/follow-up-chat/ChatBubble";
 import { ChatFooter, type ChatFooterHandle } from "../../../features/follow-up-chat/ChatFooter";
 import { SuggestionPill } from "../../../features/follow-up-chat/SuggestionPill";
@@ -15,6 +19,8 @@ import { useProblemInput } from "../../../features/problem-input/useProblemInput
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
+import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLineJudgments";
+import { Badge } from "../../../shared/ui/badge/Badge";
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
 
@@ -49,6 +55,7 @@ export function SolveLandscapePage() {
     hasProblemInput,
     lastInputType,
     beginReinput,
+    startNewProblem,
     submitProblem,
     resumeFromHistory,
     problemId,
@@ -63,6 +70,18 @@ export function SolveLandscapePage() {
     chatStatus,
     chatErrorMessage,
     sendChatMessage,
+    workLines,
+    recognizeWorkStatus,
+    resetRecognizeWork,
+    diagnosis,
+    diagnoseStatus,
+    resetDiagnose,
+    resumeMode,
+    resumeStatus,
+    resumeSolution,
+    resumeErrorMessage,
+    startResume,
+    resetResume,
   } = useProblemInput();
 
   // 마이페이지 "다시 풀기"로 진입한 경우(`RecognizedProblemBar`의 "다시 풀기" → `/solve/landscape`),
@@ -109,6 +128,9 @@ export function SolveLandscapePage() {
   // 있어 `ProblemCard`가 보여줄 게 없다). 그 다음은 평소 "풀기" 흐름과 동일하다.
   const [isReinputModalOpen, setIsReinputModalOpen] = useState(false);
   const [needsPhotoRetake, setNeedsPhotoRetake] = useState(false);
+  // "#개념설명" 해시태그 pill 토글 상태(DIAG 결과 화면 전용, 패널 폭 Extend/Default와 무관한 로컬
+  // state — 오너 확정). 켜지면 `diagnosis.conceptExplanations`를 관련 개념 카드로 보여준다.
+  const [isConceptCardVisible, setIsConceptCardVisible] = useState(false);
 
   const handleRequestReinput = () => setIsReinputModalOpen(true);
 
@@ -131,18 +153,39 @@ export function SolveLandscapePage() {
     void navigate("/camera");
   };
 
+  // WorkLineList "수정" 링크(오너 확정, 2026-09) — 인식된 학생 풀이가 틀렸을 때 WORK 캔버스로
+  // 돌아가 고쳐서 재인식할 수 있게 한다. recognizeWork/diagnose 상태만 초기화하고 WORK 캔버스의
+  // 필기 스트로크(`workStrokes`) 자체는 지우지 않는다 — 학생이 지우개로 일부만 고칠 수 있어야
+  // 하는 게 의도된 동작이다.
+  const handleEditWork = () => {
+    resetRecognizeWork();
+    resetDiagnose();
+    // 이전 진단에 딸려 있던 이어풀기 결과도 더 이상 유효하지 않다 — WORK로 돌아가 학생 풀이를
+    // 고치면 진단이 다시 실행돼야 하므로 남겨두지 않는다.
+    resetResume();
+    void navigate("/solve/pencilcanvas");
+  };
+
   const problemCardData: ProblemCardData = needsPhotoRetake
     ? { needsRetake: true }
     : capturedImage
       ? { imageUrl: capturedImage.previewUrl }
       : null;
-  const isSubmitting = recognizeStatus === "loading" || solveStatus === "loading";
+  // WORK-4("아직 못 풀겠어요", 기존 solve 재사용)와 SOLVE-2("봐 주세요", recognizeWork → diagnose
+  // 2단계) 중 어느 경로로 도달했든 제출 진행 중 상태를 함께 반영한다(오너 확정 §4b).
+  const isSubmitting =
+    recognizeStatus === "loading" ||
+    solveStatus === "loading" ||
+    recognizeWorkStatus === "loading" ||
+    diagnoseStatus === "loading";
   const isRecognizeError = recognizeStatus === "error";
   const hasError = isRecognizeError || solveStatus === "error";
   const isResultReady = solveStatus === "success" && solveResult !== null;
+  // SOLVE-2(진단) 경로의 결과 준비 상태 — `isResultReady`(WORK-4/solve 경로)와 별개다.
+  const isDiagnosisReady = diagnoseStatus === "success" && diagnosis !== null;
   // 제출을 시작한 시점부터 성공까지 `ResultPanelShell`을 항상 같은 DOM 요소로 유지한다(위 JSDoc
   // 참고) — 로딩용/완료용을 별개의 조건부 렌더링으로 나누지 않는다.
-  const isPanelVisible = isSubmitting || streamedText.length > 0 || isResultReady;
+  const isPanelVisible = isSubmitting || streamedText.length > 0 || isResultReady || isDiagnosisReady;
   // 로딩 중에도 완료 후와 같은 카드 구조로 채워 넣기 위한 실시간 파싱(위 JSDoc 참고).
   // `isResultReady`가 되면 이 값은 더 이상 렌더링에 쓰이지 않는다.
   const { conceptSoFar, stepsSoFar, answerSoFar } = parseStreamingSolve(streamedText);
@@ -159,6 +202,9 @@ export function SolveLandscapePage() {
     setPrevIsPanelVisible(isPanelVisible);
     if (isPanelVisible) {
       setPanelWidth("default");
+      // 이전 문제에서 열어뒀던 "#개념설명" 관련개념 카드 상태가 새 진단 결과로 이어지지 않게
+      // 함께 리셋한다(재입력 후 새 문제 풀이 시작 시점, panelWidth 리셋과 동일 조건/위치).
+      setIsConceptCardVisible(false);
     }
   }
 
@@ -180,13 +226,15 @@ export function SolveLandscapePage() {
 
       {/* ProblemCard는 캔버스와 같은 레벨의 독립 absolute 요소로 배치한다(PenRail/SolveHeader와 동일
           패턴). top-[90px]는 SolveNavTabs(top-6=24px) + NavTabBar 실측 높이(42px) + 24px 여백
-          (24+42+24=90) 유도값이다(기존 값 유지). 폭/정렬(448px, mx-auto)도 기존 값을 그대로
+          (24+42+24=90) 유도값이다(기존 값 유지). 폭/정렬(543px, mx-auto)도 기존 값을 그대로
           재사용한다 — 화면 전체 폭 기준 중앙정렬이며 우측 예약폭은 없다(위 코멘트 참고, Result
           Panel과 겹칠 수 있음). 로딩 중 표시는 더 이상 이 컬럼에 두지 않고 우측
           `ResultPanelShell`로 통합했다(위 JSDoc 참고) — ProblemCard만 남는다. */}
       <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10">
-        <div className="mx-auto flex w-[448px] max-w-[calc(100%-3rem)] flex-col gap-3">
-          <ProblemCard data={problemCardData} onRequestRetake={handleRequestRetakePhoto} />
+        <div className="mx-auto flex w-[543px] max-w-[calc(100%-3rem)] flex-col gap-3">
+          {problemCardData !== null ? (
+            <ProblemCard data={problemCardData} onRequestRetake={handleRequestRetakePhoto} />
+          ) : null}
         </div>
       </div>
 
@@ -253,6 +301,105 @@ export function SolveLandscapePage() {
                 />
               }
             />
+          ) : isDiagnosisReady && diagnosis ? (
+            // SOLVE-2(진단) 결과 콘텐츠 — `ResultPanel`은 concept/solution/answer(solve 결과)
+            // 형태를 전제로 하는 컴포넌트라 진단 결과에는 맞지 않는다. 새 컴포넌트를 만들지 않고
+            // 기존 조각(`RecognizedProblemBar`/`WorkLineList`/`DiagnosisCard`/`ResumeModeBar`/
+            // `ResumeResultCard`)을 이 페이지가 직접 조립한다(오너 확정 §4b, RESUME 화면 연결은
+            // 5단계 2차 — `docs/PROJECT_STATUS.md` §3.23).
+            <>
+              {/* Figma Header의 Actions 프레임에는 토픽 배지도 있지만 `Diagnosis` 타입에 대응
+                  필드가 없어 이번엔 "새 문제" 배지만 넣었다 — 정식 필드가 추가되면 반영 검토
+                  (결정 필요, 오너 확인 필요). */}
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-5 py-3">
+                <h2 className="text-label-primary text-[17px] leading-[22px] font-[590]">풀이 결과</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="tint-blue">새 문제</Badge>
+                </div>
+              </div>
+              <div
+                className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5 touch-pan-y"
+                aria-live="polite"
+              >
+                {recognizedText ? <RecognizedProblemBar recognizedText={recognizedText} /> : null}
+                <WorkLineList
+                  lines={deriveWorkLineJudgments(workLines ?? [], diagnosis)}
+                  onEdit={handleEditWork}
+                />
+                <DiagnosisCard diagnosis={diagnosis} />
+                {/* 이어풀기(RESUME) — Figma(`253:53`) 실측: Body 내 순서는 진단 → 이어풀기 →
+                    추천 질문 pill → 관련개념 카드다(위 `isConceptCardVisible` 주석 참고). 진단
+                    성공 시 자동으로 호출되지 않는다 — 사용자가 아래 버튼을 직접 눌러야
+                    `startResume()`이 호출된다(오너 확정). */}
+                <ResumeModeBar
+                  mode={resumeMode ?? "own"}
+                  onModeChange={(mode) => void startResume(mode)}
+                  ownModeDisabled={!diagnosis.isMethodApplicable}
+                  applicabilityNote={diagnosis.methodApplicabilityNote}
+                />
+                {resumeStatus === "loading" ? (
+                  <LoadingMark label="이어서 풀이를 만드는 중" />
+                ) : resumeStatus === "success" && resumeSolution && resumeSolution.verified ? (
+                  <ResumeResultCard solution={resumeSolution} />
+                ) : null}
+                {suggestedQuestions && suggestedQuestions.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedQuestions.map((question) => (
+                      <SuggestionPill
+                        key={question}
+                        label={question}
+                        onClick={() => chatFooterRef.current?.fillAndFocus(question)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {chatMessages.map((message, index) => (
+                  <ChatBubble key={index} role={message.role} content={message.content} />
+                ))}
+                {chatStatus === "submitting" ? (
+                  <div className="flex justify-start">
+                    <LoadingMark label="답변을 생성하는 중" />
+                  </div>
+                ) : null}
+                {/* "#개념설명" 해시태그 pill 토글(오너 확정) — 켜져 있을 때만 관련 개념 각각의
+                    제목+설명을 `ResultCard`(kind="concept")로 보여준다. Figma(174:640) 실측: Body
+                    내 순서는 진단 → 이어풀기 → 추천 질문 pill → 관련개념 카드(Footer 직전, 맨 아래). */}
+                {isConceptCardVisible && diagnosis.conceptExplanations.length > 0
+                  ? diagnosis.conceptExplanations.map((concept) => (
+                      <ResultCard
+                        key={concept.name}
+                        kind="concept"
+                        title={concept.title}
+                        body={concept.explanationMd}
+                      />
+                    ))
+                  : null}
+                <div ref={chatEndRef} />
+              </div>
+              {/* 후속 질문 입력창(`ChatFooter`) — solve-result 분기(`ResultPanel`의 `chatFooter` 슬롯)와
+                  동일하게, 결과 준비 후(`isDiagnosisReady`)에만 보이도록 body와 형제로 둔다
+                  (`ResultPanel.tsx`의 `chatFooter` 슬롯 렌더 패턴과 동일). */}
+              <div className="shrink-0 px-5 pt-2 pb-5">
+                <ChatFooter
+                  ref={chatFooterRef}
+                  // Figma(`253:53`/`174:617~625`/`174:663~671`) 공통 4-패턴: "#개념설명"(고정, 항상
+                  // 첫 번째) + 관련 개념 태그(가변 개수, `diagnosis.relatedConcepts`) + "#비슷한
+                  // 문제"(고정, 항상 마지막).
+                  hashtags={["개념설명", ...diagnosis.relatedConcepts, "비슷한 문제"]}
+                  status={chatStatus}
+                  errorMessage={chatErrorMessage}
+                  onSend={sendChatMessage}
+                  // "#개념설명"만 로컬 토글(관련 개념 카드 노출/숨김)로 처리하고, 그 외(개별 관련
+                  // 개념 태그, "#비슷한 문제" 포함)는 기존 default 동작(입력창 채움+포커스)을 그대로
+                  // 적용한다(오너 확정).
+                  onHashtagClick={(tag) =>
+                    tag === "개념설명"
+                      ? setIsConceptCardVisible((prev) => !prev)
+                      : chatFooterRef.current?.fillAndFocus(`${tag}에 대해 좀 더 설명해주세요`)
+                  }
+                />
+              </div>
+            </>
           ) : (
             <div
               className="flex flex-1 flex-col gap-3 overflow-y-auto p-5 touch-pan-y"
@@ -266,7 +413,17 @@ export function SolveLandscapePage() {
                   {answerSoFar ? <AnswerBox answerMd={answerSoFar} /> : null}
                 </>
               ) : (
-                <LoadingMark label={recognizeStatus === "loading" ? "문제를 인식하는 중" : "풀이를 생성하는 중"} />
+                <LoadingMark
+                  label={
+                    recognizeStatus === "loading"
+                      ? "문제를 인식하는 중"
+                      : recognizeWorkStatus === "loading"
+                        ? "풀이를 인식하는 중"
+                        : diagnoseStatus === "loading"
+                          ? "진단하는 중"
+                          : "풀이를 생성하는 중"
+                  }
+                />
               )}
             </div>
           )}
@@ -282,16 +439,28 @@ export function SolveLandscapePage() {
           기준으로 정상 중앙정렬한다 — 필요하면 `ResultPanelShell`(z-20)이 위에 겹쳐 보인다. */}
       <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10">
         <div className="mx-auto w-fit">
-          {/* "아직 못 풀겠어요"/"봐 주세요"(WORK 단계)는 줄 단위 풀이 인식/진단 백엔드 연동
-              (`docs/FRONTEND_IMPLEMENTATION_PLAN.md` §1.3.1 4단계, 이번 작업 범위 밖) 이후 연결한다
-              — 현재는 recognize/solve가 `submitProblem()` 안에서 함께 실행되어 problemId가 채워지는
-              시점에는 이미 진단(solve)도 진행 중이라 실질적으로 클릭 가능한 구간이 거의 없다. */}
+          {/* "아직 못 풀겠어요"/"봐 주세요"(WORK 단계) 클릭은 `/solve/pencilcanvas`에서만 발생한다
+              (오너 확정 §4b) — 이 화면은 WORK-4(`giveUp`)가 이미 트리거된 뒤 곧바로 이동해 온
+              상태이거나(진행 중 solveStatus="loading"), SOLVE-2(`diagnose`)가 이미 성공한 뒤
+              도달한 상태(RESULT 단계)라 실질적으로 두 버튼이 클릭 가능한 구간이 없다. `onRecognize`
+              (기존 "수정" 이후 재제출 등 `submitProblem()` 경로)는 그대로 유지한다.
+              RESULT 단계([1] 세그먼트가 "새 문제 풀기"로 전환된 상태)에서는 `startNewProblem()`으로
+              전체 상태를 초기화한 뒤 `/solve/pencilcanvas`(INPUT 단계)로 돌아간다. `hasWorkInput`은
+              이 페이지(RESULT 단계)의 세그먼트 강조 판단에는 쓰이지 않지만 타입상 필수라 WORK 캔버스
+              보유 여부(`workLines !== null`)를 그대로 전달한다. */}
           <ActionBar
             problemId={problemId}
             hasProblemInput={hasProblemInput}
+            hasWorkInput={workLines !== null}
             recognizeStatus={recognizeStatus}
             solveStatus={solveStatus}
+            recognizeWorkStatus={recognizeWorkStatus}
+            diagnoseStatus={diagnoseStatus}
             onRecognize={() => void submitProblem()}
+            onNewProblem={() => {
+              startNewProblem();
+              void navigate("/solve/pencilcanvas");
+            }}
           />
         </div>
       </div>
@@ -307,6 +476,29 @@ export function SolveLandscapePage() {
           }
           actionLabel="확인"
           onAction={resetSubmission}
+        />
+      ) : null}
+
+      {resumeStatus === "error" ? (
+        <Modal
+          icon="error"
+          title="이어풀기를 만들지 못했습니다"
+          description={resumeErrorMessage ?? "잠시 후 다시 시도해 주세요."}
+          actionLabel="확인"
+          onAction={resetResume}
+        />
+      ) : null}
+
+      {/* RESUME-5: CAS 최종 답 검증에 실패한 이어풀기 결과는 카드로 보여주지 않고(위 `verified`
+          조건 참고), 대신 재시도를 안내한다(PRD "재생성 또는 오류 안내로 대체", stage-qa-agent
+          회귀 HIGH 결함 수정, 2026-09). 기존 이어풀기 에러 Modal과 동일한 패턴을 재사용한다. */}
+      {resumeStatus === "success" && resumeSolution && !resumeSolution.verified ? (
+        <Modal
+          icon="error"
+          title="이어풀기 검증에 실패했습니다"
+          description="생성된 풀이의 최종 답을 확인하지 못했어요. 다시 시도해 주세요."
+          actionLabel="확인"
+          onAction={resetResume}
         />
       ) : null}
 

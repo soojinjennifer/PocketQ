@@ -1,7 +1,10 @@
 import { createContext } from "react";
-import type { ChatMessage, Solution } from "shared-types";
+import type { ChatMessage, Diagnosis, ResumeMode, ResumeSolution, Solution, WorkLine } from "shared-types";
 import type { RecognizeStatus } from "../problem-recognition/useRecognizeProblem";
+import type { RecognizeWorkInput, RecognizeWorkStatus } from "../problem-recognition/useRecognizeWork";
 import type { SolveStreamStatus } from "../ai-solution/useSolveStream";
+import type { DiagnoseInput, DiagnoseStatus } from "../ai-solution/useDiagnose";
+import type { ResumeStreamStatus } from "../ai-solution/useResumeStream";
 import type { ChatStatus } from "../follow-up-chat/useChatMessages";
 import type { DrawingTool, Stroke, StrokePoint } from "../../shared/lib/canvas/useDrawingStrokes";
 
@@ -30,6 +33,17 @@ export interface ProblemInputContextValue {
   undoStroke: () => void;
   clearStrokes: () => void;
 
+  // WORK 단계(캔버스에 학생 풀이를 쓰는 중) 전용 두 번째 필기 획 인스턴스 — INPUT 단계의
+  // `strokes`(문제 사진/필기)와 완전히 독립적이다(`ProblemInputProvider` JSDoc 참고). 페이지는
+  // `useDrawingStrokes()`를 직접 호출하지 않고 이 필드만 소비해야 한다(필기 유실 버그 재발 방지).
+  workStrokes: Stroke[];
+  workTool: DrawingTool;
+  setWorkTool: (tool: DrawingTool) => void;
+  startWorkStroke: (point: StrokePoint) => void;
+  addWorkPoint: (point: StrokePoint) => void;
+  undoWorkStroke: () => void;
+  clearWorkStrokes: () => void;
+
   /** 사진 또는 필기 획 중 하나라도 있으면 true. `/solve/*` "풀기" 버튼 활성화 조건에 사용한다. */
   hasProblemInput: boolean;
   /** 마지막으로 제출한 입력이 사진인지 필기인지. 제출 전에는 `null`. 결과 화면의 "다시 풀기 위해
@@ -43,6 +57,10 @@ export interface ProblemInputContextValue {
   /** "수정" 확인 시 호출한다 — recognize/solve/chat 상태를 초기화하고 `isRequestingReinput`을
    *  켠다. 새 `submitProblem()`이 시작되면 자동으로 꺼진다. */
   beginReinput: () => void;
+  /** RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 클릭 시 호출한다. `beginReinput`(같은 문제를
+   *  다시 입력받는 "수정" 흐름)과 달리 완전히 새로운 문제를 시작하기 위한 함수다 — 문제/풀이/채팅/
+   *  진단/학생풀이인식 상태를 전부 초기화하고, INPUT용 캔버스와 WORK용 캔버스 획도 모두 지운다. */
+  startNewProblem: () => void;
 
   // recognize → solve 제출 오케스트레이션
   recognizeStatus: RecognizeStatus;
@@ -60,6 +78,14 @@ export interface ProblemInputContextValue {
   submitErrorMessage: string | null;
   /** "풀기" 클릭 시 호출한다: 입력 정규화 → recognize → solve를 순서대로 실행한다. */
   submitProblem: () => Promise<void>;
+  /** "문제 인식하기"(INPUT 단계) 클릭 시 호출한다: 입력 정규화 → recognize까지만 실행하고
+   *  solve(진단)는 호출하지 않는다 — v2.0부터 recognize와 진단이 분리된 별도 단계이기 때문이다.
+   *  성공하면 새 `problemId`를, 실패하면 `null`을 반환한다. */
+  recognizeOnly: () => Promise<string | null>;
+  /** "아직 못 풀겠어요"(WORK-4) 클릭 시 호출한다. `problemId`가 있어야 동작하며, 기존
+   *  `submitProblem()`과 동일하게 개념 + 풀이 전체(solve)를 요청한다(전용 힌트 엔드포인트 없음,
+   *  오너 확정). 성공 시 사진 Blob 정리 + 제안 질문 요청까지 이어진다. */
+  giveUp: () => Promise<void>;
   /** 마이페이지 과거 풀이 다시 풀기 — 사진/필기 없이 저장된 텍스트로 recognize 상태를 재수화한 뒤
    *  곧바로 solve를 실행한다. 풀이까지 성공하면 `true`, 중간에 실패하면 `false`를 반환한다.
    *  실패 시 에러 메시지는 `submitErrorMessage`로 흘러 기존 에러 Modal이 그대로 재사용된다. */
@@ -76,6 +102,45 @@ export interface ProblemInputContextValue {
    *  반환한다(호출 측이 입력값을 초기화할지 유지할지 판단할 때 사용). */
   sendChatMessage: (question: string) => Promise<boolean>;
   resetChat: () => void;
+
+  // 학생 풀이 인식/진단(WORK/DIAG) — `features/problem-recognition/useRecognizeWork`,
+  // `features/ai-solution/useDiagnose`를 이 Provider가 한 번만 호출해 소유권을 옮긴 것(다른
+  // recognize/solve/chat 훅과 동일한 패턴). 4a-1 범위에서는 이 훅들을 어느 화면에도 아직 연결하지
+  // 않는다 — 화면 흐름 전환은 4b(다음 단계) 범위다.
+  recognizeWorkStatus: RecognizeWorkStatus;
+  workLines: WorkLine[] | null;
+  recognizeWorkErrorMessage: string | null;
+  recognizeWork: (input: RecognizeWorkInput) => Promise<WorkLine[] | null>;
+  /** `useRecognizeWork().reset` — 새 문제 인식 시점(예: 다음 WORK 재시도)에 이전 인식 결과를 지운다. */
+  resetRecognizeWork: () => void;
+  diagnoseStatus: DiagnoseStatus;
+  diagnosis: Diagnosis | null;
+  diagnoseErrorMessage: string | null;
+  /** 성공하면 사진 Blob 참조를 정리한다(`clearCapturedImage()`, 오너 확정 §5) — 페이지가 아니라 이
+   *  Provider가 소유한다. */
+  diagnose: (input: DiagnoseInput) => Promise<Diagnosis | null>;
+  /** `useDiagnose().reset`. */
+  resetDiagnose: () => void;
+
+  // 이어풀기(RESUME) — `features/ai-solution/useResumeStream`을 이 Provider가 한 번만 호출해
+  // 소유권을 옮긴 것(다른 recognize/solve/chat/diagnose 훅과 동일한 패턴). 진단(diagnose) 성공
+  // 시 자동으로 호출되지 않는다 — 사용자가 `ResumeModeBar`의 버튼을 직접 눌러야
+  // `startResume()`이 호출된다(오너 확정).
+  /** 마지막으로 요청한(또는 요청 중인) 이어풀기 모드. 아직 요청 전이면 `null` — 이 경우 화면은
+   *  `ResumeModeBar`의 기본 강조 모드로 `"own"`을 사용한다. */
+  resumeMode: ResumeMode | null;
+  resumeStatus: ResumeStreamStatus;
+  /** `chunk` 이벤트의 delta를 누적한 raw 텍스트(현재 화면은 `resumeSolution`만 사용하지만, 향후
+   *  스트리밍 중간 표시가 필요해질 경우를 대비해 노출해 둔다). */
+  resumeStreamedText: string;
+  resumeSolution: ResumeSolution | null;
+  resumeErrorMessage: string | null;
+  /** `ResumeModeBar`의 버튼 클릭 시 호출한다 — `problemId`가 없으면 아무 동작도 하지 않는다. */
+  startResume: (mode: ResumeMode) => Promise<void>;
+  /** `useResumeStream().reset`. 새 문제를 시작하거나(`startNewProblem`) "수정"으로 재입력을
+   *  시작할 때(`beginReinput`), WORK로 돌아가 학생 풀이를 고칠 때(`SolveLandscapePage`의
+   *  `handleEditWork`) 이전 이어풀기 상태가 남아있지 않도록 함께 호출된다. */
+  resetResume: () => void;
 }
 
 export const ProblemInputContext = createContext<ProblemInputContextValue | undefined>(undefined);

@@ -5,11 +5,14 @@ import type { LLMAdapter } from "./infrastructure/ai/adapter";
 import { resolveAdapter } from "./infrastructure/ai/resolve-adapter";
 import { errorHandler } from "./middleware/error-handler";
 import { createChatRouter } from "./modules/chat/chat.router";
+import { createDiagnosisRouter } from "./modules/diagnosis/diagnosis.router";
 import { healthRouter } from "./modules/health/health.router";
 import { createProblemsRouter } from "./modules/problems/problems.router";
 import { createRecognitionRouter } from "./modules/recognition/recognition.router";
+import { createResumeRouter } from "./modules/resume/resume.router";
 import { createSolutionsRouter } from "./modules/solutions/solutions.router";
 import { createSuggestionsRouter } from "./modules/suggestions/suggestions.router";
+import { createWorkRouter } from "./modules/work/work.router";
 
 /**
  * Express 앱 구성. 미들웨어·라우트 등록만 담당하고 서버 실행은 server.ts가 맡는다.
@@ -31,6 +34,9 @@ export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
   app.use("/api", createChatRouter(adapter));
   app.use("/api", createSuggestionsRouter(adapter));
   app.use("/api", createProblemsRouter());
+  app.use("/api", createWorkRouter(adapter));
+  app.use("/api", createDiagnosisRouter(adapter));
+  app.use("/api", createResumeRouter(adapter));
 
   app.use(errorHandler);
 

@@ -167,11 +167,19 @@ describe("사진 문제 입력 흐름", () => {
     fireEvent.click(await screen.findByRole("button", { name: "사진 사용" }));
     await waitFor(() => expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument());
 
+    // v2.0 새 진입 시퀀스(오너 확정): "문제 인식하기"는 이제 recognize만 실행하고
+    // `/solve/pencilcanvas`에 그대로 머무른다 — WORK 단계로 전환되면 "아직 못 풀겠어요"를 눌러야
+    // (기존 solve 재사용) `/solve/landscape`로 이동하며 결과가 표시된다.
     fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
-    // 풀이 성공 시 사진 Blob은 자동 정리되므로 이 시점엔 이미 이미지가 사라져 있다.
-    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
+    // 사진으로 입력한 경우 결과 화면에서도 원본 사진(Problem Card)이 계속 보여야 한다(오너 확정,
+    // 2026-09) — 필기 입력과 달리 사진 Blob은 풀이 성공 후에도 정리하지 않는다.
+    expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "수정" }));
     expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();

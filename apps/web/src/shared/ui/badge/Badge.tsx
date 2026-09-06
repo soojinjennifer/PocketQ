@@ -16,8 +16,11 @@ type BadgeVariant = "tint-blue" | "tint-blue-flat" | "tint-green" | "tint-red" |
  *  `"tag-sm"`(신규, Figma `4 · MyPage` History Row 개념 태그 chip): 완전 라운드,
  *  `px-[10px] py-[2px]`, 12px/590 — `tag`보다 좌우/상하 여백이 좁다.
  *  `"judgment"`(신규, `Solve/Work Line` `248:53` 실측): 완전 라운드, `px-[8px] py-[2px]`,
- *  11px/590(Semibold) — 학생 풀이 줄의 정답 판정 배지("확인"/"막힌 지점") 전용. */
-type BadgeSize = "pill" | "chip" | "tag" | "footnote" | "tag-sm" | "judgment";
+ *  11px/590(Semibold) — 학생 풀이 줄의 정답 판정 배지("확인"/"막힌 지점") 전용.
+ *  `"recognized-chip"`(신규, `Solve/Recognized Chip` `250:56` 실측): `rounded-[10px]`,
+ *  `px-[7px] py-[2px]`, 11px/590(Semibold) — 기존 `"chip"`(사각, `rounded-[6px]`, Regular)과
+ *  둥근 정도·굵기가 달라 별도 size로 분리했다. */
+type BadgeSize = "pill" | "chip" | "tag" | "footnote" | "tag-sm" | "judgment" | "recognized-chip";
 
 interface BadgeProps {
   variant: BadgeVariant;
@@ -50,6 +53,7 @@ const SIZE_STYLES: Record<BadgeSize, string> = {
   footnote: "rounded-full px-[14px] py-[7px] text-[13px] leading-[18px] font-[590]",
   "tag-sm": "rounded-full px-[10px] py-[2px] text-[12px] font-[590]",
   judgment: "rounded-full px-[8px] py-[2px] text-[11px] font-[590]",
+  "recognized-chip": "rounded-[10px] px-[7px] py-[2px] text-[11px] font-[590]",
 };
 
 const BASE_STYLE = "inline-flex items-center justify-center leading-4";

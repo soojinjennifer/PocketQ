@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet } from "react-router";
-import type { Grade } from "shared-types";
+import type { Grade, ResumeMode } from "shared-types";
+import { useDiagnose, type DiagnoseInput } from "../ai-solution/useDiagnose";
+import { useResumeStream } from "../ai-solution/useResumeStream";
 import { useSolveStream } from "../ai-solution/useSolveStream";
 import { useChatMessages } from "../follow-up-chat/useChatMessages";
 import { useRecognizeProblem } from "../problem-recognition/useRecognizeProblem";
+import { useRecognizeWork } from "../problem-recognition/useRecognizeWork";
 import { exportStrokesToPngBlob } from "../../shared/lib/canvas/exportStrokesToPngBlob";
 import { useDrawingStrokes } from "../../shared/lib/canvas/useDrawingStrokes";
 import { getSuggestedQuestions } from "../../shared/api/suggestedQuestions";
@@ -67,6 +70,33 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     reset: resetChat,
   } = useChatMessages(problemId);
 
+  // 학생 풀이 인식/진단(WORK/DIAG) — 이 Provider가 유일하게 `useRecognizeWork`/`useDiagnose`를
+  // 호출한다(다른 recognize/solve/chat 훅과 동일한 소유권 이전 패턴). 4a-1 범위에서는 아직 어느
+  // 화면에도 연결하지 않는다(화면 흐름 전환은 4b 범위).
+  const {
+    status: recognizeWorkStatus,
+    workLines,
+    errorMessage: recognizeWorkErrorMessage,
+    recognizeWork,
+    reset: resetRecognizeWork,
+  } = useRecognizeWork();
+  const {
+    status: diagnoseStatus,
+    diagnosis,
+    errorMessage: diagnoseErrorMessage,
+    diagnose: diagnoseRequest,
+    reset: resetDiagnose,
+  } = useDiagnose();
+  const {
+    status: resumeStatus,
+    mode: resumeMode,
+    streamedText: resumeStreamedText,
+    result: resumeSolution,
+    errorMessage: resumeErrorMessage,
+    resume: resumeRequest,
+    reset: resetResume,
+  } = useResumeStream();
+
   const clearCapturedImage = useCallback(() => {
     if (previewUrlRef.current) {
       revokeObjectUrl(previewUrlRef.current);
@@ -98,6 +128,19 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     addPoint,
     undo: undoStroke,
     clear: clearStrokes,
+  } = useDrawingStrokes();
+
+  // WORK 단계(캔버스에 학생 풀이를 쓰는 중) 전용 필기 획 — INPUT 단계의 `strokes`(문제 사진/필기)와
+  // 완전히 독립된 두 번째 인스턴스다. 이 Provider가 유일하게 소유하며(§3.5 필기 유실 버그 재발
+  // 방지와 동일한 이유), 페이지는 직접 `useDrawingStrokes()`를 호출하지 않고 이 값만 소비한다.
+  const {
+    strokes: workStrokes,
+    tool: workTool,
+    setTool: setWorkTool,
+    startStroke: startWorkStroke,
+    addPoint: addWorkPoint,
+    undo: undoWorkStroke,
+    clear: clearWorkStrokes,
   } = useDrawingStrokes();
 
   const hasCaptureData = capturedImage !== null;
@@ -132,9 +175,12 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     resetRecognize();
     resetSolve();
     resetChat();
+    // 같은 문제를 다시 입력받는 시점이므로 이전 이어풀기 결과도 더 이상 유효하지 않다(오너 확정,
+    // §5단계) — 남아있으면 새 입력 제출 전 과도기에 이전 RESUME 결과가 잠깐 다시 보일 수 있다.
+    resetResume();
     setSuggestedQuestions(null);
     setIsRequestingReinput(true);
-  }, [resetRecognize, resetSolve, resetChat, setSuggestedQuestions]);
+  }, [resetRecognize, resetSolve, resetChat, resetResume, setSuggestedQuestions]);
 
   const submitProblem = useCallback(async () => {
     if (!grade) {
@@ -183,9 +229,13 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     });
     // 오너 확정: 풀이 스트리밍이 성공적으로 끝나면 더 이상 필요 없는 사진 Blob 참조를 정리한다
     // (실패 시에는 재시도할 수 있어야 하므로 그대로 유지한다). `solve()`의 반환값으로 바로 판단해서
-    // 훅 상태 업데이트의 비동기 타이밍(effect)에 의존하지 않는다.
+    // 훅 상태 업데이트의 비동기 타이밍(effect)에 의존하지 않는다. 단, 사진으로 입력한 경우
+    // (`lastInputType === "photo"`)에는 결과 화면(`ProblemCard`)에 원본 사진을 계속 보여줘야 하므로
+    // 정리하지 않는다(오너 확정, 2026-09).
     if (solution) {
-      clearCapturedImage();
+      if (lastInputType !== "photo") {
+        clearCapturedImage();
+      }
       void fetchSuggestedQuestions(recognizedProblemId);
     }
   }, [
@@ -198,7 +248,65 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     resetChat,
     fetchSuggestedQuestions,
     setSuggestedQuestions,
+    lastInputType,
   ]);
+
+  /**
+   * "문제 인식하기"(INPUT 단계) 클릭 시 호출한다. `submitProblem()`과 입력 정규화 → recognize까지는
+   * 완전히 동일하지만, 그 뒤 solve()를 호출하지 않고 WORK 단계(줄 단위 풀이 인식/진단)로 넘어간다 —
+   * v2.0부터는 recognize와 solve(진단)가 분리된 두 단계이기 때문이다(오너 확정, 이번 4b 작업 범위).
+   * `resetChat`/`suggestedQuestions` 초기화(PRD CHAT-9 재발 방지)는 `submitProblem`과 동일하게 그대로
+   * 옮겨온다 — 새 문제 인식 시점마다 이전 문제의 채팅이 섞이지 않아야 하기 때문이다.
+   */
+  const recognizeOnly = useCallback(async (): Promise<string | null> => {
+    if (!grade) {
+      return null;
+    }
+
+    setIsRequestingReinput(false);
+    resetChat();
+    setSuggestedQuestions(null);
+
+    const normalized = await normalizeProblemInput({
+      photoBlob: capturedImage?.blob ?? null,
+      strokes,
+      grade,
+      exportStrokes: exportStrokesToPngBlob,
+    });
+    if (!normalized) {
+      return null;
+    }
+    setLastInputType(normalized.inputType);
+
+    return recognize({
+      imageBlob: normalized.imageBlob,
+      inputType: normalized.inputType,
+      grade: normalized.grade,
+    });
+  }, [grade, capturedImage, strokes, recognize, resetChat, setSuggestedQuestions]);
+
+  /**
+   * WORK-4("아직 못 풀겠어요") 전용. 전용 힌트 엔드포인트를 새로 만들지 않고(오너 확정) 기존
+   * `submitProblem()`의 후반부(solve → 성공 시 사진 정리 + 제안 질문 요청)를 그대로 재사용한다 —
+   * `resetChat()`은 이미 `recognizeOnly()`가 새 문제 시작 시점에 호출했으므로 여기서 다시 부르지
+   * 않는다(중복 호출 방지).
+   */
+  const giveUp = useCallback(async () => {
+    if (!problemId) {
+      return;
+    }
+
+    const solution = await solve({
+      problemId,
+      options: { concept: true, solution: true },
+    });
+    if (solution) {
+      if (lastInputType !== "photo") {
+        clearCapturedImage();
+      }
+      void fetchSuggestedQuestions(problemId);
+    }
+  }, [problemId, solve, clearCapturedImage, fetchSuggestedQuestions, lastInputType]);
 
   /**
    * 마이페이지 "다시 풀기" 경로. 사진/필기가 전혀 없는 상태에서 시작하므로 `normalizeProblemInput`을
@@ -234,12 +342,83 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     [grade, resetChat, recognizeResumeFromHistory, solve, fetchSuggestedQuestions, setSuggestedQuestions],
   );
 
+  /**
+   * RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 전용. `beginReinput`("수정" 재입력 흐름,
+   * 같은 문제를 다시 입력받기 위해 recognize/solve/chat만 초기화)과는 완전히 별개의 함수다 —
+   * 문제/풀이/채팅/진단/학생풀이인식 상태를 전부 리셋하고, INPUT용 캔버스(`strokes`)와 WORK용
+   * 캔버스(`workStrokes`) 획도 모두 지워 완전히 새로운 문제를 처음부터 시작할 수 있게 한다.
+   *
+   * `startNewProblem()` 호출 직후 `/solve/landscape`를 벗어나기 전 짧은 순간에도
+   * `RequireProblemInputGuard`가 `/camera`로 튕기지 않도록 `isRequestingReinput`을 잠깐
+   * 켠다(베이스는 "수정" 재입력과 동일한 가드 우회 메커니즘, `recognizeOnly()`가 다음 제출
+   * 시점에 자동으로 꺼준다).
+   */
+  const startNewProblem = useCallback(() => {
+    setIsRequestingReinput(true);
+    resetRecognize();
+    resetSolve();
+    resetChat();
+    resetRecognizeWork();
+    resetDiagnose();
+    resetResume();
+    setSuggestedQuestions(null);
+    clearCapturedImage();
+    clearStrokes();
+    clearWorkStrokes();
+  }, [
+    resetRecognize,
+    resetSolve,
+    resetChat,
+    resetRecognizeWork,
+    resetDiagnose,
+    resetResume,
+    setSuggestedQuestions,
+    clearCapturedImage,
+    clearStrokes,
+    clearWorkStrokes,
+  ]);
+
   const resetSubmission = useCallback(() => {
     resetRecognize();
     resetSolve();
     // 에러 팝업 "확인"(재시도) 경로 — 이전 시도의 채팅(있었다면)도 함께 초기화한다(PRD CHAT-9).
     resetChat();
   }, [resetRecognize, resetSolve, resetChat]);
+
+  /**
+   * `useDiagnose().diagnose`를 그대로 노출하지 않고 감싼다 — 진단이 성공하면(DIAG 화면 진입 직전)
+   * 오너 확정(§5)에 따라 더 이상 필요 없는 사진 Blob 참조를 정리한다. 단, 사진으로 입력한 경우
+   * (`lastInputType === "photo"`)에는 결과 화면(`ProblemCard`)에 원본 사진을 계속 보여줘야 하므로
+   * 정리하지 않는다(오너 확정, 2026-09). 페이지가 아니라 이 Provider가 `clearCapturedImage()` 호출을
+   * 소유한다("pages는 조립만" 원칙, `.claude/rules/frontend.md` §2).
+   */
+  const diagnose = useCallback(
+    async (input: DiagnoseInput) => {
+      const result = await diagnoseRequest(input);
+      if (result) {
+        if (lastInputType !== "photo") {
+          clearCapturedImage();
+        }
+        void fetchSuggestedQuestions(input.problemId);
+      }
+      return result;
+    },
+    [diagnoseRequest, clearCapturedImage, fetchSuggestedQuestions, lastInputType],
+  );
+
+  /**
+   * `ResumeModeBar`의 버튼 클릭 시 호출한다(오너 확정: 진단 성공 시 자동 트리거 없음, 사용자가
+   * 직접 모드를 선택해야 한다). `problemId`가 아직 없으면(예: 진단 전) 아무 동작도 하지 않는다.
+   */
+  const startResume = useCallback(
+    async (mode: ResumeMode) => {
+      if (!problemId) {
+        return;
+      }
+      await resumeRequest({ problemId, mode });
+    },
+    [problemId, resumeRequest],
+  );
 
   const submitErrorMessage = recognizeErrorMessage ?? solveErrorMessage;
 
@@ -256,10 +435,18 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       addPoint,
       undoStroke,
       clearStrokes,
+      workStrokes,
+      workTool,
+      setWorkTool,
+      startWorkStroke,
+      addWorkPoint,
+      undoWorkStroke,
+      clearWorkStrokes,
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
       beginReinput,
+      startNewProblem,
       recognizeStatus,
       problemId,
       recognizedText,
@@ -269,6 +456,8 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       suggestedQuestions,
       submitErrorMessage,
       submitProblem,
+      recognizeOnly,
+      giveUp,
       resumeFromHistory,
       resetSubmission,
       chatMessages,
@@ -276,6 +465,23 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       chatErrorMessage,
       sendChatMessage,
       resetChat,
+      recognizeWorkStatus,
+      workLines,
+      recognizeWorkErrorMessage,
+      recognizeWork,
+      resetRecognizeWork,
+      diagnoseStatus,
+      diagnosis,
+      diagnoseErrorMessage,
+      diagnose,
+      resetDiagnose,
+      resumeMode,
+      resumeStatus,
+      resumeStreamedText,
+      resumeSolution,
+      resumeErrorMessage,
+      startResume,
+      resetResume,
     }),
     [
       capturedImage,
@@ -289,10 +495,18 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       addPoint,
       undoStroke,
       clearStrokes,
+      workStrokes,
+      workTool,
+      setWorkTool,
+      startWorkStroke,
+      addWorkPoint,
+      undoWorkStroke,
+      clearWorkStrokes,
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
       beginReinput,
+      startNewProblem,
       recognizeStatus,
       problemId,
       recognizedText,
@@ -302,6 +516,8 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       suggestedQuestions,
       submitErrorMessage,
       submitProblem,
+      recognizeOnly,
+      giveUp,
       resumeFromHistory,
       resetSubmission,
       chatMessages,
@@ -309,6 +525,23 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       chatErrorMessage,
       sendChatMessage,
       resetChat,
+      recognizeWorkStatus,
+      workLines,
+      recognizeWorkErrorMessage,
+      recognizeWork,
+      resetRecognizeWork,
+      diagnoseStatus,
+      diagnosis,
+      diagnoseErrorMessage,
+      diagnose,
+      resetDiagnose,
+      resumeMode,
+      resumeStatus,
+      resumeStreamedText,
+      resumeSolution,
+      resumeErrorMessage,
+      startResume,
+      resetResume,
     ],
   );
 

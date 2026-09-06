@@ -20,6 +20,7 @@
 
   --color-brand: var(--color-brand);
   --color-brand-deep: var(--color-brand-deep);
+  --color-brand-tint: var(--color-brand-tint);
   --color-accent-green: var(--color-accent-green);
   --color-accent-purple: var(--color-accent-purple);
   --color-accent-orange: var(--color-accent-orange);

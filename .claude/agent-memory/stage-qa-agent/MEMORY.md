@@ -2,3 +2,5 @@
 - [Grep pitfall](grep_pitfall.md) — scope greps under apps/src or use --include; apps/web|api node_modules cause timeouts
 - [PocketQ naming conventions](naming_conventions.md) — which "WhyMath" leftovers are intentional (Figma file name, PRD filename, reference dirs) vs real bugs
 - [Problem DB pipeline](problem_db_pipeline.md) — Stage 1-6 architecture paths, `db:validate-curriculum` runs w/o Supabase creds, safety invariants to recheck each stage
+- [Solve v2.0 work order](solve_v2_work_order.md) — 8-step WORK/DIAG/RESUME plan; 4a-1/4a-2/4b/4b-정정-1차/2차 + 단일클릭+수정링크+사진유지 + RESUME(step5) all through STAGE PASS/CONDITIONAL PASS; RESUME stage found 2 HIGH P0-AC gaps (methodApplicabilityNote never rendered, verified:false never gates display) + 2 MEDIUM (no auto-switch, no backend isMethodApplicable enforcement); live OpenAI resume() smoke-tested; PROJECT_STATUS.md doc lag recurring
+- [iPad mkcert TLS trust pitfall](ipad_mkcert_tls_trust.md) — web(5173)/api(4000) are separate origins w/ separate certs; per-origin click-through ≠ CA trust; generic error modal hides root cause

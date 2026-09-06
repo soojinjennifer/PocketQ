@@ -20,6 +20,7 @@
 | `bg/camera-sheet` | `#232b38` | `--color-bg-camera-sheet` | 신규 (카메라 전용) |
 | `brand/indigo` (`accent/primary`) | `#5e6e82` | `--color-brand` | `colors-pastel.css`의 `--brand` (동일 값) |
 | `accent/primary-deep` | `#46536a` | `--color-brand-deep` | `colors-pastel.css`의 `--brand-deep` (동일 값) |
+| `brand/tint`(불투명) | `#c3ccd9` | `--color-brand-tint` | 신규. 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너). 기존 `--color-fill-tint-brand`(반투명 `#5e6e8229`)와는 다른 별도 토큰 |
 | `accent/green` | `#6fa898` | `--color-accent-green` | `colors-pastel.css`의 `--accents-green` (동일 값) |
 | `accent/purple` | `#9a93b0` | `--color-accent-purple` | `colors-pastel.css`의 `--accents-purple` (동일 값) |
 | `accent/orange` | `#d9a05b` | `--color-accent-orange` | `colors-pastel.css`의 `--accents-orange` (동일 값) |
@@ -59,6 +60,7 @@ Figma에 Radius/Spacing Variable Collection이 존재하지 않는다 — 임의
 4. 오너가 승인한 값만 디자인 토큰으로 구현한다.
 
 - `radius/14` 외 반경 값이 확인되지 않았다. `docs/DESIGN_SYSTEM.md` §5/§7 참고. 화면 구현 착수 전 각 컴포넌트(Button, Card, Input, Grade Card 등)의 실제 반경을 위 프로세스로 재확인해야 한다.
+- `radius/18`: `18px` — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). 기존 반경 값들과 마찬가지로 별도 CSS Variable을 만들지 않고 Tailwind 임의값(`rounded-[18px]`)으로 코드에 직접 표현한다(코드베이스의 기존 `radius/14` 처리 방식과 동일, `rounded-[14px]` 리터럴이 여러 컴포넌트에 그대로 쓰이고 있다).
 - Spacing 스케일 자체가 문서화되어 있지 않다(참고 ZIP도 "격자 없음"이라 명시). Tailwind 기본 spacing 스케일을 사용하되, 컴포넌트별로 필요한 값을 위 프로세스로 개별 확인한다.
 
 ## 5. 사용 금지 목록
