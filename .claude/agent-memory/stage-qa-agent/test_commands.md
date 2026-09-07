@@ -18,3 +18,5 @@ As of 2026-08-23 baseline (post-rebrand-to-PocketQ stage): api = 16 test files /
 
 **Why:** confirmed by actually running all four gate commands during Stage QA rather than trusting prior reports.
 **How to apply:** always run these 4 commands yourself at the start of automated verification instead of assuming CI/agent-reported pass is still true.
+
+**Resource-contention flakiness (2026-09-08)**: running `pnpm test` concurrently/back-to-back with `pnpm build`/`pnpm typecheck` in the same shell session can produce spurious `[vitest-pool-runner]: Timeout waiting for worker to respond` / `Failed to start forks worker` errors on a handful of unrelated test files (setup phase ballooning to 900+s instead of ~15s) — this is sandbox/OneDrive-path resource contention, not a real regression. Confirmed by re-running `pnpm test` alone immediately after: same files, 0 errors, ~15s. **How to apply:** if `pnpm test` reports worker-timeout errors on files unrelated to the current diff, don't treat it as a finding — rerun `pnpm test` in isolation (nothing else running concurrently) before concluding pass/fail.

@@ -150,6 +150,7 @@ export function SolvePencilcanvasPage() {
                 strokes={workStrokes}
                 onStartStroke={startWorkStroke}
                 onAddPoint={addWorkPoint}
+                scrollable
               />
               <PenRail
                 activeTool={workTool}

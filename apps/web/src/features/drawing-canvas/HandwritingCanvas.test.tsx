@@ -235,3 +235,244 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
     expect(onAddPoint).not.toHaveBeenCalled();
   });
 });
+
+describe("HandwritingCanvas scrollable=false(기본값) 회귀 확인", () => {
+  it("scrollable prop 없이 렌더링하면 outer div 1개만 존재한다(기존 DOM 구조 그대로)", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+    );
+
+    // 기존 구조: <div class="absolute inset-0 z-0"><canvas/></div> — content 래퍼가 없다.
+    const outer = container.firstElementChild;
+    expect(outer?.className).toBe("absolute inset-0 z-0");
+    expect(outer?.children.length).toBe(1);
+    expect(outer?.children[0]?.tagName).toBe("CANVAS");
+  });
+});
+
+describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
+  it("scrollable=true여도 outer div 바로 아래에 content 래퍼와 canvas가 추가된다", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+
+    const outer = container.firstElementChild;
+    expect(outer?.className).toContain("overflow-y-auto");
+    expect(outer?.children.length).toBe(1);
+    const content = outer?.children[0];
+    expect(content?.querySelector("canvas")).not.toBeNull();
+  });
+
+  it("(a) 펜으로 그리는 동안 터치 포인터가 움직여도 스크롤이 발동하지 않는다", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    // 펜이 먼저 그리기 시작한다(activePointerIdRef가 채워진다).
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+
+    // 이어서 터치(예: 손바닥)가 닿아 움직인다.
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 50,
+    });
+
+    expect(outer.scrollTop).toBe(0);
+  });
+
+  it("(b) 펜이 그리지 않는 상태에서 터치 포인터 1개의 pointermove로 scrollTop이 바뀐다", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    // 손가락이 위로 40px 이동(clientY 감소) → 콘텐츠를 아래로 스크롤(scrollTop 증가)한다.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 60,
+    });
+
+    expect(outer.scrollTop).toBe(40);
+  });
+
+  it("(c) 터치 포인터 2개가 동시에 같은 속도로 움직여도 스크롤 속도가 2배가 되지 않는다(평균 적용)", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 200,
+    });
+
+    // 두 손가락 모두 위로 20px씩 이동(clientY -20)한다.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 80,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 180,
+    });
+
+    // 손가락 1개가 20px 이동했을 때와 동일한 총량만큼만 스크롤돼야 한다(더한 값 40이 아니라 20).
+    expect(outer.scrollTop).toBe(20);
+  });
+
+  it("(d) 펜으로 그리는 도중 닿은 손바닥(터치)은 스크롤 후보로 등록되지 않는다(팜 리젝션 유지)", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    // 펜을 뗀 뒤에 손바닥(터치)이 움직여도, 펜이 그리는 도중 등록되지 않았던 터치이므로 여전히
+    // 스크롤 후보가 아니다.
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 30,
+    });
+
+    expect(outer.scrollTop).toBe(0);
+  });
+
+  it("(d-2) 손바닥(터치)이 펜보다 먼저 닿아 스크롤 후보로 등록된 뒤 펜이 그리기 시작하면, 이후 그 손바닥이 움직여도 스크롤이 발동하지 않는다(등록 순서 역전 케이스)", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    // 손바닥(터치)이 펜보다 먼저 닿는다 — 이 시점엔 아직 그리는 중이 아니므로 스크롤 후보로
+    // 등록된다(handlePointerDown 게이팅 조건 그대로).
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    // 곧이어 펜이 닿아 그리기 시작한다.
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    // 이미 등록된 손바닥 터치가 그리는 도중 움직인다.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 50,
+    });
+
+    expect(outer.scrollTop).toBe(0);
+  });
+
+  it("(e) workStrokes의 최대 y가 content 높이 임계값에 가까워지면 content 높이가 늘어난다", () => {
+    // outer/content 실측 높이를 100px로 고정한다(jsdom은 기본적으로 getBoundingClientRect가
+    // 전부 0을 반환하므로, 성장 임계값 로직을 검증하려면 실측값을 모킹해야 한다).
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 300,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const { container, rerender } = render(
+      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+    );
+    const content = container.querySelector("canvas")?.parentElement as HTMLDivElement;
+    expect(content.style.height).toBe("100px");
+
+    // 최대 y=90 → 초기 content 높이 100px의 85% 임계값(85px)을 넘는다 → 100px만큼 확장돼야 한다.
+    const tallStroke: Stroke = {
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 0, y: 90, pressure: 0.5 },
+      ],
+    };
+    rerender(
+      <HandwritingCanvas
+        strokes={[tallStroke]}
+        onStartStroke={vi.fn()}
+        onAddPoint={vi.fn()}
+        scrollable
+      />,
+    );
+
+    expect(content.style.height).toBe("200px");
+  });
+});

@@ -475,6 +475,22 @@ design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 �
 
 **알려진 제약**: iPad 실기기에서 실제로 각진 모서리로 보이는지, `ProblemCard` 제거 후 레이아웃 흔들림이 없는지는 jsdom 한계로 미검증(오너의 원래 지적이 실기기 스크린샷 기반이었으므로 실기기 재확인 권장).
 
+### 3.28 Solve 화면 3건 요청 — ActionBar 개념설명 철회 + WORK 캔버스 손가락 스크롤 완료 (2026-09-08, 미커밋)
+
+오너가 Figma 참고 3건을 한 번에 요청(§3.27과 별개 요청, 각각 표준 루프로 순차 처리):
+
+1. **(§3.27로 완료)** WORK 단계 화면 미적용 — `RecognizedChip` 모서리, `ProblemCard` 은닉 버그.
+2. **ActionBar에 "개념설명" 세그먼트 추가 — 철회.** Figma node `267:615` 실측 결과 "개념설명"이 4단계(INPUT/WORK-전/WORK-후/RESULT) 전부에 4번째 세그먼트로 항상 활성 상태로 추가되는 것으로 확인됐으나, 구현 조사 중 (a) 진단 전 개념설명을 위해 `solve({concept:true})`를 호출해도 백엔드가 최종 답을 응답에 함께 생성해 정답이 네트워크로 노출되는 문제, (b) INPUT 단계 클릭 시 자동으로 문제 인식이 트리거되는 부수효과, (c) 풀이 경로(ResultPanel) RESULT 단계의 신규 분기 필요 등 여러 결정 필요 항목이 드러났다. 오너가 "복잡해지고 회귀 위험이 있다"고 판단해 **명시적으로 철회** — 기존에 이미 구현된 결과 화면 채팅창 위 해시태그 방식("#개념설명" 클릭 → `isConceptCardVisible` 토글)만 유지하기로 확정. **코드 변경 없음. 향후 세션에서 이 기능을 다시 제안하지 말 것.**
+3. **WORK 캔버스 손가락 스크롤 완료(PRD WORK-6, P1).** 학생이 WORK 캔버스에 풀이를 쓰다 공간이 부족하면 손가락 1개/2개로 스크롤해 캔버스를 확장할 수 있다. `apps/web/src/features/drawing-canvas/HandwritingCanvas.tsx`에 옵셔널 `scrollable?: boolean`(기본 `false`) prop 추가 — **`/solve/pencilcanvas`의 WORK 단계 캔버스 1곳에만 적용**하고, INPUT 캔버스와 `/solve/landscape`의 캔버스(어제 완성된 `HandwritingHighlightOverlay` 포함)는 전혀 건드리지 않아 회귀 위험을 원천 차단(오케스트레이터 결정, 오너 승인).
+   - **핵심 안전장치**: 펜으로 그리는 중이 아닐 때 시작된 터치만 스크롤 후보로 등록(`activePointerIdRef.current === null` 게이팅), `touch-action:none` 유지 + JS로 직접 `scrollTop` 구동(전략 2, 실기기 브라우저 예외처리에 의존하지 않는 결정론적 방식). 학생 필기가 콘텐츠 하단 85%에 닿으면 뷰포트 높이만큼 동적 확장(상한 없음, 오너 승인). Figma에 스크롤 시각 힌트가 없어 새 안내 UI를 추가하지 않고 순수 제스처+네이티브 인디케이터에만 의존.
+   - **design-agent 사후검수 중 HIGH 결함 발견·즉시 수정**: 손바닥(터치)이 펜보다 먼저 닿아 스크롤 후보로 등록된 뒤 펜이 그리기 시작하면(자연스러운 필기 자세에서 흔한 순서), 게이팅이 "등록 시점"에만 확인해 이후 펜이 그리는 도중에도 그 손바닥 이동이 스크롤을 유발하는 결함 — `handleScrollTouchMove` 진입 시점에 `activePointerIdRef.current !== null`이면 즉시 반환하는 재확인 게이트를 추가해 등록 순서와 무관하게 항상 차단하도록 수정, 역전 순서 재현 테스트 추가.
+   - stage-qa-agent가 병렬 검수 타이밍상 수정 전 코드로 동일 결함을 최초 재현(HIGH, CONDITIONAL PASS) → 오케스트레이터가 수정 완료 사실과 정확히 일치하는 회귀 테스트 통과를 근거로 재검증 요청 → stage-qa-agent가 최신 코드로 직접 재현·재확인 → **최종 STAGE PASS**.
+   - **게이트**: typecheck/lint 전체, api 314/314(무변경), web 422/422, build 성공.
+
+**알려진 제약(다음 단계 참고)**:
+- iPad 실기기 전용 미검증 항목: 실제 Apple Pencil 호버 시 iOS 네이티브 팜 리젝션과 이번 수동 스크롤 로직의 상호작용, 실제 1/2손가락 스크롤 체감, 터치가 스크롤 중 캔버스 밖(예: `PenRail`)으로 벗어날 때 `setPointerCapture` 미적용으로 인한 제스처 중단 가능성(MEDIUM, 코드 리뷰 기반 가설, jsdom으로 재현 불가), 1194×834 가로/좁은 Split View에서의 실제 시각적 레이아웃과 캔버스 확장 동작.
+- 캔버스 콘텐츠 확장에 상한이 없음(오너 승인, 극단적으로 긴 풀이에 대한 메모리/성능 부하는 미검증).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -505,7 +521,7 @@ design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+**사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤해 확장할 수 있음. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
