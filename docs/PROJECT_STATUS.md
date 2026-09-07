@@ -464,6 +464,17 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 - iPad 실기기(1194×834) 팝업 렌더/터치는 여전히 미검증(코드 검토만 수행).
 - `Modal.tsx`의 icon 변형 콘텐츠 패딩(`pt-8 pb-6`)이 Figma 실측(`pt-[26px] pb-[20px]`)과 소폭 다름 — 이번 작업 이전부터 있던 기존 값이라 회귀는 아니며, 다음에 `Modal` 관련 작업 시 재검증 권장(design-agent 발견, Low).
 
+### 3.27 Solve/Pencilcanvas WORK 단계 — `RecognizedChip` 모서리 + `ProblemCard` 은닉 버그 수정 (2026-09-08, 미커밋)
+
+오너가 iPad 실기기 스크린샷으로 "문제 인식 후 화면이 Figma대로 적용 안 된 것 같다"고 지적(`3-2 Solve/Pencilcanvas_2` node `267:607` 참고). design-agent가 재실측해 실제 버그 2건을 확인:
+
+1. **`RecognizedChip`(WORK 단계 상단 "인식됨" 칩)에 `rounded-full`이 잘못 적용됨** — Figma 원본 코드에는 모서리 반경 클래스가 전혀 없다(각진 사각형). 같은 화면의 `NavTabBar`/`PenRail`/`ActionBar`는 전부 `rounded-[999px]`(완전 pill)라 시각적으로 헷갈렸을 가능성. `rounded-full` 클래스 한 줄 제거로 수정.
+2. **WORK 단계 진입 후에도 사진 미리보기(`ProblemCard`)가 안 사라짐** — `SolvePencilcanvasPage.tsx`의 렌더 조건에 `isWorkStage` 체크가 누락돼 있었다(`capturedImage`는 `recognizeOnly()` 성공 후 정리되지 않고 `solve()` 성공 시에만 정리되는 게 의도된 동작이라, 사진으로 입력한 경우 WORK 진입 후에도 `ProblemCard`가 `RecognizedChip`과 함께 계속 렌더되고 있었다). Figma `267:607`에는 입력 방식 무관하게 `RecognizedChip`만 있어야 한다 — 조건문에 `!isWorkStage` 가드 추가로 수정.
+
+design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 일치 확인, 신규 색상/픽셀값 없음, diff가 정확히 지적된 부분뿐임을 확인). stage-qa-agent 최종 회귀 STAGE PASS(사진/필기 입력 흐름 실제 E2E 재현, INPUT 단계 사진 미리보기 무회귀, RESUME/CAS/캔버스 하이라이트 오버레이/`RecognizedProblemPopup` 등 어제까지 완성된 기능 전부 zero-diff 확인). **게이트**: typecheck/lint 전체, api 314/314(무변경), web 414/414, build 성공.
+
+**알려진 제약**: iPad 실기기에서 실제로 각진 모서리로 보이는지, `ProblemCard` 제거 후 레이아웃 흔들림이 없는지는 jsdom 한계로 미검증(오너의 원래 지적이 실기기 스크린샷 기반이었으므로 실기기 재확인 권장).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.

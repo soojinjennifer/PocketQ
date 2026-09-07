@@ -208,7 +208,7 @@ export function SolvePencilcanvasPage() {
                 title="Apple Pencil이나 마우스로 문제를 써 보세요"
                 subtitle="문제집을 찍어서 올리려면 왼쪽 도구의 '사진'을 눌러 주세요"
               />
-            ) : problemCardData !== null ? (
+            ) : !isWorkStage && problemCardData !== null ? (
               <ProblemCard data={problemCardData} />
             ) : null}
           </div>

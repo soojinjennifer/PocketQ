@@ -5,8 +5,9 @@ interface RecognizedChipProps {
 }
 
 /**
- * Figma `Solve/Recognized Chip`(마스터 `250:56`) — `/solve/pencilcanvas` WORK 단계 캔버스 상단에
- * 인식된 문제 원문을 보여주는 완전 라운드 글래스 pill. `features/ai-solution/RecognizedProblemBar`
+ * Figma `Solve/Recognized Chip`(마스터 `250:56`, 최신 실측 인스턴스 `267:607`) — `/solve/pencilcanvas`
+ * WORK 단계 캔버스 상단에 인식된 문제 원문을 보여주는 모서리 각진(라운드 없음) 글래스 칩.
+ * `features/ai-solution/RecognizedProblemBar`
  * (`/solve/landscape` Result Panel 전용)와 달리 이 칩에는 편집 진입점("수정")이 없다 — 이 화면에는
  * 인식 완료 후 텍스트를 고쳐 재제출하는 흐름이 없기 때문이다.
  *
@@ -16,7 +17,7 @@ interface RecognizedChipProps {
  */
 export function RecognizedChip({ recognizedText }: RecognizedChipProps) {
   return (
-    <div className="bg-glass-fill border-glass-border flex items-center gap-[8px] rounded-full border px-[14px] py-[7px] drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)] shadow-[inset_0px_2px_0px_rgba(255,255,255,0.6)]">
+    <div className="bg-glass-fill border-glass-border flex items-center gap-[8px] border px-[14px] py-[7px] drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)] shadow-[inset_0px_2px_0px_rgba(255,255,255,0.6)]">
       <Badge variant="tint-green" size="recognized-chip">
         인식됨
       </Badge>

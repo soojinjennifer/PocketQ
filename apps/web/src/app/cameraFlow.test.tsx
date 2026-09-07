@@ -180,6 +180,10 @@ describe("사진 문제 입력 흐름", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
     );
+    // WORK 단계 전환 직후: 사진 입력이었어도 ProblemCard(사진 미리보기)는 더 이상 보이지 않고
+    // RecognizedChip만 남아야 한다(design-agent 버그 리포트, Figma `267:607`).
+    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
+    expect(screen.getByText("인식됨")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
