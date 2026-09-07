@@ -110,6 +110,12 @@ export interface Diagnosis {
   isMethodApplicable: boolean;
   /** `isMethodApplicable`이 `false`일 때만 그 이유를 채운다. 적용 가능하면 `null`. */
   methodApplicabilityNote: string | null;
+  /**
+   * 원 문제의 정답을 구조화된 LaTeX로 담은 값(RESUME-5 CAS 최종 답 검증의 기준값).
+   * `identifiedMethod`와 동일한 방식으로 `diagnose()` 호출 시 LLM이 문제 텍스트로부터 직접
+   * 생성한다(별도 `method_catalog`/정답 테이블과의 DB 조인 없음).
+   */
+  problemAnswerLatex: string;
 }
 
 /** 이어풀기(RESUME) 요청 모드 — "내 방법으로 계속" 또는 "다른 방법으로"(PRD §4.7). */

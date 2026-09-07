@@ -40,6 +40,7 @@ const DIAGNOSIS_BODY = {
   identifiedMethod: null,
   isMethodApplicable: true,
   methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
 };
 
 describe("diagnoseProblem", () => {

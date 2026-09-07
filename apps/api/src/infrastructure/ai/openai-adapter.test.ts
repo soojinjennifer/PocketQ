@@ -279,6 +279,7 @@ describe("OpenAIAdapter.diagnose", () => {
         identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
         isMethodApplicable: true,
         methodApplicabilityNote: null,
+        problemAnswerLatex: "-1",
       }),
     });
 
@@ -314,6 +315,7 @@ describe("OpenAIAdapter.diagnose", () => {
       identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
       isMethodApplicable: true,
       methodApplicabilityNote: null,
+      problemAnswerLatex: "-1",
     });
 
     const callArgs = createMock.mock.calls[0]?.[0] as RequestInput;
@@ -371,6 +373,7 @@ describe("OpenAIAdapter.resume", () => {
     identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
     isMethodApplicable: true,
     methodApplicabilityNote: null,
+    problemAnswerLatex: "-1",
   };
 
   it("stream:true로 요청하고, 델타를 순서대로 yield한 뒤 헤더 기준으로 파싱된 결과를 done으로 yield한다", async () => {

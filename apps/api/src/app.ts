@@ -3,6 +3,8 @@ import express, { type Express } from "express";
 import { corsOptions } from "./config/cors";
 import type { LLMAdapter } from "./infrastructure/ai/adapter";
 import { resolveAdapter } from "./infrastructure/ai/resolve-adapter";
+import type { CasClient } from "./infrastructure/cas/casClient";
+import { resolveCasClient } from "./infrastructure/cas/resolveCasClient";
 import { errorHandler } from "./middleware/error-handler";
 import { createChatRouter } from "./modules/chat/chat.router";
 import { createDiagnosisRouter } from "./modules/diagnosis/diagnosis.router";
@@ -19,10 +21,15 @@ import { createWorkRouter } from "./modules/work/work.router";
  *
  * `adapter`를 생략하면(운영 기본값) 여기서 `resolveAdapter()`를 단 한 번만 호출해
  * recognize/solve 라우트가 동일한 어댑터 인스턴스를 공유한다(예: OpenAI 클라이언트 중복 생성 방지).
+ * `casClient`도 동일한 이유로 생략하면 `resolveCasClient()`를 한 번만 호출해 diagnose/resume
+ * 라우트가 공유한다.
  * 테스트는 `createApp(new FakeLLMAdapter())`처럼 명시적으로 주입해 실제 `AI_PROVIDER`
  * 환경변수나 실제 API 호출과 무관하게 동작한다.
  */
-export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
+export function createApp(
+  adapter: LLMAdapter = resolveAdapter(),
+  casClient: CasClient = resolveCasClient(),
+): Express {
   const app = express();
 
   app.use(cors(corsOptions));
@@ -35,8 +42,8 @@ export function createApp(adapter: LLMAdapter = resolveAdapter()): Express {
   app.use("/api", createSuggestionsRouter(adapter));
   app.use("/api", createProblemsRouter());
   app.use("/api", createWorkRouter(adapter));
-  app.use("/api", createDiagnosisRouter(adapter));
-  app.use("/api", createResumeRouter(adapter));
+  app.use("/api", createDiagnosisRouter(adapter, casClient));
+  app.use("/api", createResumeRouter(adapter, casClient));
 
   app.use(errorHandler);
 

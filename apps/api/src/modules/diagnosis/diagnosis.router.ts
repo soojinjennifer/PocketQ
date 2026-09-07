@@ -7,7 +7,8 @@ import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
-import { stubCasVerification } from "../../infrastructure/cas/stubCasVerification";
+import type { CasClient } from "../../infrastructure/cas/casClient";
+import { resolveCasClient } from "../../infrastructure/cas/resolveCasClient";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
 
@@ -30,7 +31,7 @@ function resolveDiagnoseContext(problemId: string, userId: string): ResolvedDiag
   return { problemText: stored.problem.recognizedText, grade: stored.grade };
 }
 
-function createHandleDiagnose(adapter: LLMAdapter) {
+function createHandleDiagnose(adapter: LLMAdapter, casClient: CasClient) {
   return async function handleDiagnose(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { problemId } = req.params as { problemId: string };
     const { workLines: requestWorkLines } = req.body as DiagnoseRequestDto;
@@ -50,7 +51,7 @@ function createHandleDiagnose(adapter: LLMAdapter) {
         ...line,
         isLowConfidence: false,
       }));
-      const casVerification = stubCasVerification(workLines);
+      const casVerification = await casClient.verifyWorkLines(workLines);
 
       const diagnosis = await adapter.diagnose({ problem: problemText, workLines, casVerification, grade });
       inMemoryProblemStore.setDiagnosis(problemId, diagnosis);
@@ -63,8 +64,14 @@ function createHandleDiagnose(adapter: LLMAdapter) {
   };
 }
 
-/** `createChatRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. */
-export function createDiagnosisRouter(adapter: LLMAdapter = resolveAdapter()): Router {
+/**
+ * `createChatRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. `casClient`도 동일한
+ * 이유(테스트 용이성 — 실제 `CAS_SERVICE_URL`/`fetch` 없이 결정적으로 검증)로 주입 가능하다.
+ */
+export function createDiagnosisRouter(
+  adapter: LLMAdapter = resolveAdapter(),
+  casClient: CasClient = resolveCasClient(),
+): Router {
   const router = Router();
 
   router.post(
@@ -72,7 +79,7 @@ export function createDiagnosisRouter(adapter: LLMAdapter = resolveAdapter()): R
     authenticate,
     rateLimiter,
     validateRequest(diagnoseRequestSchema),
-    createHandleDiagnose(adapter),
+    createHandleDiagnose(adapter, casClient),
   );
 
   return router;

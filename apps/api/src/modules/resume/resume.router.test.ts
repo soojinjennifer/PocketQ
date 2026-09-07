@@ -29,12 +29,23 @@ const BASE_DIAGNOSIS: Diagnosis = {
   identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
   isMethodApplicable: true,
   methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
 };
 
 // 실제 AI_PROVIDER 환경변수·실제 OpenAI 호출과 무관하게 결정적으로 동작하도록
 // 모든 테스트에서 FakeLLMAdapter를 명시적으로 주입한다.
-function createTestApp() {
-  return createApp(new FakeLLMAdapter());
+function createTestApp(casClient?: import("../../infrastructure/cas/casClient").CasClient) {
+  return casClient ? createApp(new FakeLLMAdapter(), casClient) : createApp(new FakeLLMAdapter());
+}
+
+/**
+ * `fetch`를 모킹하지 않고, `CasClient`를 라우터(→ `createApp`)에 직접 주입해 실제 CAS 연동 지점
+ * (`stubResumeCasCheck` 호출 자리)이 `casClient.verifyFinalAnswer()`로 교체됐는지 검증한다.
+ */
+function createFakeCasClient(verifyFinalAnswerResult: { verified: boolean }) {
+  const verifyWorkLines = vi.fn(() => Promise.resolve([]));
+  const verifyFinalAnswer = vi.fn(() => Promise.resolve(verifyFinalAnswerResult));
+  return { verifyWorkLines, verifyFinalAnswer };
 }
 
 describe("POST /api/problems/:problemId/resume", () => {
@@ -237,5 +248,30 @@ describe("POST /api/problems/:problemId/resume", () => {
     const stored = inMemoryProblemStore.get(KNOWN_PROBLEM_ID);
     expect(stored?.resumeSolution).toBeDefined();
     expect(stored?.resumeSolution?.verified).toBe(true);
+  });
+
+  it("주입된 CasClient.verifyFinalAnswer()를 problemAnswerLatex/answerMd와 함께 호출하고, 그 결과(verified)를 그대로 반영한다(fetch 모킹 없이 검증)", async () => {
+    const casClient = createFakeCasClient({ verified: false });
+    const app = createTestApp(casClient);
+
+    const res = await request(app)
+      .post(`/api/problems/${KNOWN_PROBLEM_ID}/resume`)
+      .set(AUTH_HEADER)
+      .send({ mode: "own" });
+
+    expect(res.status).toBe(200);
+    expect(casClient.verifyFinalAnswer).toHaveBeenCalledTimes(1);
+    // BASE_DIAGNOSIS.problemAnswerLatex("-1")를 기준값으로, FakeLLMAdapter.resume()이 만든
+    // answerMd("-1", 순수 LaTeX — CAS가 파싱해야 하므로 프레이밍 문장 없이 값만 채운다)를 그대로 넘겨야 한다.
+    expect(casClient.verifyFinalAnswer.mock.calls[0]).toEqual(["-1", "-1"]);
+
+    const doneMatch = res.text.match(/event: done\ndata: (.+)\n\n/);
+    expect(doneMatch).not.toBeNull();
+    if (doneMatch) {
+      const result = JSON.parse(doneMatch[1] ?? "{}") as { verified: boolean };
+      // 주입된 CasClient가 verified: false를 반환했으므로, stubResumeCasCheck(항상 true)가 아니라
+      // 이 값이 그대로 반영돼야 한다.
+      expect(result.verified).toBe(false);
+    }
   });
 });

@@ -23,6 +23,7 @@ function createDiagnosis(overrides: Partial<Diagnosis> = {}): Diagnosis {
     identifiedMethod: null,
     isMethodApplicable: true,
     methodApplicabilityNote: null,
+    problemAnswerLatex: "-1",
     ...overrides,
   };
 }

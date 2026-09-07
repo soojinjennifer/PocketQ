@@ -119,6 +119,7 @@ const DIAGNOSIS_JSON_SCHEMA = {
     },
     isMethodApplicable: { type: "boolean" },
     methodApplicabilityNote: { type: ["string", "null"] },
+    problemAnswerLatex: { type: "string" },
   },
   required: [
     "lastValidLine",
@@ -132,6 +133,7 @@ const DIAGNOSIS_JSON_SCHEMA = {
     "identifiedMethod",
     "isMethodApplicable",
     "methodApplicabilityNote",
+    "problemAnswerLatex",
   ],
   additionalProperties: false,
 } as const;

@@ -21,6 +21,7 @@ const DIAGNOSIS = {
   identifiedMethod: null,
   isMethodApplicable: true,
   methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
 };
 
 describe("useDiagnose", () => {

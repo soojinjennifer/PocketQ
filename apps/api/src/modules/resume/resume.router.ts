@@ -7,7 +7,8 @@ import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
-import { stubResumeCasCheck } from "../../infrastructure/cas/stubResumeCasCheck";
+import type { CasClient } from "../../infrastructure/cas/casClient";
+import { resolveCasClient } from "../../infrastructure/cas/resolveCasClient";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
 
@@ -56,7 +57,7 @@ function resolveResumeContext(problemId: string, userId: string, mode: ResumeMod
   };
 }
 
-function createHandleResume(adapter: LLMAdapter) {
+function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
   return async function handleResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { problemId } = req.params as { problemId: string };
     const { mode } = req.body as ResumeRequestDto;
@@ -92,8 +93,14 @@ function createHandleResume(adapter: LLMAdapter) {
         if ("delta" in event) {
           res.write(`event: chunk\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`);
         } else if ("done" in event) {
-          // RESUME-5: CAS 최종 답 검증(현재는 스텁) 결과로 verified를 확정한 뒤에 done을 보낸다.
-          const { verified } = stubResumeCasCheck(event.result);
+          // RESUME-5: CAS 최종 답 검증 결과로 verified를 확정한 뒤에 done을 보낸다.
+          // `resolved.diagnosis.problemAnswerLatex`(diagnose 시점에 LLM이 생성한 원 문제 정답)를
+          // 기준값으로, `event.result.answerMd`(이어풀기 최종 답, `parseResumeOutput`이 이미
+          // solutionMd와 분리해둔 값)를 CAS에 넘겨 대수적 동치 여부를 검증한다.
+          const { verified } = await casClient.verifyFinalAnswer(
+            resolved.diagnosis.problemAnswerLatex,
+            event.result.answerMd,
+          );
           const result = { ...event.result, verified };
           inMemoryProblemStore.setResumeSolution(problemId, result);
           res.write(`event: done\ndata: ${JSON.stringify(result)}\n\n`);
@@ -111,8 +118,14 @@ function createHandleResume(adapter: LLMAdapter) {
   };
 }
 
-/** `createSolutionsRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. */
-export function createResumeRouter(adapter: LLMAdapter = resolveAdapter()): Router {
+/**
+ * `createSolutionsRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. `casClient`도 동일한
+ * 이유(테스트 용이성)로 주입 가능하다.
+ */
+export function createResumeRouter(
+  adapter: LLMAdapter = resolveAdapter(),
+  casClient: CasClient = resolveCasClient(),
+): Router {
   const router = Router();
 
   router.post(
@@ -120,7 +133,7 @@ export function createResumeRouter(adapter: LLMAdapter = resolveAdapter()): Rout
     authenticate,
     rateLimiter,
     validateRequest(resumeRequestSchema),
-    createHandleResume(adapter),
+    createHandleResume(adapter, casClient),
   );
 
   return router;

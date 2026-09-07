@@ -174,6 +174,7 @@ export const diagnoseResponseSchema = z.object({
     .nullable(),
   isMethodApplicable: z.boolean(),
   methodApplicabilityNote: z.string().nullable(),
+  problemAnswerLatex: z.string(),
 });
 export type DiagnoseResponseDto = z.infer<typeof diagnoseResponseSchema>;
 

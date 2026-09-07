@@ -15,6 +15,7 @@ const BASE_DIAGNOSIS: Diagnosis = {
   identifiedMethod: null,
   isMethodApplicable: true,
   methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
 };
 
 describe("DiagnosisCard", () => {

@@ -25,6 +25,12 @@ const FAKE_RECOGNIZED_LATEX = "y = x^{2} - 4x + 3";
 /** `diagnose`가 결정론적으로 채우는 고정된 식별 해법(실제 `method_catalog` 테이블이 없어 하드코딩). */
 const FAKE_IDENTIFIED_METHOD = { methodId: "perfect-square", methodName: "완전제곱식" };
 
+/**
+ * `diagnose`가 결정론적으로 채우는 고정된 정답 LaTeX(RESUME-5 CAS 최종 답 검증 기준값).
+ * `FAKE_RECOGNIZED_TEXT`(이차함수 y = x^2 - 4x + 3의 최솟값을 구하시오)의 실제 정답인 -1을 담는다.
+ */
+const FAKE_PROBLEM_ANSWER_LATEX = "-1";
+
 /** `recognizeWork`가 이미지 내용과 무관하게 항상 반환하는 고정된 학생 풀이 줄들. */
 const FAKE_WORK_LINES: WorkLine[] = [
   { lineNo: 1, latex: "y = x^{2} - 4x + 3", isLowConfidence: false },
@@ -114,6 +120,7 @@ export class FakeLLMAdapter implements LLMAdapter {
         identifiedMethod: FAKE_IDENTIFIED_METHOD,
         isMethodApplicable: true,
         methodApplicabilityNote: null,
+        problemAnswerLatex: FAKE_PROBLEM_ANSWER_LATEX,
       });
     }
 
@@ -131,6 +138,7 @@ export class FakeLLMAdapter implements LLMAdapter {
       identifiedMethod: FAKE_IDENTIFIED_METHOD,
       isMethodApplicable: true,
       methodApplicabilityNote: null,
+      problemAnswerLatex: FAKE_PROBLEM_ANSWER_LATEX,
     });
   }
 
@@ -150,7 +158,10 @@ export class FakeLLMAdapter implements LLMAdapter {
       methodName:
         req.mode === "own" ? `${req.diagnosis.lastValidLine + 1}번째 줄부터 이어가기` : "새로운 방법으로 처음부터 풀기",
       solutionMd: chunks.join(""),
-      answerMd: "최솟값은 -1입니다.",
+      // CAS(`verify-final-answer`)가 순수 LaTeX만 파싱할 수 있다 — 자연어 문장이면 파싱에
+      // 실패해 항상 verified:false가 된다(2026-09 CAS Phase 1 연동 중 발견). `problemAnswerLatex`와
+      // 동일하게 프레이밍 문장 없이 값만 채운다.
+      answerMd: "-1",
       verified: false,
     };
 

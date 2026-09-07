@@ -65,6 +65,7 @@ vi.mock("../shared/api/diagnoseProblem", () => ({
     identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
     isMethodApplicable: true,
     methodApplicabilityNote: null,
+    problemAnswerLatex: "-1",
   }),
 }));
 
@@ -573,6 +574,7 @@ describe("RESUME 5단계(화면 연결) — 이어풀기 모드 선택 → 스�
       identifiedMethod: null,
       isMethodApplicable: false,
       methodApplicabilityNote: "이 방법은 이 문제 유형에 적용할 수 없습니다.",
+      problemAnswerLatex: "-1",
     });
 
     const { container } = renderApp(["/solve/pencilcanvas"]);

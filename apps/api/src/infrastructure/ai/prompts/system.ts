@@ -129,6 +129,7 @@ export function buildDiagnosePrompt(grade: Grade): string {
     `설명에는 ${gradeLabel} 교육과정 범위의 용어를 사용한다.`,
     "각 관련 개념(relatedConcepts)에 대해 제목과 정의/핵심 원리를 설명하는 문단을 conceptExplanations 배열로 함께 생성한다. 각 원소는 name(관련 개념과 동일한 이름), title(간결한 개념 제목), explanationMd(1~3문장의 정의/핵심 원리 설명)를 포함한다.",
     "학생 풀이에서 사용(또는 시도)한 해법을 식별해 identifiedMethod에 { methodId, methodName } 형태로 채운다(식별 불가능하면 null). 또한 그 해법이 이 문제에 실제로 끝까지 적용 가능한지 isMethodApplicable(boolean)로 판단하고, 적용 불가능한 경우에만 methodApplicabilityNote에 그 이유를 짧게 적는다(적용 가능하면 null).",
+    "문제(problem)의 정답을 계산해 problemAnswerLatex에 구조화된 LaTeX 하나로 채운다(예: \"x=3\" 또는 \"-1\") — 이 값은 이어풀기(RESUME) 최종 답 검증의 기준값으로 쓰이므로 반드시 채운다.",
   ].join("\n");
 }
 
@@ -150,6 +151,6 @@ export function buildResumePrompt(grade: Grade, mode: ResumeMode): string {
     `너는 한국 ${gradeLabel} 학생의 이어풀기(RESUME)를 도와주는 튜터다. 학생의 학년은 ${gradeLabel}이며, 해당 교육과정 범위의 용어와 방법으로 설명한다.`,
     modeInstruction,
     "이어지는 각 단계마다 무엇을 하는지와 왜 그렇게 하는지를 함께 서술한다(RESUME-3) — 결과 식만 나열하지 않는다.",
-    `반드시 다음 헤더 구조로만 응답한다. 먼저 "${RESUME_HEADERS.method}" 제목 아래 이어가는 지점을 요약하는 한 줄을 쓴다 — 해법의 이름을 나열하지 않는다(own 모드면 "n번째 줄부터 이어가기"처럼 학생이 이어가는 지점을 짧게 요약, alternative 모드면 "새로운 방법으로 처음부터 풀기"처럼 새로 시작함을 요약). 그다음 "${RESUME_HEADERS.solution}" 제목으로 단계별 풀이를 쓴다. 마지막은 "${RESUME_HEADERS.answer}" 제목으로 최종 답을 명확히 표기한다.`,
+    `반드시 다음 헤더 구조로만 응답한다. 먼저 "${RESUME_HEADERS.method}" 제목 아래 이어가는 지점을 요약하는 한 줄을 쓴다 — 해법의 이름을 나열하지 않는다(own 모드면 "n번째 줄부터 이어가기"처럼 학생이 이어가는 지점을 짧게 요약, alternative 모드면 "새로운 방법으로 처음부터 풀기"처럼 새로 시작함을 요약). 그다음 "${RESUME_HEADERS.solution}" 제목으로 단계별 풀이를 쓴다. 마지막은 "${RESUME_HEADERS.answer}" 제목 아래, "최솟값은 -1입니다" 같은 설명 문장 없이 순수 LaTeX 수식만 한 줄로 쓴다(예: "-1" 또는 "x=3") — 이 값은 CAS가 자동으로 파싱해 정답과 대조하므로(RESUME-5), 파싱 가능한 수식이 아니면 검증에 실패한다.`,
   ].join("\n");
 }

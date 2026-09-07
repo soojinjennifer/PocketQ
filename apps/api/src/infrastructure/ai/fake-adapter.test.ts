@@ -31,6 +31,7 @@ const BASE_DIAGNOSIS: Diagnosis = {
   identifiedMethod: { methodId: "perfect-square", methodName: "완전제곱식" },
   isMethodApplicable: true,
   methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
 };
 
 describe("FakeLLMAdapter", () => {

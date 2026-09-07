@@ -384,6 +384,30 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 
 **work-order 5단계(RESUME) 전체 완료.** CAS는 여전히 스텁(`stubResumeCasCheck`, 항상 `verified:true`) — 실제 SymPy 서비스는 DIAG-1도 포함해 이 프로젝트 전체에서 아직 한 줄도 구현되지 않았고 work-order 어디에도 일정이 없다(오너 확인, 2026-09-07). 이번 단계 완료 후 별도로 "CAS 서비스 구축" 계획을 세워 오너에게 우선순위를 확인할 예정(아래 §6 참고). `listMethods`/다해법 목록 UI는 work-order 8단계(METHOD)로 이연.
 
+### 3.24 CAS(Computer Algebra System) 실제 서비스 구축 — Phase 1 완료 (2026-09-07, 미커밋)
+
+§3.23의 "CAS는 여전히 스텁" 후속. 오너 승인 하에 plan-agent가 구축 계획을 세우고, 범용 에이전트(general-purpose)가 구현했다(이 프로젝트의 `development-agent`는 React/TS 프론트엔드 전용이라 Python 백엔드에 쓸 수 없어 별도 에이전트로 진행).
+
+**오너 승인 범위**: Phase 1(등식 변형 동치성 검사)만, 부등식 방향/미적분/수열은 **Phase 2로 명시적으로 연기**(다음 착수 전 반드시 오너 재승인 필요, 자동 진행 금지). 로컬 개발 환경까지만(배포 제외), CI 미통합(로컬 수동 스모크 테스트만). Python 3.12+uv+FastAPI, SymPy 내장 LaTeX 파서(`parse_latex`, lark 백엔드).
+
+**구현 완료**:
+- `services/cas/`(신규 최상위 디렉터리) — `POST /verify-work-lines`(DIAG-1), `POST /verify-final-answer`(RESUME-5), `GET /health`. Python 단위 테스트 32개(`pytest`)+`ruff` 클린.
+- `Diagnosis`에 `problemAnswerLatex: string`(원 문제 정답, LLM이 diagnose 시점에 구조화된 LaTeX로 직접 생성 — DB 조인 없음, 기존 `conceptExplanations`/`identifiedMethod`와 동일 패턴) 필드 추가.
+- `apps/api/src/infrastructure/cas/casClient.ts`/`resolveCasClient.ts`(신규) — `CAS_SERVICE_URL` 설정 시 실제 HTTP 호출, 미설정 시 기존 스텁(`stubCasVerification`/`stubResumeCasCheck`, 삭제하지 않고 폴백 경로로 존속)으로 자동 폴백. `diagnosis.router.ts`/`resume.router.ts`가 `LLMAdapter`와 동일한 방식으로 CAS 클라이언트를 주입받도록 수정.
+
+**오케스트레이터가 검증 중 발견해 직접 수정한 버그 2건 (모두 "스텁 뒤에 숨어있다가 실제 CAS가 붙는 순간 드러나는" 유형)**:
+1. **RESUME 최종 답이 자연어 문장이라 파싱 자체가 항상 실패**: `FakeLLMAdapter.resume()`의 `answerMd`가 `"최솟값은 -1입니다."`였는데, `parse_latex`는 순수 LaTeX만 파싱 가능하다 — 직접 Python으로 파싱 실패를 재현 확인. `CAS_SERVICE_URL`이 실제로 설정되는 순간 RESUME 결과가 정답이어도 항상 "검증 실패"로 뜨는 회귀였다. **수정**: `answerMd`를 `"-1"`(순수 LaTeX)로 변경, `buildResumePrompt`도 "## 최종 답" 아래 설명 문장 없이 순수 수식만 쓰도록 지시 명확화.
+2. **stage-qa-agent 최종 회귀에서 추가 발견 — `\text{}`/`$...$` 등 흔한 LaTeX 관용구 파싱 실패**: 학생이 결론 줄에 `\text{최솟값은 } -1`처럼 자연어 주석을 섞어 쓰는 매우 흔한 패턴, 그리고 LLM/KaTeX가 흔히 쓰는 `$...$`/`\(...\)`/`\[...\]` 델리미터 둘 다 파서가 처리 못 해 "판정 불가"가 됐다. **수정**: `services/cas/app/core/parser.py`에 파싱 전 `\text{...}` 블록과 델리미터를 벗겨내는 전처리(`_strip_wrappers`) 추가.
+3. **(2 수정 후 재발견) 극값 결론 자체는 여전히 오판정** — `y=(x-2)^2-1` 다음 줄에 "최솟값은 -1"이라고 쓰는 건 파싱 문제가 아니라 "$(x-2)^2 \geq 0$이므로 최솟값 -1"이라는 극값 추론이 필요한데 Phase 1의 단순 동치성 비교로는 판단 불가능했다. **오너 승인으로 Phase 1 범위를 소폭 확장**: `services/cas/app/core/equivalence.py`에 SymPy 내장 `minimum`/`maximum`(실수 전체 도메인)을 이용한 극값 비교(`_extremum_matches`)를 추가 — 임의의 최적화 로직을 새로 만들지 않고 SymPy 기존 유틸리티만 사용(과설계 금지 원칙 유지). 이 확장은 부등식 방향/미적분/수열 같은 Phase 2 항목과는 무관하다(Phase 2 범위 변경 아님).
+- 위 3건 모두 오케스트레이터가 직접 코드 레벨로 재현(실패→수정→성공)한 뒤, 관련 Python/TS 테스트를 추가·갱신했다.
+
+**최종 검증**: `FakeLLMAdapter` 기준 diagnose→resume(own/alternative) 전체 흐름을 실제 CAS HTTP 경로(mock 아님)로 재현 — 정답인 경우 `verified:true`, 오답/파싱불가인 경우 `verified:false`가 정확히 나뉘는 것을 확인. `CAS_SERVICE_URL` 미설정 시 기존 스텁 폴백도 회귀 없음. **게이트**: TS(typecheck/lint 전체, api 314/314, web 392/392, build 성공) + Python(`pytest` 32개, `ruff` 클린) 전부 통과. **stage-qa-agent 최종 판정: STAGE PASS**(1차 회귀에서는 CONDITIONAL PASS였으나, 위 2/3번 수정 후 재확인 완료).
+
+**알려진 제약(다음 단계 참고)**:
+- Phase 1은 "등식 변형 동치성 + 완전제곱식류 극값 결론"만 판단 가능하다. 부등식 방향 반전/미적분(도함수·적분)/수열(점화식·일반항)은 Phase 2 — **오너 재승인 없이 절대 착수하지 않는다.**
+- 실제 OpenAI 어댑터가 새 프롬프트 지시("순수 LaTeX만")를 실제로 지키는지는 라이브 스모크 테스트로 아직 검증되지 않았다(FakeAdapter 기준으로만 확인됨) — 다음 실제 OpenAI 사용 시 확인 필요.
+- 배포(Render 등)는 이번 범위 밖, 로컬 개발 환경 전용.
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -414,7 +438,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+**work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23) 전부 완료**, 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정의 HIGH 1건, RESUME의 HIGH 2건). CAS는 여전히 스텁(§3.23 참고, 별도 계획 필요). work-order 6~8단계(캔버스 하이라이트 오버레이/CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+**CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론)로 검증됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값 버그 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 6~8단계(캔버스 하이라이트 오버레이/CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
@@ -423,7 +447,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
 2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
 3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
-4. Solve v2.0 재구현(§3.16~3.23, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME)까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 work-order 6단계(캔버스 하이라이트 오버레이) 착수 여부를 확인할 것. **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장. **CAS(Python/SymPy) 실제 서비스 구축**(§3.23) — DIAG-1/RESUME-5가 아직 전부 스텁(`stubCasVerification`/`stubResumeCasCheck`, 항상 valid/verified)이며 work-order 어디에도 일정이 없다. 오너가 "이번 단계 완료 후 별도 계획 세워서 우선순위 확인"으로 결정했으니, 다음 세션에서 CAS 서비스 구축 계획(별도 Python 서비스 개발+배포+대수/방정식/부등식/함수/수열/미적분 동치성 검사 로직, PRD §6/§8.2/§10) 수립 여부를 먼저 확인할 것. 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
+4. Solve v2.0 재구현(§3.16~3.24, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME), **CAS Phase 1 실제 서비스 구축**까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 다음 우선순위를 확인할 것: (a) work-order 6단계(캔버스 하이라이트 오버레이) 착수 여부, (b) CAS Phase 2(부등식 방향/미적분/수열, §3.24 "알려진 제약" 참고) 착수 여부 — **오너 재승인 없이는 절대 먼저 진행하지 말 것**(오너가 명시적으로 상기 요청함). **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장. 실제 OpenAI 어댑터가 CAS 연동 후 새 "순수 LaTeX만" 프롬프트 지시를 실제로 지키는지 라이브 스모크 테스트 필요(§3.24 "알려진 제약" 참고, FakeAdapter 기준으로만 확인됨). 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
 5. 오너에게 다음 우선순위를 확인:
    - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
    - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.
