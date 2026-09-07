@@ -18,9 +18,13 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-09-07, Solve v2.0 WORK/DIAG 백엔드+흐름 단순화+RESUME 완성 — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-07, CAS 실제 서비스 Phase 1 — 정확한 해시는 `git log`로 확인):
 ```
-b8b45de Complete Solve v2.0 WORK/DIAG backend, flow simplification, and RESUME   ← 이번 세션, §3.18~3.23 전체 반영
+d4e7fd1 Build real CAS service (Phase 1) and wire into DIAG-1/RESUME-5   ← 이번 세션, §3.24 전체 반영
+```
+이전 커밋(2026-09-07, Solve v2.0 WORK/DIAG 백엔드+흐름 단순화+RESUME 완성):
+```
+b8b45de Complete Solve v2.0 WORK/DIAG backend, flow simplification, and RESUME   ← §3.18~3.23 전체 반영
 ```
 이전 커밋(2026-09-05, Solve v2.0 ActionBar/WORK·DIAG·RESUME 목업 UI):
 ```
@@ -408,6 +412,26 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 - 실제 OpenAI 어댑터가 새 프롬프트 지시("순수 LaTeX만")를 실제로 지키는지는 라이브 스모크 테스트로 아직 검증되지 않았다(FakeAdapter 기준으로만 확인됨) — 다음 실제 OpenAI 사용 시 확인 필요.
 - 배포(Render 등)는 이번 범위 밖, 로컬 개발 환경 전용.
 
+### 3.25 Solve v2.0 work-order 6단계 `HandwritingHighlightOverlay` 완료 (2026-09-07, 미커밋)
+
+캔버스 위 "막힌 지점" 하이라이트 기능. plan-agent 2회(구조 조사 + 데이터 모델·대비책 구체화) + design-agent 2회(Figma 사전검토 + 사후검수) 걸쳐 진행했다.
+
+**착수 전 발견된 선행 차단 이슈("발견 A")**: 진단 결과 화면(`/solve/landscape`)이 학생이 실제로 쓴 캔버스(`workStrokes`)를 전혀 보여주지 않고 INPUT 캔버스(`strokes`)만 보여주고 있었다 — 하이라이트를 얹을 대상 자체가 없었다. 오너 승인 하에 `isDiagnosisReady`일 때 캔버스+PenRail을 `workStrokes`/`workTool`/`undoWorkStroke`/`clearWorkStrokes` 등으로 함께 전환하도록 수정(하나만 바꾸면 캔버스와 지우개가 다른 버퍼를 참조하는 불일치 발생). **오너가 명시적으로 승인한 알려진 부작용**: 이제 진단 화면의 지우개/실행취소가 진단에 실제로 쓰인 원본 필기를 지울 수 있다(이전엔 죽은 버퍼에만 작동해 안전했음) — "그대로 둔다(간단)"로 승인, 버그 아님.
+
+**데이터 모델(오너 승인, 클라이언트 휴리스틱 + 대비책)**: `apps/web/src/shared/lib/solve/deriveHighlightRegion.ts`(신규) — 스트로크를 배열 순서가 아니라 **최종 midY 오름차순**으로 정렬 후 y-gap 기준 클러스터링(지우고 다시 쓴 스트로크도 최종 화면 위치 기준으로 자연스럽게 재구성됨). 클러스터 수와 `WorkLine` 수 비교: 정확히 일치=`exact`(1:1 매핑), 1개 차이=`approximate`(인접 클러스터 병합으로 범위 확장), 2개 이상 차이=`null`(하이라이트 생략, 기존 `WorkLineList` 텍스트 목록만 표시 — 안전 우선). `diagnosis.stallLine===null`(중단형)이면 `null`. 대상 줄 `latex`에 `\frac` 포함 시 다음 클러스터 강제 병합(분수 등 지그재그 배치 대비). `LINE_GAP_THRESHOLD_PX=32`는 실기기 검증 전 잠정값으로 코드/문서에 명시.
+
+**시각적 표현(design-agent Figma 실측, `38:21`의 자식 `258:452` "막힌 지점 하이라이트")**: `bg-fill-tint-red/60 rounded-[10px]`(기존 `--color-fill-tint-red` 20%에 60% 추가 감쇠 = 12%, Figma 실측 `rgba(201,123,110,0.12)`와 정확히 일치, 신규 토큰 없음). 가로 범위는 캔버스 전체 폭이 아니라 **매칭된 클러스터의 실제 x범위(내용 폭)만** — plan-agent의 최초 "전체 폭 밴드" 안을 Figma 실측 후 정정. `exact`/`approximate` 신뢰도는 시각적으로 구분하지 않음(Figma에도 단일 variant, 별도 표시가 오히려 위화감 유발한다는 판단).
+
+`HandwritingHighlightOverlay.tsx`(신규) — `HandwritingCanvas.tsx` 내부는 전혀 수정하지 않고, 같은 좌표계를 공유하는 sibling으로 `HandwritingCanvas` 바로 앞에 배치(DOM 순서만으로 z-index 신규 정의 없이 레이어 순서 해결). `pointer-events-none aria-hidden="true"`.
+
+**검증**: design-agent 사후검수 PASS(Low 참고 2건, 전부 이번 범위 밖 기존 구조). stage-qa-agent 최종 회귀 STAGE PASS — 실제 캔버스 전환·exact/approximate/null 세 경로·SOLVE 결과 화면 무회귀·"수정" 링크 무회귀를 전부 실제 렌더 테스트로 확인. **게이트**: typecheck/lint 전체, api 314/314(무변경), web 409/409, build 성공.
+
+**알려진 제약(다음 단계 참고)**:
+- `LINE_GAP_THRESHOLD_PX`는 실기기 검증 전 잠정값 — iPad 실기기 손글씨 줄 간격 실측 후 보정 필요.
+- iPad 실기기(1194×834 가로/Split View) 하이라이트 밴드 렌더는 여전히 미검증(코드/좌표계 정합만 정적으로 확인).
+- `isResultReady`/`isDiagnosisReady`가 이론상 동시에 true가 될 경우 캔버스-패널 불일치 가능성(design-agent 발견, 이번 work-order가 새로 만든 조건 아니고 기존 구조에 내재, 실사용 경로 도달 가능성 불확실 — 차단 사유 아님).
+- `handleEditWork`("수정" 클릭)가 `diagnosis`를 null로 초기화한 직후 `navigate()`하는 동기 처리 사이 이론적 1프레임 창(스테이지 QA 발견, 실제 글리치/크래시 재현 안 됨, 가드/라우트 리다이렉트 위험 없음 — 우선순위 낮음).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -438,7 +462,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+**CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론)로 검증됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값 버그 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 6~8단계(캔버스 하이라이트 오버레이/CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+**work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값 버그 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
@@ -447,7 +471,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
 2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
 3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
-4. Solve v2.0 재구현(§3.16~3.24, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME), **CAS Phase 1 실제 서비스 구축**까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 다음 우선순위를 확인할 것: (a) work-order 6단계(캔버스 하이라이트 오버레이) 착수 여부, (b) CAS Phase 2(부등식 방향/미적분/수열, §3.24 "알려진 제약" 참고) 착수 여부 — **오너 재승인 없이는 절대 먼저 진행하지 말 것**(오너가 명시적으로 상기 요청함). **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장. 실제 OpenAI 어댑터가 CAS 연동 후 새 "순수 LaTeX만" 프롬프트 지시를 실제로 지키는지 라이브 스모크 테스트 필요(§3.24 "알려진 제약" 참고, FakeAdapter 기준으로만 확인됨). 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
+4. Solve v2.0 재구현(§3.16~3.25, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME), CAS Phase 1 실제 서비스 구축, **work-order 6단계(캔버스 하이라이트 오버레이)**까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 다음 우선순위를 확인할 것: (a) work-order 7단계(CHAT 컨텍스트 확장) 착수 여부, (b) CAS Phase 2(부등식 방향/미적분/수열, §3.24 "알려진 제약" 참고) 착수 여부 — **오너 재승인 없이는 절대 먼저 진행하지 말 것**(오너가 명시적으로 상기 요청함). **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장(§3.25의 `LINE_GAP_THRESHOLD_PX` 잠정값 보정도 포함). 실제 OpenAI 어댑터가 CAS 연동 후 새 "순수 LaTeX만" 프롬프트 지시를 실제로 지키는지 라이브 스모크 테스트 필요(§3.24 "알려진 제약" 참고, FakeAdapter 기준으로만 확인됨). 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, §3.25 "알려진 제약"의 `isResultReady`/`isDiagnosisReady` 동시 참 가능성, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
 5. 오너에게 다음 우선순위를 확인:
    - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
    - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.

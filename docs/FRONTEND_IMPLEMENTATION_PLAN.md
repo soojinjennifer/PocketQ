@@ -32,7 +32,7 @@
 3. **`WorkLineEditor` 구현** — **차단(blocked)**: WORK 단계 줄 단위 인식/수정/신뢰도 경고 상태의 Figma 프레임이 아직 확인되지 않음(§7 결정 필요 항목 #1). design-agent의 WORK-2/3 중간 상태 조회 결과가 나온 뒤 착수한다.
 4. **백엔드 연동 — WORK/DIAG**: `ProblemInputProvider`에 `useRecognizeWork`/`useDiagnose` 훅 추가. `DiagnoseRequest.casVerification`은 실제 CAS 서비스가 준비되지 않았다면 결정론적 스텁(모든 줄 valid 처리, 과거 `FakeLLMAdapter` 선례와 동일 패턴)으로 대체 가능.
 5. **백엔드 연동 — RESUME**: ✅ 완료(2026-09-06~07, `docs/PROJECT_STATUS.md` §3.23). `useResumeStream` 훅 추가, `ResumeModeBar`/`ResumeResultCard`를 실제 데이터로 연결. stage-qa-agent 최종 회귀 STAGE PASS(RESUME-1~5 중 CAS 검증(RESUME-5)만 스텁 — 실제 SymPy 서비스는 DIAG-1과 함께 여전히 미착수, 별도 계획 필요).
-6. **`HandwritingHighlightOverlay` 구현**: 막힌 지점(스트로크 구간 또는 y좌표 범위)을 WorkLine에 매핑하는 데이터 모델이 PRD §7에 아직 없음 — 착수 전 결정 필요(§7 결정 필요 항목 #2).
+6. ✅ **완료(2026-09-07)** **`HandwritingHighlightOverlay` 구현**: 클라이언트 휴리스틱(스트로크 y좌표 클러스터링, `shared/lib/solve/deriveHighlightRegion.ts`)으로 막힌 지점(스트로크 구간)을 WorkLine에 매핑하는 데이터 모델을 확정·구현했다(§7 결정 필요 항목 #2 해소). `/solve/landscape`의 진단 단계 캔버스 소스를 INPUT(`strokes`)에서 WORK(`workStrokes`)로 전환하는 구조적 공백도 함께 수정(`docs/COMPONENT_MAP.md` §2 참고).
 7. **CHAT 컨텍스트 확장**: 기존 `features/follow-up-chat`은 대부분 재사용 가능하되, WORK/DIAG/RESUME 단계 컨텍스트를 포함하도록 데이터만 확장.
 8. **METHOD 화면 구현**: 조사된 3개 프레임에 METHOD 화면이 없음(§7 결정 필요 항목 #4) — 별도 Figma 확인 후 착수.
 
@@ -103,7 +103,7 @@
 | 커스텀 폰트 weight(590) 토큰화 | DESIGN_TOKEN_MAP §2 | Tailwind 기본 스케일에 없는 weight 도입 여부 |
 | Next.js 언급 자료 처리 | CLAUDE.md, PRD §6 | PRD 본문의 Next.js 권장은 무시하고 Vite로 진행(이미 확정, 재확인용으로만 기재) |
 | WORK-2/3 중간 상태 Figma 미확인 | design-agent 2026-09-04 조사(완료), §1.3.1 3단계 | **결론: 해당 프레임 Figma에 없음.** `MathService` 파일(fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) 전체(단일 페이지, `3-0`/`3-1`/`3-2` 행에 물리적으로 빈 공간 없음, 인접 node-id 전수 확인)를 조사했으나 줄 단위 인식/수정/저신뢰도 경고를 모두 갖춘 WORK-진행-중 프레임은 존재하지 않음. 참고 가능한 단서: (1) `Solve/Work Line` 심볼(`248:53`, 356×26px, 줄번호 11px Bold + 본문 13px + 판정 Badge) — 단 이건 `3-2` 결과/진단 화면 전용이며 배지는 "정답 판정(확인/막힌 지점)"이지 "인식 신뢰도"가 아님, variant 없는 단일 symbol. (2) "인식된 문제" 행의 "수정" 텍스트 링크(`254:64`, `--brand/indigo`) — 파일 전체에서 유일한 편집 진입 어포던스이나 대상이 문제 텍스트이지 학생 풀이 줄이 아님. **저신뢰도 경고 배지(색상/문구)와 인라인 편집 모드 UI는 Figma 실측값이 없으므로 development-agent가 임의로 만들 수 없다** — Figma 담당자에게 신규 프레임 제작을 요청하거나, 기존 배지 컴포넌트 톤 팔레트를 재사용한 최소 임시값으로 처리 후 추후 교체(과거 `icon="error"` Modal variant, `ChatBubble` 임시 구현과 동일한 선례)하는 두 방향 중 오너 결정 필요. **2026-09-05 오너 결정: 임시값(기존 배지 톤 팔레트 재사용)으로 `WorkLineEditor` 우선 구현 진행, Figma 정식 디자인이 추가되면 교체.** |
-| 막힌 지점(stuck-point) 데이터 모델 | §1.3.1 6단계 | 스트로크 구간 또는 y좌표 범위를 WorkLine에 매핑하는 데이터 모델이 PRD §7에 없음 — `HandwritingHighlightOverlay` 착수 전 정의 필요 |
+| ~~막힌 지점(stuck-point) 데이터 모델~~ | §1.3.1 6단계 | **해결됨(2026-09-07)** — 클라이언트 휴리스틱(스트로크 y좌표 클러스터링, `shared/lib/solve/deriveHighlightRegion.ts`의 `clusterStrokesByLine`/`deriveHighlightRegion`)으로 확정·구현. 클러스터 개수와 인식된 줄 개수 차이(`diff`)에 따라 `exact`(diff=0)/`approximate`(diff=1, 인접 클러스터 병합)/생략(diff≥2)으로 신뢰도를 구분하고, `\frac` 포함 줄은 다음 클러스터를 강제 병합한다. `LINE_GAP_THRESHOLD_PX`(32px)는 실기기 검증 전 잠정값. |
 | CAS 검증 서비스 연동 시점 | PRD §6.1, §1.3.1 4단계 | Python/SymPy 기반 별도 서비스(`CAS_SERVICE_URL`)가 준비되지 않았다면 결정론적 스텁으로 대체하고 실제 연동은 별도 작업으로 분리 |
 | METHOD(§4.8) 화면 Figma 미확인 | COMPONENT_MAP §3, §1.3.1 8단계 | 조사된 3개 프레임에 METHOD 전용 화면이 없음 — 별도 Figma 확인 필요, work-order 8단계는 확인 전까지 착수하지 않음 |
 | `curriculum_nodes` 확장 컬럼 UI 반영 범위 | PRD §7 | `definition_md`/`common_misconceptions` 확장 컬럼을 DiagnosisCard 등 화면에 어느 범위까지 노출할지 미정 — 백엔드 연동 단계(§1.3.1 4~5단계)에서 결정 |

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
+import { HandwritingHighlightOverlay } from "../../../features/drawing-canvas/HandwritingHighlightOverlay";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
 import { DiagnosisCard } from "../../../features/ai-solution/DiagnosisCard";
@@ -19,6 +20,7 @@ import { useProblemInput } from "../../../features/problem-input/useProblemInput
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
+import { deriveHighlightRegion } from "../../../shared/lib/solve/deriveHighlightRegion";
 import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLineJudgments";
 import { Badge } from "../../../shared/ui/badge/Badge";
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
@@ -52,6 +54,13 @@ export function SolveLandscapePage() {
     addPoint,
     undoStroke,
     clearStrokes,
+    workStrokes,
+    workTool,
+    setWorkTool,
+    startWorkStroke,
+    addWorkPoint,
+    undoWorkStroke,
+    clearWorkStrokes,
     hasProblemInput,
     lastInputType,
     beginReinput,
@@ -183,6 +192,12 @@ export function SolveLandscapePage() {
   const isResultReady = solveStatus === "success" && solveResult !== null;
   // SOLVE-2(진단) 경로의 결과 준비 상태 — `isResultReady`(WORK-4/solve 경로)와 별개다.
   const isDiagnosisReady = diagnoseStatus === "success" && diagnosis !== null;
+  // 진단(DIAG) 단계에서만 "막힌 지점" 하이라이트를 계산한다 — 학생이 실제로 쓴 WORK 캔버스
+  // (`workStrokes`)와 그 인식 결과(`workLines`)를 진단 결과(`diagnosis.stallLine`)에 매핑한다
+  // (오너 승인, work-order 6단계). `diagnosis.stallLine === null`(중단형)이거나 매핑 신뢰도가
+  // 너무 낮으면 `deriveHighlightRegion`이 `null`을 반환해 오버레이가 아무것도 그리지 않는다.
+  const highlightRegion =
+    isDiagnosisReady && diagnosis ? deriveHighlightRegion(workStrokes, workLines ?? [], diagnosis) : null;
   // 제출을 시작한 시점부터 성공까지 `ResultPanelShell`을 항상 같은 DOM 요소로 유지한다(위 JSDoc
   // 참고) — 로딩용/완료용을 별개의 조건부 렌더링으로 나누지 않는다.
   const isPanelVisible = isSubmitting || streamedText.length > 0 || isResultReady || isDiagnosisReady;
@@ -212,9 +227,30 @@ export function SolveLandscapePage() {
     <div className="bg-bg-canvas solve-no-callout relative min-h-screen">
       <SolveHeader />
 
-      <HandwritingCanvas strokes={strokes} onStartStroke={startStroke} onAddPoint={addPoint} />
-
-      <PenRail activeTool={tool} onSelectTool={setTool} onUndo={undoStroke} onClear={clearStrokes} />
+      {/* 캔버스/PenRail 소스 전환(오너 승인, work-order 6단계 발견 A 수정): 진단(DIAG) 결과가
+          준비된 뒤에는 이 화면이 학생이 실제로 쓴 WORK 캔버스(`workStrokes`)를 보여줘야 한다 —
+          이전에는 INPUT 캔버스(`strokes`)만 보여줘서 진단에 쓰인 필기 자체를 볼 수 없는 공백이
+          있었다. 캔버스와 PenRail을 반드시 함께 전환한다(하나만 바꾸면 화면에 보이는 캔버스와
+          지우개/undo가 서로 다른 버퍼를 참조하게 된다) — `SolvePencilcanvasPage.tsx`의 동일
+          패턴 참고. 이로 인해 진단 화면의 지우개/undo가 진단에 쓰인 원본 필기를 지울 수 있는
+          부작용이 있지만 단순함을 우선해 그대로 둔다(오너 승인). */}
+      {isDiagnosisReady ? (
+        <>
+          <HandwritingHighlightOverlay region={highlightRegion} />
+          <HandwritingCanvas strokes={workStrokes} onStartStroke={startWorkStroke} onAddPoint={addWorkPoint} />
+          <PenRail
+            activeTool={workTool}
+            onSelectTool={setWorkTool}
+            onUndo={undoWorkStroke}
+            onClear={clearWorkStrokes}
+          />
+        </>
+      ) : (
+        <>
+          <HandwritingCanvas strokes={strokes} onStartStroke={startStroke} onAddPoint={addPoint} />
+          <PenRail activeTool={tool} onSelectTool={setTool} onUndo={undoStroke} onClear={clearStrokes} />
+        </>
+      )}
 
       {/* Result Panel(39:28)은 화면 우측에 독립 도킹된 패널이다. design-agent가 Figma(`38:21`)를
           재실측한 결과, Default 상태에서도 Action Bar 우측 끝이 Result Panel 좌측 끝과 10px
