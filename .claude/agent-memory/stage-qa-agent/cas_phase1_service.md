@@ -55,12 +55,43 @@ Two confirmed instances of this bug class so far:
    future CAS-related QA: check whether WORK-2/DIAG prompts and CAS's parser have converged on what
    counts as a "line" CAS can judge.
 
-3. **Delimiter-wrapped LaTeX risk (untested against live LLM, flagged not confirmed)**:
-   `parse_to_sympy` returns `None` for anything wrapped in `$...$`, `\(...\)`, or `\[...\]` — common
-   LLM/KaTeX habits. Neither `buildDiagnosePrompt`'s `problemAnswerLatex` instruction nor
-   `buildResumePrompt`'s "## 최종 답" instruction explicitly forbids these delimiters, and there's no
-   stripping/sanitization in `casClient.ts` or `parser.py`. Worth a live OpenAI smoke test
-   specifically checking whether real model output for these two fields ever includes `$`/`\(`/`\[`.
+3. **Delimiter-wrapped LaTeX risk — CONFIRMED HARMLESS via live OpenAI smoke test (2026-09-07)**:
+   `_strip_wrappers` in `parser.py` (added same day as the RESUME answerMd fix, item 1) already
+   handles this — confirmed live: real `resume()` output consistently wraps "## 최종 답" in
+   `\[\n10\n\]` (display-math delimiters + internal newlines), and `_strip_wrappers`'s
+   `s[2:-2]` + trailing `.strip()` correctly reduces it to `"10"`. Verified via direct curl to
+   `/verify-final-answer` with the exact live-captured string. Not a bug — downgrade any future
+   suspicion here unless a NEW delimiter shape shows up.
+
+4. **Sum/sequence "compound-expression = value" answer format mismatch — CONFIRMED live bug,
+   root cause of owner's real-device RESUME failure report (2026-09-07), still open**:
+   For problems whose "unknown" is itself a sigma expression (e.g. "Σ(k=1~15) a_k의 값을 구하라"),
+   `buildDiagnosePrompt`'s `problemAnswerLatex` instruction (example: `"x=3"` 또는 `"-1"`) is
+   ambiguous about bare-symbol vs bare-value vs "compound-expression=value" form, and live GPT
+   output is **non-deterministic** across this exact axis: 7/8 sampled `diagnose()` calls on the
+   identical input produced `problemAnswerLatex:"10"` (bare value), but 1/8 produced
+   `"\sum_{k=1}^{15}a_k=10"` (an `Eq` whose LHS is a `Sum`, not a bare `Symbol`). Meanwhile
+   `resume()`'s "## 최종 답" is consistently the bare value (`"10"`, per its own prompt's stricter
+   "no framing sentence, pure LaTeX" instruction) — never mirrors the sum notation itself. When
+   `problemAnswerLatex` lands in the `Eq(Sum(...), 10)` form, `equivalence.py`'s `is_equivalent`
+   parses both sides successfully (confirmed via curl: comparing the sum-equation string to itself
+   returns `verified:true`, ruling out a parse failure) but falls through to `return False` at the
+   final `else` — its "one side is Eq" branch only extracts a value when `eq.lhs.is_Symbol` or
+   `eq.rhs.is_Symbol` (the documented `"x=3"` pattern), and a `Sum(...)` is deliberately not treated
+   as a symbol. This is a real Phase-1-scope gap (a `Sum` LHS is arguably still "equation-transform
+   equivalence", not the excluded Phase-2 sequence *computation*, since no summation math needs to
+   happen — just recognizing `Eq(Sum(x,...), v)` vs `v` as the same value) — flag to the owner as a
+   candidate small Phase-1 extension (treat "compound-expr = value" the same as "symbol = value" in
+   `is_equivalent`, still zero new computation added) OR fix at the prompt layer instead
+   (`buildDiagnosePrompt` explicitly forbid "expression = value" form, force bare value always) —
+   both are legitimate fixes, pick one, don't do both redundantly.
+   **Live-repro technique used**: `.mts` importing `OpenAIAdapter` directly by absolute path (same
+   technique as the 4a-2/RESUME smoke tests in [[solve-v2-work-order]]), looping `diagnose()` N times
+   on identical input to catch the nondeterministic branch, then curl'ing the live CAS
+   `/verify-final-answer` endpoint directly with the two captured strings to confirm the exact
+   parse-succeeds-but-equivalence-fails mechanism (not a parse failure) — self-comparison
+   (`sum-eq` vs itself → `true`) is the key trick to distinguish "parse failed" from "equivalence
+   logic failed" without a raw-parse-output endpoint.
 
 ## Live-repro technique (reusable for future CAS/adapter QA)
 To exercise the *real* Node→CAS HTTP path end-to-end without a live Supabase/OpenAI:

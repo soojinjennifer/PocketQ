@@ -94,3 +94,29 @@ def test_downward_parabola_maximum_conclusion_is_equivalent():
     value = parse_to_sympy("5")
 
     assert is_equivalent(eq, value) is True
+
+
+def test_sum_expression_equation_matches_constant_value():
+    # 2026-09 실기기 회귀 발견: 구하는 대상 자체가 시그마 합인 등식("Σ(k=1~15)a_k=10")과
+    # 순수 값("10")을 비교 — 좌변이 Symbol이 아니라 Sum 식이어도 우변이 이미 상수이므로
+    # 비교 가능해야 한다.
+    eq = parse_to_sympy(r"\sum_{k=1}^{15}a_k=10")
+    value = parse_to_sympy("10")
+
+    assert is_equivalent(eq, value) is True
+    assert is_equivalent(value, eq) is True
+
+
+def test_sum_expression_equation_wrong_value_is_not_equivalent():
+    eq = parse_to_sympy(r"\sum_{k=1}^{15}a_k=10")
+    value = parse_to_sympy("11")
+
+    assert is_equivalent(eq, value) is False
+
+
+def test_neither_side_constant_remains_conservatively_false():
+    # 등식 양쪽 다 자유 기호를 포함한 식이면(비교 근거 없음) 여전히 보수적으로 False.
+    eq = parse_to_sympy("x+y=z")
+    value = parse_to_sympy("3")
+
+    assert is_equivalent(eq, value) is False
