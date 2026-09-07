@@ -18,9 +18,14 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-09-08, 사진 인식 확인 팝업 + CAS 시그마 등식 후속 수정 — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-08, WORK 캔버스 손가락 스크롤 + WORK 화면 버그 수정 — 정확한 해시는 `git log`로 확인):
 ```
-d6fd32f Add recognized-problem confirmation popup for photo input      ← 이번 세션, §3.26 전체 반영
+643a71b Add finger-scroll to the WORK canvas (PRD WORK-6)               ← 이번 세션, §3.28 전체 반영
+8db141b Fix RecognizedChip corner radius and ProblemCard leak in WORK stage  ← §3.27 전체 반영
+```
+이전 커밋(2026-09-08, 사진 인식 확인 팝업 + CAS 시그마 등식 후속 수정):
+```
+d6fd32f Add recognized-problem confirmation popup for photo input      ← §3.26 전체 반영
 76e9d45 Fix CAS equivalence check for non-symbol equation sides         ← §3.24 후속 수정
 ```
 이전 커밋(2026-09-07, work-order 6단계 캔버스 하이라이트 오버레이 + RESUME 버튼 색상 수정):
