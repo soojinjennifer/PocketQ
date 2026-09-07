@@ -235,6 +235,11 @@ async function recognizeThenGiveUp() {
   fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
 }
 
+// "문제가 인식되었습니다" 확인 팝업은 사진 입력일 때만 뜬다(`SolvePencilcanvasPage.handleRecognize`
+// 참고). 이 파일의 `recognizeThenGiveUp`/`recognizeDrawWorkThenDiagnose`는 `drawOneStroke`로 캔버스에
+// 직접 그리는 필기 입력만 사용하므로(사진 촬영은 `cameraFlow.test.tsx` 담당) 팝업이 뜨지 않는다 —
+// 따라서 이 두 헬퍼는 "계속하기" 클릭을 추가하지 않고 그대로 둔다. 사진 입력 경로의 팝업 게이트
+// 회귀 검증은 `cameraFlow.test.tsx`에서 담당한다.
 /**
  * SOLVE-2(진단) 경로 — "봐 주세요"는 1클릭으로 recognizeWork → diagnose를 이어서 실행하고 성공하면
  * 곧바로 `/solve/landscape`로 이동한다(중간 재확인 단계 제거, 오너 확정, `SolvePencilcanvasPage`

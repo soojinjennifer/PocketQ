@@ -438,6 +438,27 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 - `isResultReady`/`isDiagnosisReady`가 이론상 동시에 true가 될 경우 캔버스-패널 불일치 가능성(design-agent 발견, 이번 work-order가 새로 만든 조건 아니고 기존 구조에 내재, 실사용 경로 도달 가능성 불확실 — 차단 사유 아님).
 - `handleEditWork`("수정" 클릭)가 `diagnosis`를 null로 초기화한 직후 `navigate()`하는 동기 처리 사이 이론적 1프레임 창(스테이지 QA 발견, 실제 글리치/크래시 재현 안 됨, 가드/라우트 리다이렉트 위험 없음 — 우선순위 낮음).
 
+### 3.26 Solve/Pencilcanvas — 사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료 (2026-09-08, 미커밋)
+
+오너가 Figma 변경(`3-1 Solve/Pencilcanvas_1` node `127:445`, 팝업 node `279:611`, `3-2 Solve/Pencilcanvas_2` node `267:607`)을 근거로 요청: 사진으로 문제를 인식하면 팝업으로 인식된 문제를 먼저 보여주고, "계속하기" 선택 시에만 `RecognizedChip`만 남은 WORK 캔버스로 전환해 풀이 쓸 공간을 확보한다. "디자인 변경에 관련된 부분만 수정, 이미 구현된 기능은 절대 변경 금지"가 명시적 전제였다.
+
+**조사 결과(plan-agent+design-agent)**: `RecognizedChip`(3-2 WORK 단계 표시)은 이미 완성돼 있어 손댈 필요가 없었다 — 실제로 추가해야 하는 건 INPUT→WORK 전환 사이의 확인 팝업 게이트 하나뿐이었다. Figma 실측 결과 이 팝업(`Popup type="ProblemReg"`)은 사진 미리보기 없이 텍스트(캡션 "촬영한 문제"+인식 텍스트)만 담고, **필기 입력 전용 variant가 Figma에 없다** — 캡션 문구 자체가 "촬영한"이라는 사진 전제로 고정돼 있어, 오너 원문 "사진으로 문제를 인식하면"과 정확히 일치. 필기 입력은 이 팝업 없이 기존과 동일하게 즉시 WORK 전환된다.
+
+**구현 완료**:
+- `apps/web/src/pages/solve/pencilcanvas/SolvePencilcanvasPage.tsx` — 로컬 `isRecognizedPreviewOpen` state만 추가, 기존 렌더 블록 전체(캔버스/PenRail/ActionBar/로딩/에러 Modal)를 감싸는 조건 분기 하나만 씌움(내부 로직 무변경). `ProblemInputProvider`/`ProblemInputContext`의 `problemId`/`recognizedText`/`isWorkStage`/`recognizeOnly()` 등 기존 상태 관리는 전혀 건드리지 않음. `onNewProblem`에서도 팝업 상태를 함께 리셋.
+- **버그 수정(development-agent가 스스로 발견)**: 최초 설계안은 `lastInputType === "photo"`로 사진 여부를 판단하려 했으나, `handleRecognize`의 클로저가 클릭 시점 값을 고정해버려(stale closure) 실제로는 직전 인식 결과의 값을 참조하는 버그가 있었다. `capturedImage !== null`(클릭 시점의 동기 스냅샷)로 대체 — `normalizeProblemInput.ts`가 `photoBlob` 유무로 `inputType`을 정확히 같은 기준으로 판단하는 것과 로직상 동일함을 오케스트레이터가 검증.
+- `apps/web/src/shared/ui/modal/Modal.tsx`에 옵셔널 `content?: ReactNode`/`wide?: boolean` 슬롯 추가(additive-only) — 기존 로그인/회원가입/AUTH-9·10/에러 팝업 등 8곳 이상의 사용처는 두 prop을 전달하지 않아 픽셀 단위로 동일하게 렌더링됨(git diff로 확인). `wide`일 때만 폭 `690px`+이너 링 그림자 추가.
+- `apps/web/src/features/solve-session/RecognizedProblemPopup.tsx`(신규) — `Modal`의 `wide`/`content` 슬롯으로 조립, 미리보기 카드는 `ProblemCard.tsx`와 동일한 `Elevation/Photo Card` 그림자 리터럴 재사용(새 값 발명 없음), Figma 실측대로 `w-[540px] max-w-full`(design-agent 사후검수에서 `w-full`로 과하게 넓던 것 발견해 수정), 긴 인식 텍스트 대비 `max-h-[50vh] overflow-y-auto` 추가(stage-qa-agent 발견 MEDIUM 즉시 반영).
+- 테스트: `RecognizedProblemPopup.test.tsx`(신규), `cameraFlow.test.tsx`(사진 입력 인라인 시퀀스에 "계속하기" 클릭 추가), `problemInputFlow.test.tsx`는 필기 전용 헬퍼라 무변경(development-agent가 정확히 판단, stage-qa-agent가 코드+throwaway 렌더 테스트로 재확인).
+
+**검증**: design-agent 사후검수 — Medium 1건(카드 폭) 발견·수정 후 최종 PASS. stage-qa-agent 최종 회귀 — 사진/필기 입력 흐름 전부 실제 라우터 기반 E2E로 재현(사진: 팝업→계속하기→WORK→봐주세요→RESULT까지, 필기: 팝업 없이 즉시 WORK), `Modal` 기존 13곳 사용처 무회귀, RESUME/CAS/캔버스 하이라이트 오버레이 등 이전 세션 완성 기능 전부 zero-diff 확인. **최종 STAGE PASS.** **게이트**: typecheck/lint 전체, api 314/314(무변경), web 412/412, build 성공.
+
+**PRD 문구 갱신(오너 승인, 코드 아님)**: `docs/PRD_WHYMATH.md` WORK-1 AC의 "인식 확인 직후 캔버스 자동 표시"를 사진/필기 입력별로 실제 동작에 맞게 수정(사진: 팝업+계속하기 확인 후 표시, 필기: 자동 표시 유지). INPUT-3("인식 결과 확인 UI 존재")는 기존 AC 문구가 이미 포괄적이라 변경 없이 이번 팝업으로 그대로 충족.
+
+**알려진 제약(다음 단계 참고)**:
+- iPad 실기기(1194×834) 팝업 렌더/터치는 여전히 미검증(코드 검토만 수행).
+- `Modal.tsx`의 icon 변형 콘텐츠 패딩(`pt-8 pb-6`)이 Figma 실측(`pt-[26px] pb-[20px]`)과 소폭 다름 — 이번 작업 이전부터 있던 기존 값이라 회귀는 아니며, 다음에 `Modal` 관련 작업 시 재검증 권장(design-agent 발견, Low).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -468,7 +489,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+**work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값 버그 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+**사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환됨. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건). CAS Phase 2(부등식 방향/미적분/수열)는 오너 재승인 전까지 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 
@@ -477,7 +498,7 @@ RESUME-1~3(생성/연속성/무엇을·왜 서술)은 실제 라이브 OpenAI �
 1. `git status`/`git diff`로 이 문서와 실제 상태가 일치하는지 재확인(임의 커밋 금지, 커밋 전 항상 오너 확인). **이 세션 끝에 커밋을 진행했다면 실제 커밋 해시로 §2를 갱신할 것.**
 2. LAN IP가 또 바뀌었는지 확인(§3.8) — `ifconfig`로 현재 IP 확인 후 `.env` 2곳 + mkcert 인증서 재발급.
 3. iPad 실기기에서 확인이 필요한 것(§3.11) — 키보드 열림/닫힘/회전 시 후속 질문 입력창이 정상 동작하는지.
-4. Solve v2.0 재구현(§3.16~3.25, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME), CAS Phase 1 실제 서비스 구축, **work-order 6단계(캔버스 하이라이트 오버레이)**까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 다음 우선순위를 확인할 것: (a) work-order 7단계(CHAT 컨텍스트 확장) 착수 여부, (b) CAS Phase 2(부등식 방향/미적분/수열, §3.24 "알려진 제약" 참고) 착수 여부 — **오너 재승인 없이는 절대 먼저 진행하지 말 것**(오너가 명시적으로 상기 요청함). **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장(§3.25의 `LINE_GAP_THRESHOLD_PX` 잠정값 보정도 포함). 실제 OpenAI 어댑터가 CAS 연동 후 새 "순수 LaTeX만" 프롬프트 지시를 실제로 지키는지 라이브 스모크 테스트 필요(§3.24 "알려진 제약" 참고, FakeAdapter 기준으로만 확인됨). 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, §3.25 "알려진 제약"의 `isResultReady`/`isDiagnosisReady` 동시 참 가능성, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
+4. Solve v2.0 재구현(§3.16~3.26, §5 6.6단계) — 1~4b, 4b 정정(1차+2차), work-order 5단계(RESUME), CAS Phase 1 실제 서비스 구축(+시그마 등식 후속 수정), work-order 6단계(캔버스 하이라이트 오버레이), **사진 인식 확인 팝업(§3.26)**까지 전부 완료·검증된 상태다(최종 STAGE PASS). 오너에게 다음 우선순위를 확인할 것: (a) work-order 7단계(CHAT 컨텍스트 확장) 착수 여부, (b) CAS Phase 2(부등식 방향/미적분/수열, §3.24 "알려진 제약" 참고) 착수 여부 — **오너 재승인 없이는 절대 먼저 진행하지 말 것**(오너가 명시적으로 상기 요청함). **커밋이 아직 안 됐다** — 세션 종료 전이든 다음 세션 시작 시든 먼저 오너에게 커밋 여부를 확인할 것(이 프로젝트는 명시적 요청 없이 커밋하지 않는 것이 규칙). iPad 실기기(1194×834 가로/Split View) 렌더는 여전히 미검증(코드/Figma 대조만 수행) — 실기기 테스트 권장(§3.25의 `LINE_GAP_THRESHOLD_PX` 잠정값 보정, §3.26 팝업 렌더 포함). 실제 OpenAI 어댑터가 CAS 연동 후 새 "순수 LaTeX만" 프롬프트 지시를 실제로 지키는지는 §3.24 후속 수정에서 라이브로 확인 완료(문제없음, 시그마 등식 케이스만 CAS 판정 로직 확장 필요했음). 백로그(`RecognizedProblemBar` 라벨, `Badge` `chip` size, `elevatedCardStyle.ts` 중복, `AnswerBox.tsx`의 무효 Figma 노드 인용, §3.25 "알려진 제약"의 `isResultReady`/`isDiagnosisReady` 동시 참 가능성, §3.26의 `Modal` icon 변형 패딩 소폭 불일치, `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §7 결정 필요 항목들)는 이번 work-order와 무관하게 언제든 별도로 처리 가능.
 5. 오너에게 다음 우선순위를 확인:
    - `ChatBubble`(§3.9) — Figma에 정식 대화 버블 디자인이 추가되면 교체 필요.
    - 제안 질문 pill 문구가 정적 placeholder(§3.9) — 실제 문제/풀이 맥락 기반 추천 로직으로 교체할지.

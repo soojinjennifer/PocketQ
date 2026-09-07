@@ -1,12 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import emailIcon from "../../../assets/icons/email.svg";
 
 type ModalIcon = "check" | "email" | "error";
 
 interface ModalProps {
-  icon: ModalIcon;
+  /** `content`가 제공되면 아이콘 원은 렌더링되지 않으므로 이 경우 생략할 수 있다. */
+  icon?: ModalIcon;
   title: string;
-  description: string;
+  /** `content`가 제공되면 무시된다(둘 중 하나만 사용). */
+  description?: string;
+  /** 제공되면 아이콘 원 + `description` 대신 이 콘텐츠를 제목 아래에 렌더링한다(예: 인식된 문제
+   *  미리보기 카드). `RecognizedProblemPopup` 전용으로 추가된 슬롯 — 기존 icon/description
+   *  사용처는 이 prop을 전달하지 않으므로 동작이 그대로 유지된다. */
+  content?: ReactNode;
+  /** `true`면 카드 폭을 `w-[690px]`(최대 `calc(100%-3rem)`)로 넓히고 이너 링 그림자를 추가한다.
+   *  기본값 `false` — 기존 8곳 이상의 사용처는 이 prop을 전달하지 않아 기존 `w-[342px]` 레이아웃과
+   *  그림자가 픽셀 단위로 그대로 유지된다. */
+  wide?: boolean;
   actionLabel: string;
   onAction: () => void;
   /** 취소 버튼 라벨. `onCancel`과 함께 제공될 때만 2버튼(확인/취소) 레이아웃으로 전환된다. */
@@ -33,6 +43,8 @@ export function Modal({
   icon,
   title,
   description,
+  content,
+  wide = false,
   actionLabel,
   onAction,
   cancelLabel,
@@ -52,22 +64,28 @@ export function Modal({
         role={isError ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-live={isError ? "assertive" : undefined}
-        className="bg-bg-canvas border-modal-border w-[342px] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11)]"
+        className={
+          wide
+            ? "bg-bg-canvas border-modal-border w-[690px] max-w-[calc(100%-3rem)] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11),inset_0px_2px_0px_1px_rgba(255,255,255,0.9),inset_0px_-2px_0px_1px_rgba(35,43,56,0.07)]"
+            : "bg-bg-canvas border-modal-border w-[342px] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11)]"
+        }
       >
         <div className="flex flex-col items-center gap-3 px-6 pt-8 pb-6">
-          <div
-            className={`flex size-14 items-center justify-center rounded-full shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_8px_rgba(35,43,56,0.14),0px_20px_17px_rgba(35,43,56,0.08)] ${icon === "error" ? "bg-accent-orange" : "bg-brand"}`}
-          >
-            {icon === "check" ? (
-              <span className="text-2xl font-bold text-white">✓</span>
-            ) : icon === "error" ? (
-              <span className="text-2xl font-bold text-white">!</span>
-            ) : (
-              <img src={emailIcon} className="size-[19px]" alt="" />
-            )}
-          </div>
+          {content ? null : (
+            <div
+              className={`flex size-14 items-center justify-center rounded-full shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_8px_rgba(35,43,56,0.14),0px_20px_17px_rgba(35,43,56,0.08)] ${icon === "error" ? "bg-accent-orange" : "bg-brand"}`}
+            >
+              {icon === "check" ? (
+                <span className="text-2xl font-bold text-white">✓</span>
+              ) : icon === "error" ? (
+                <span className="text-2xl font-bold text-white">!</span>
+              ) : (
+                <img src={emailIcon} className="size-[19px]" alt="" />
+              )}
+            </div>
+          )}
           <h2 className="text-label-primary text-center text-[19px] font-bold">{title}</h2>
-          <p className="text-modal-subtitle text-center text-sm">{description}</p>
+          {content ?? <p className="text-modal-subtitle text-center text-sm">{description}</p>}
         </div>
         <div className="bg-modal-divider h-px" />
         {hasCancel ? (

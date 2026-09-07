@@ -171,6 +171,12 @@ describe("사진 문제 입력 흐름", () => {
     // `/solve/pencilcanvas`에 그대로 머무른다 — WORK 단계로 전환되면 "아직 못 풀겠어요"를 눌러야
     // (기존 solve 재사용) `/solve/landscape`로 이동하며 결과가 표시된다.
     fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+
+    // 사진 입력이므로 인식 완료 직후 "문제가 인식되었습니다" 확인 팝업이 먼저 뜬다(Figma 신규,
+    // 오너 승인) — "계속하기"를 눌러야 WORK 캔버스("아직 못 풀겠어요" 버튼)로 넘어간다.
+    expect(await screen.findByText("문제가 인식 되었습니다")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "계속하기" }));
+
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
     );
