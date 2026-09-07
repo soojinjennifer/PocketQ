@@ -53,4 +53,22 @@ describe("ResumeModeBar", () => {
 
     expect(screen.getByText("이 방법으로는 이어갈 수 없어요")).toBeInTheDocument();
   });
+
+  it("선택된 버튼은 pill-primary(bg-brand) 스타일을, 비선택 버튼은 pill-tint(bg-fill-tint-brand) 스타일을 갖는다(Figma 255:87/272:248 실측)", () => {
+    render(<ResumeModeBar mode="own" onModeChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "내 방법으로 계속" }).className).toContain("bg-brand");
+    expect(screen.getByRole("button", { name: "다른 방법으로" }).className).toContain(
+      "bg-fill-tint-brand",
+    );
+  });
+
+  it("mode가 alternative이면 선택/비선택 스타일이 뒤바뀐다", () => {
+    render(<ResumeModeBar mode="alternative" onModeChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "내 방법으로 계속" }).className).toContain(
+      "bg-fill-tint-brand",
+    );
+    expect(screen.getByRole("button", { name: "다른 방법으로" }).className).toContain("bg-brand");
+  });
 });

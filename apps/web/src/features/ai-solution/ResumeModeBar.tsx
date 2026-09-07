@@ -20,12 +20,13 @@ interface ResumeModeBarProps {
  * `docs/COMPONENT_MAP.md` §2 `features/ai-solution/ResumeModeBar` — "내 방법으로 계속"(RESUME-1)
  * / "다른 방법으로"(METHOD, RESUME-4 대안 해법 안내) 두 모드를 전환하는 바.
  *
- * 2026-09 design-agent Figma 실측(`255:87`) 결과에 맞춰 재작성했다 — 이전 구현은 `ActionBar`와
- * 같은 glass pill 컨테이너(배경/보더 있는 캡슐)로 톤을 추정했지만, 실측 결과 바깥 컨테이너에는
- * 배경/보더가 전혀 없고 두 버튼이 `gap-[8px]`로 나란히 배치되며 각각 `flex-1`로 균등 2분할된다
- * (384px 프레임 기준 각 188px). 선택된 버튼은 `pill-primary`(브랜드 인디고)가 아니라
- * `pill-dark`(`bg-label-primary` — Figma 실측 `label/primary #232b38`와 일치)를 쓴다. 비선택
- * 버튼(`pill-glass`)은 기존 실측과 일치해 그대로 둔다.
+ * 2026-09 design-agent Figma 실측(`255:87` "내 방법으로 계속" 활성 / `272:248` "다른 방법으로"
+ * 활성) 결과에 맞춰 재작성했다 — 바깥 컨테이너에는 배경/보더가 전혀 없고 두 버튼이 `gap-[8px]`로
+ * 나란히 배치되며 각각 `flex-1`로 균등 2분할된다(384px 프레임 기준 각 188px). 두 버튼은 완전
+ * 대칭 구조로, 선택된 버튼은 `pill-primary`(`bg-brand` — Figma 실측 `brand/indigo #5e6e82`와
+ * 일치), 비선택 버튼은 `pill-tint`(`bg-fill-tint-brand` — Figma 실측 `fill/tint-blue
+ * #5e6e8229`와 일치)를 쓴다. 이전 구현은 선택 버튼에 `pill-dark`(`bg-label-primary`, 거의 검정),
+ * 비선택 버튼에 크림톤 `pill-glass`(`bg-glass-fill`)를 잘못 사용했다.
  */
 export function ResumeModeBar({
   mode,
@@ -37,7 +38,7 @@ export function ResumeModeBar({
     <div className="flex flex-col gap-1">
       <div className="flex items-start gap-2">
         <Button
-          variant={mode === "own" ? "pill-dark" : "pill-glass"}
+          variant={mode === "own" ? "pill-primary" : "pill-tint"}
           disabled={ownModeDisabled}
           onClick={() => onModeChange("own")}
           className="flex-1"
@@ -45,7 +46,7 @@ export function ResumeModeBar({
           내 방법으로 계속
         </Button>
         <Button
-          variant={mode === "alternative" ? "pill-dark" : "pill-glass"}
+          variant={mode === "alternative" ? "pill-primary" : "pill-tint"}
           onClick={() => onModeChange("alternative")}
           className="flex-1"
         >

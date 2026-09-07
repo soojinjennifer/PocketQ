@@ -7,6 +7,7 @@ type ButtonVariant =
   | "pill-dark"
   | "pill-primary"
   | "pill-glass"
+  | "pill-tint"
   | "select"
   | "logout";
 
@@ -22,6 +23,10 @@ const VARIANT_STYLES: Record<ButtonVariant, string> = {
   "pill-dark": "bg-label-primary text-bg-elevated",
   "pill-primary": "bg-brand text-bg-elevated",
   "pill-glass": "bg-glass-fill border border-glass-border text-label-primary",
+  // Figma `Button/Pill`(node `272:248`, "다른 방법으로" 비선택 상태) 실측 — `fill/tint-blue`
+  // 배경(블루그레이 톤). 크림톤 `pill-glass`(`bg-glass-fill`)와는 다른 색으로, ResumeModeBar의
+  // 비선택 버튼 전용이다.
+  "pill-tint": "bg-fill-tint-brand border border-glass-border text-label-primary",
   // Figma `Button/Selct`(node `42:188`) / `Button/Logout`(node `42:191`) — 마이페이지 프로필
   // 헤더 카드의 보조 액션 버튼. 아래 `COMPACT_PILL_BASE_STYLE`과 함께 쓴다.
   select: "bg-fill-tint-brand text-brand",
@@ -32,6 +37,7 @@ const PILL_VARIANTS: ReadonlySet<ButtonVariant> = new Set([
   "pill-dark",
   "pill-primary",
   "pill-glass",
+  "pill-tint",
 ]);
 
 /** Figma `Button/Selct`/`Button/Logout` 계열 — pill과 같은 완전 라운드지만 여백이 더 좁다. */
