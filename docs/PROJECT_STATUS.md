@@ -18,10 +18,15 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-09-07, work-order 6단계 캔버스 하이라이트 오버레이 + RESUME 버튼 색상 수정 — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-08, 사진 인식 확인 팝업 + CAS 시그마 등식 후속 수정 — 정확한 해시는 `git log`로 확인):
 ```
-ed310a2 Add HandwritingHighlightOverlay for work-order step 6           ← 이번 세션, §3.25 전체 반영
-475329a Fix ResumeModeBar selected/unselected button colors per Figma   ← 이번 세션
+d6fd32f Add recognized-problem confirmation popup for photo input      ← 이번 세션, §3.26 전체 반영
+76e9d45 Fix CAS equivalence check for non-symbol equation sides         ← §3.24 후속 수정
+```
+이전 커밋(2026-09-07, work-order 6단계 캔버스 하이라이트 오버레이 + RESUME 버튼 색상 수정):
+```
+ed310a2 Add HandwritingHighlightOverlay for work-order step 6           ← §3.25 전체 반영
+475329a Fix ResumeModeBar selected/unselected button colors per Figma
 ```
 이전 커밋(2026-09-07, CAS 실제 서비스 Phase 1):
 ```
