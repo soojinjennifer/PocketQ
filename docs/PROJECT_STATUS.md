@@ -358,6 +358,8 @@ Stage 3에서 발견된 저조한 승인률(§3.14 "결함 수정 후 결과가 
 
 ### 3.22 Solve v2.0 WORK 흐름 단순화 + 결과 화면 "수정" 링크 + 사진 유지 (2026-09-06, 미커밋)
 
+> **2026-09-08 번복(§3.29 참고)**: 아래 "사진 유지" 결정(결과 화면에서도 사진 입력 시 `ProblemCard` 노출)은 오너가 iPad 실기기 확인 후 명시적으로 번복했다 — 결과 화면에서는 이제 입력 방식과 무관하게 사진을 완전히 숨긴다. 이 섹션의 "사진 유지" 관련 서술은 히스토리로만 남기고, 현재 동작은 §3.29를 따른다.
+
 오너가 iPad 실기기 테스트 후 3건을 요청: (1) WORK 단계 "봐 주세요" 클릭 후 캔버스 재확인 단계(`WorkLineEditor`) 없이 바로 진단 결과 화면으로 이동, 대신 결과 화면에서 "수정" 클릭 시 WORK 캔버스로 돌아가 재인식, (2) 사진으로 입력하지 않은 경우(필기만) 결과 화면에 "사진 인식 박스"(`ProblemCard`)가 보이지 않게, (3) 진단 결과 하단 RESUME 버튼("내 방법으로 계속"/"다른 방법으로") 부재 확인 요청 — design-agent 조사로 work-order 5단계(RESUME 백엔드 연동) 범위이며 아직 미착수임을 확인, 이번 단계에서는 구현하지 않음(코드 변경 없음).
 
 plan-agent가 (1)(2) 구현 계획을 수립하며 신규로 발견한 점: `submitProblem()`(재입력 후 재제출 경로)도 사진 입력 시 `clearCapturedImage()`를 무조건 호출해 (2)와 같은 문제가 있어 원래 요청 범위(`diagnose`/`giveUp`)에 포함시켜야 일관성이 맞는다고 판단, 오너 승인 후 포함해 진행.
@@ -496,6 +498,23 @@ design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 �
 - iPad 실기기 전용 미검증 항목: 실제 Apple Pencil 호버 시 iOS 네이티브 팜 리젝션과 이번 수동 스크롤 로직의 상호작용, 실제 1/2손가락 스크롤 체감, 터치가 스크롤 중 캔버스 밖(예: `PenRail`)으로 벗어날 때 `setPointerCapture` 미적용으로 인한 제스처 중단 가능성(MEDIUM, 코드 리뷰 기반 가설, jsdom으로 재현 불가), 1194×834 가로/좁은 Split View에서의 실제 시각적 레이아웃과 캔버스 확장 동작.
 - 캔버스 콘텐츠 확장에 상한이 없음(오너 승인, 극단적으로 긴 풀이에 대한 메모리/성능 부하는 미검증).
 
+### 3.29 `/solve/landscape` 결과 화면 — 사진 미리보기 완전 은닉 (§3.22 결정 번복, 2026-09-08, 미커밋)
+
+오너가 §3.22의 "사진 입력이면 결과 화면에서도 사진 유지" 결정을 iPad 실기기에서 실제로 확인한 뒤 번복 — WORK 단계의 작은 "인식됨" 표시에서 결과 화면의 큰 사진 카드로 갑자기 바뀌는 게 퇴보처럼 느껴진다고 지적. **새 결정: 결과 화면에서는 입력 방식(사진/필기) 및 결과 경로(WORK-4 solve / SOLVE-2 diagnose)와 무관하게 사진을 완전히 숨긴다.**
+
+design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 프레임에 `Problem Card` 인스턴스 자체가 없음을 확인 — 이번 변경은 원래 Figma 설계로 되돌리는 것에 가깝다. 부수적으로 이 프레임의 캔버스 좌상단에 WORK 화면과 동일한 작은 `Recognized Chip` 인스턴스가 있다는 것도 새로 발견했으나(`docs/COMPONENT_MAP.md`에 미반영), 오너가 "이번엔 사진 숨김만, 칩 추가는 다음에"로 범위를 분리해 이번 작업에는 포함하지 않았다.
+
+**구현**: `apps/web/src/pages/solve/landscape/SolveLandscapePage.tsx`의 `ProblemCard` 렌더 조건을 `problemCardData !== null`에서 `problemCardData !== null && "needsRetake" in problemCardData`로 변경 — `problemCardData`가 `{needsRetake:true} | {imageUrl:string} | null` 유니언이므로, 사진 미리보기(`{imageUrl}`) 케이스만 로딩/성공 상태와 무관하게 완전히 제거되고 "수정" 흐름의 재촬영 안내(`{needsRetake:true}`) 케이스는 그대로 유지된다. **`isResultReady`/`isDiagnosisReady`를 직접 부정하는 조건은 의도적으로 쓰지 않았다** — 그렇게 하면 로딩 중(`isSubmitting`) 구간에는 여전히 사진이 남아 있어 오너가 지적한 문제(진입 직후 큰 카드가 잠깐 보였다 사라짐)가 절반만 해결되기 때문(design-agent 발견).
+
+`RecognizedProblemBar`(결과 패널 바디 내부 텍스트 기반 인식 표시)는 전혀 손대지 않았다 — 계속 정상 노출.
+
+**검증**: design-agent 사후검수 PASS. stage-qa-agent 최종 회귀 STAGE PASS — 사진 입력 두 경로(WORK-4/solve, SOLVE-2/diagnose) 모두 로딩·완료 전 구간에서 사진이 전혀 안 보이는 것을 실제 E2E로 재현(기존 테스트에 없던 "사진+진단" 조합은 임시 E2E로 직접 닫고, 수정 전 조건으로 되돌려 실패 재현 후 원복하는 방식으로 비어있지 않은 검증임을 확인). "수정"/재촬영 안내 흐름, `RecognizedProblemPopup`/WORK 단계 수정(§3.27)/캔버스 스크롤(§3.28)/RESUME/CAS/캔버스 하이라이트 오버레이 전부 zero-diff 무회귀 확인. **게이트**: typecheck/lint 전체, api 314/314(무변경), web 422/422, build 성공.
+
+**알려진 후속 항목(비차단, 다음 정리 작업 권장)**:
+- `ProblemInputProvider.tsx`의 `submitProblem`/`giveUp`/`diagnose`가 `lastInputType==="photo"`일 때 `clearCapturedImage()`를 스킵하는 로직(§3.22에서 도입)의 근거 주석("결과 화면에 사진을 계속 보여줘야 하므로")이 이번 변경으로 더 이상 사실이 아니게 됐다 — `capturedImage`를 이 페이지에서 소비하는 곳(`problemCardData`의 `imageUrl` 분기)이 없어졌기 때문. 기능/테스트/빌드에는 영향 없지만, 다음 세션에서 이 스킵 로직을 제거하거나 주석을 갱신할 것(design-agent 발견, MEDIUM 비차단).
+- Figma `38:21`에서 발견된 캔버스 좌상단 `Recognized Chip` 인스턴스를 `/solve/landscape`에도 추가할지 — 오너 확인 후 별도 작업.
+- iPad 실기기 시각 확인 미검증(이번 변경 자체가 실기기 확인 결과를 반영한 것이라 로직 검증으로 충분하다고 판단되나, 여백/레이아웃 흔들림은 재확인 권장).
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -526,7 +545,7 @@ design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤해 확장할 수 있음. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** +**DIAG 결과 화면 사진 미리보기 완전 은닉, §3.22 결정 번복(§3.29)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤해 확장할 수 있으며, 결과 화면에서는 입력 방식(사진/필기)과 무관하게 사진 미리보기가 노출되지 않음(WORK 단계와 동일하게 완전 숨김). 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 

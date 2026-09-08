@@ -187,9 +187,10 @@ describe("사진 문제 입력 흐름", () => {
     fireEvent.click(screen.getByRole("button", { name: "아직 못 풀겠어요" }));
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
-    // 사진으로 입력한 경우 결과 화면에서도 원본 사진(Problem Card)이 계속 보여야 한다(오너 확정,
-    // 2026-09) — 필기 입력과 달리 사진 Blob은 풀이 성공 후에도 정리하지 않는다.
-    expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument();
+    // 결과 화면에서는 사진을 숨긴다(오너 확정, 2026-09-08, 이전 결정 번복) — Figma `38:21` 재실측
+    // 결과 이 화면에 Problem Card 인스턴스 자체가 없어, WORK 단계의 "인식됨" 표시에서 결과 화면의
+    // 큰 사진 카드로 바뀌는 퇴보를 없앤다.
+    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "수정" }));
     expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();

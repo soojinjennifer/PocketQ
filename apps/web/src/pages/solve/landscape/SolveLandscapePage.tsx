@@ -265,10 +265,14 @@ export function SolveLandscapePage() {
           (24+42+24=90) 유도값이다(기존 값 유지). 폭/정렬(543px, mx-auto)도 기존 값을 그대로
           재사용한다 — 화면 전체 폭 기준 중앙정렬이며 우측 예약폭은 없다(위 코멘트 참고, Result
           Panel과 겹칠 수 있음). 로딩 중 표시는 더 이상 이 컬럼에 두지 않고 우측
-          `ResultPanelShell`로 통합했다(위 JSDoc 참고) — ProblemCard만 남는다. */}
+          `ResultPanelShell`로 통합했다(위 JSDoc 참고). 결과 화면에서는 촬영 사진(`{imageUrl}`)을
+          완전히 숨긴다(오너 확정, 2026-09-08, 이전 결정 번복 — Figma `38:21` 재실측 결과 이 화면에
+          Problem Card 인스턴스 자체가 없음을 확인). `"needsRetake" in problemCardData`로 게이팅해
+          "수정" 흐름의 재촬영 안내(`{needsRetake:true}`) 케이스만 남기고, 사진 미리보기는
+          로딩/성공 여부와 무관하게 렌더링하지 않는다. */}
       <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10">
         <div className="mx-auto flex w-[543px] max-w-[calc(100%-3rem)] flex-col gap-3">
-          {problemCardData !== null ? (
+          {problemCardData !== null && "needsRetake" in problemCardData ? (
             <ProblemCard data={problemCardData} onRequestRetake={handleRequestRetakePhoto} />
           ) : null}
         </div>
