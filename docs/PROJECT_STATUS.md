@@ -18,9 +18,13 @@
 
 ## 2. Git 상태
 
-최근 커밋(2026-09-08, DIAG 결과 화면 사진 미리보기 완전 은닉 — 정확한 해시는 `git log`로 확인):
+최근 커밋(2026-09-09, Solve v2.0 UX 반복 개선+MyPage 일괄 액션+배포 준비 — 정확한 해시는 `git log`로 확인):
 ```
-1f8e6d4 Hide photo preview on Solve result screen regardless of input type   ← 이번 세션, §3.29 전체 반영
+33215c5 Iterate Solve v2.0 UX from real-device feedback, ship MyPage bulk actions, and prep deployment   ← 이번 세션, §3.30~3.38 전체 반영
+```
+이전 커밋(2026-09-08, DIAG 결과 화면 사진 미리보기 완전 은닉):
+```
+1f8e6d4 Hide photo preview on Solve result screen regardless of input type   ← §3.29 전체 반영
 ```
 이전 커밋(2026-09-08, WORK 캔버스 손가락 스크롤 + WORK 화면 버그 수정):
 ```
@@ -519,7 +523,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 - Figma `38:21`에서 발견된 캔버스 좌상단 `Recognized Chip` 인스턴스를 `/solve/landscape`에도 추가할지 — 오너 확인 후 별도 작업.
 - iPad 실기기 시각 확인 미검증(이번 변경 자체가 실기기 확인 결과를 반영한 것이라 로직 검증으로 충분하다고 판단되나, 여백/레이아웃 흔들림은 재확인 권장).
 
-### 3.30 `SolveScroll` — WORK 캔버스 스크롤 인디케이터 (2026-09-08, 미커밋)
+### 3.30 `SolveScroll` — WORK 캔버스 스크롤 인디케이터 (2026-09-08, 커밋 `33215c5`)
 
 오너가 Figma `Solve Scroll (Step=First)`(node `302:167`)를 근거로 `/solve/pencilcanvas` WORK 단계 캔버스(§3.28 손가락 스크롤)에 시각적 스크롤 인디케이터를 요청. 마커 4개가 스크롤 가능 범위의 0/33/66/100% 지점을 가리키며, 펜으로 탭하면 그 비율 위치로 캔버스가 프로그래매틱하게 스크롤된다(오너 확정: 고정 4단계, 비율 매핑).
 
@@ -531,7 +535,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **검증**: development-agent 구현 → orchestrator 독립 재검증(4게이트+diff 리뷰) → design-agent 사후검수(버그 발견·수정, 재검증) → orchestrator 재검증 → stage-qa-agent **STAGE PASS**(신규 `SolveScroll.test.tsx` 4개 테스트 비공허성 확인, `HandwritingCanvas.test.tsx` 팜 리젝션 회귀 없음, `PenRail.tsx`/`/solve/landscape`/`HandwritingHighlightOverlay.tsx` zero-diff 확인). **게이트**: web typecheck/lint/test 426/426/build 전부 통과. iPad 실기기 시각 확인은 미검증(NOT VERIFIED, 물리 기기 필요).
 
-### 3.31 `RecognizedChip` 확장 — WORK 단계 인식 카드 좌측 확대 (2026-09-08, 미커밋)
+### 3.31 `RecognizedChip` 확장 — WORK 단계 인식 카드 좌측 확대 (2026-09-08, 커밋 `33215c5`)
 
 오너가 Figma `267:607`의 확장 인스턴스 오버라이드(316×230)를 근거로 WORK 단계 인식 카드를 확장 가능하게 요청. 트리거는 칩 자체 탭이 아니라 별도 확장 버튼, 축소 상태는 기존 위치(화면 상단 중앙) 유지, 확장 시에만 PenRail 우측으로 이동, 사진 입력이면 확대 이미지·필기 입력이면 인식 텍스트 전체 표시(모두 오너 확정).
 
@@ -555,7 +559,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 > **§3.32에서 대체됨**: 오너가 iPad 실기기에서 "PenRail+SolveScroll 그룹이 화면 중앙에 와서 잘림", "RecognizedChip이 처음부터 왼쪽 고정이어야 하는데 위 §3.31 방식(축소=중앙, 확장=PenRail 우측)이 적용 안 됨"을 재차 보고 → PenRail 자체 위치 지정 + `autoFocusToggle` 포커스 유지 메커니즘 전체를 폐기하고 그룹 컨테이너화 + 위치 고정으로 재작업했다. 아래 §3.32 참고.
 
-### 3.32 PenRail+SolveScroll 그룹화 + `RecognizedChip` Figma 정식 컴포넌트 반영 (2026-09-08, 미커밋)
+### 3.32 PenRail+SolveScroll 그룹화 + `RecognizedChip` Figma 정식 컴포넌트 반영 (2026-09-08, 커밋 `33215c5`)
 
 오너가 iPad 실기기에서 §3.30/§3.31 결과물을 테스트한 뒤 두 가지를 재요청: (1) PenRail+SolveScroll 그룹 위치가 화면 중앙에 와서 잘림, (2) `RecognizedChip`을 Figma에 새로 만든 정식 컴포넌트(node `310:1498`, 접힘 인스턴스 `250:56`/펼침 인스턴스 `310:1499`)로 다시 구현하고 "축소=중앙/확장=PenRail 우측"이 아니라 "처음부터 PenRail 그룹 우측에 고정, 펼쳐도 위치 불변"으로 변경.
 
@@ -576,7 +580,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 > **RecognizedChip 위치는 §3.33에서 다시 원복됨**: 오너가 iPad 실기기에서 "PenRail 그룹 우측 고정"을 확인한 뒤 왼쪽 치우침을 이유로 철회, 화면 상단 중앙(Figma 실측 확인)으로 되돌렸다. PenRail+SolveScroll 그룹화(잘림 방지) 자체는 §3.33에서도 그대로 유지된다.
 
-### 3.33 `RecognizedChip` 화면 상단 중앙 위치 원복 + 1줄 말줄임 실제 동작 수정 (2026-09-09, 미커밋)
+### 3.33 `RecognizedChip` 화면 상단 중앙 위치 원복 + 1줄 말줄임 실제 동작 수정 (2026-09-09, 커밋 `33215c5`)
 
 오너가 §3.32의 "RecognizedChip을 PenRail 그룹 우측에 고정" 결과물을 iPad 실기기에서 확인한 뒤 두 가지를 재보고: (1) 칩이 화면 왼쪽으로 치우쳐 보기 이상함 — "왼쪽 고정" 요구사항을 철회하고 Figma에 실제 디자인된 화면 상단 중앙 배치로 되돌려달라(확장 시 사진 노출 기능은 유지), (2) 긴 인식 텍스트에서 1줄 말줄임(ellipsis)이 동작하지 않고 텍스트가 박스 밖으로 삐져나감.
 
@@ -594,7 +598,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **검증**: design-agent 조사(읽기 전용, 정확한 수정 지시) → development-agent 구현 → orchestrator 독립 재검증 → stage-qa-agent **STAGE PASS**(fail→fix→pass 재현 포함) → orchestrator가 죽은 ref 정리 후 4게이트 재확인. **게이트**: web typecheck/lint/test 439/439/build 전부 통과. `PenRail.tsx`/`SolveScroll.tsx`/`/solve/landscape` zero-diff 확인. iPad 실기기 최종 시각 확인은 미검증(NOT VERIFIED, 물리 기기 필요).
 
-### 3.34 `/solve/landscape` PenRail+SolveScroll 그룹 확장 + `SolveScroll` disabled 상태 + 배경 Pattern Fill 정정 (2026-09-09, 미커밋)
+### 3.34 `/solve/landscape` PenRail+SolveScroll 그룹 확장 + `SolveScroll` disabled 상태 + 배경 Pattern Fill 정정 (2026-09-09, 커밋 `33215c5`)
 
 오너가 iPad 실기기에서 `/solve/landscape`(진단 결과 화면)를 확인한 뒤 세 가지를 요청: (1) 결과 패널이 떠 있는 상태에서도 좌측에 `PenRail`+`SolveScroll` 그룹이 계속 보여야 함(현재는 PenRail만 있고 SolveScroll이 아예 없었음), (2) 풀이가 짧아 스크롤이 필요 없어도 `SolveScroll`을 없애지 말고 탭 동작만 비활성화, (3) Solve 화면 전체 배경에 Pattern Fill이 정교하게 적용/유지돼야 함.
 
@@ -610,7 +614,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **알려진 비차단 사항**: jsdom의 `ResizeObserver` 폴리필이 콜백을 전혀 호출하지 않는 no-op라서, 이번 수정이 정확히 겨냥한 "콘텐츠 불변+뷰포트만 리사이즈" 시나리오를 자동 테스트로 직접 재현하지 못함(코드 리뷰로 대칭적 호출 구조만 확인) — iPad 실기기 회전/Split View 실제 동작은 미검증(NOT VERIFIED, 물리 기기 필요).
 
-### 3.35 마이페이지 개선 4항목 — 썸네일 확대/카테고리 필터 가로스크롤/체크박스 일괄삭제/"다시풀기" (2026-09-09, 미커밋)
+### 3.35 마이페이지 개선 4항목 — 썸네일 확대/카테고리 필터 가로스크롤/체크박스 일괄삭제/"다시풀기" (2026-09-09, 커밋 `33215c5`)
 
 오너가 마이페이지(`/mypage`, 풀이 내역 화면)에 4가지 개선을 요청 — 표준 프로세스(plan-agent+design-agent 사전조사 → development-agent → design-agent 사후검수)를 항목별로 하나씩 반복하고, 최종 테스트만 stage-qa-agent로 한 번에 통합 진행(오너 지시).
 
@@ -628,7 +632,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **검증**: 4개 항목 각각 development-agent 구현 → orchestrator 독립 재검증(4/전체 게이트) → design-agent 사후검수(항목별) 순으로 순차 진행 → 4개 항목 완료 후 stage-qa-agent **통합 STAGE PASS**(1차 CONDITIONAL PASS, HIGH 수정 후 재검증 PASS). **게이트**: 루트 전체(shared-types/validation/api/web) typecheck/lint/build 전부 통과, test api 324/324·web 470/470. iPad 실기기 시각 확인(체크박스+120px 썸네일+본문+다시풀기+chevron 5요소 한 줄 배치)은 미검증(NOT VERIFIED, 물리 기기 필요).
 
-### 3.36 WORK 단계 "봐 주세요" 진단(diagnose) 중 로딩 표시 공백 수정 (2026-09-09, 미커밋)
+### 3.36 WORK 단계 "봐 주세요" 진단(diagnose) 중 로딩 표시 공백 수정 (2026-09-09, 커밋 `33215c5`)
 
 오너가 "풀이 결과가 나오기까지 시간이 꽤 걸리는데, 로딩 이미지가 중간에 사라져서 에러 나고 멈춘 것 같은 느낌을 준다"고 실기기에서 보고.
 
@@ -638,7 +642,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **검증**: orchestrator가 직접 원인 진단+수정(작고 명확한 로직 갭이라 별도 design-agent 라운드 없이 직접 처리, Figma/시각 변경 없음) → 신규 회귀 테스트 2건 추가 → stage-qa-agent가 수정을 임시로 되돌려 테스트가 정확히 실패하는지 확인 후 원복하는 방식으로 재현성 검증 → **STAGE PASS**. **게이트**: web typecheck/lint/test 472/472/build 전부 통과. `git diff` mtime 대조로 같은 파일에 공존하는 다른 미완료 work-order 코드(PenRail/SolveScroll/RecognizedChip/resumeToWork)와 로직적으로 얽히지 않음 확인.
 
-### 3.37 배포 준비 — 유저 `plan`/`trial_ends_at` 스키마 + 문제 인식 하루 10회 소프트 캡 (2026-09-09, 미커밋·마이그레이션 미적용)
+### 3.37 배포 준비 — 유저 `plan`/`trial_ends_at` 스키마 + 문제 인식 하루 10회 소프트 캡 (2026-09-09, 커밋 `33215c5`(SQL 파일만, DB 미적용))
 
 오너가 Render 배포(`app.groundmoyo.com` 서브도메인 예정) 전 두 가지를 준비: (1) 15일 무료체험 후 과금 예정이라 `plan`/`trial_ends_at` 필드를 미리 준비(이번엔 스키마만 — 트라이얼 만료 차단/토스페이먼츠 연동은 명시적으로 범위 밖), (2) 문제 인식 하루 10회 소프트 캡(오너 확정: 초과해도 차단하지 않고 경고만).
 
@@ -650,7 +654,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **알려진 비차단 사항**: (1) `profiles` 트리거는 신규 가입(`auth.users` INSERT)에만 반응 — **기존 가입자는 `profiles` 행이 없음**, 추후 실제로 트라이얼/과금 로직을 켤 때 기존 가입자 백필이 필요(이번 범위 밖, 오너에게 별도 전달). (2) RLS 정책 설계는 SQL 텍스트로만 검토됨 — 마이그레이션이 실제 DB에 적용되지 않아 라이브 동작은 미검증(NOT VERIFIED, 오너가 배포 시 적용 후 확인 필요).
 
-### 3.38 Render 배포 설정 준비 (`render.yaml`, `docs/DEPLOYMENT.md`) (2026-09-09, 미커밋·미배포)
+### 3.38 Render 배포 설정 준비 (`render.yaml`, `docs/DEPLOYMENT.md`) (2026-09-09, 커밋 `33215c5`(설정 파일만, 미배포))
 
 오너가 Render(`app.groundmoyo.com` 서브도메인)에 배포하려 함 — 이 환경엔 Render 계정/CLI 접근 권한이 없어 **설정 파일만 준비, 실제 서비스 생성/배포/도메인 연결은 오너가 대시보드에서 직접 진행**하기로 확정(오너 선택).
 
