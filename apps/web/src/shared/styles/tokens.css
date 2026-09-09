@@ -12,7 +12,13 @@
 
   --color-bg-primary: #eceae2;
   --color-bg-canvas: #fbfaf6;
-  --color-bg-canvas-texture: #f5f2ed;
+  /* (design-agent 사후검수 수정, 2026-09) 기존 `#f5f2ed`는 Figma 실측이 아닌 추정값이었다 — Figma
+     MCP `get_variable_defs`(`38:21`/`127:445`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`)에는 이 화면들에
+     별도 `bg/canvas-texture` 변수가 아예 존재하지 않고, 두 프레임의 배경(점 패턴이 없는 영역)
+     스크린샷 픽셀을 직접 샘플링한 결과 `rgb(251,250,246)` == `--color-bg-canvas`(`#fbfaf6`)와
+     정확히 일치했다. 즉 캔버스 배경은 `bg/canvas`를 그대로 쓰고 그 위에 점 패턴만 얹은 것이며,
+     별도 색인 배경색이 아니다 — `--color-bg-canvas`와 동일 값으로 정정한다. */
+  --color-bg-canvas-texture: #fbfaf6;
   --color-bg-elevated: #ffffff;
   --color-bg-viewfinder: #2f3745;
   --color-bg-camera-sheet: #232b38;
@@ -22,12 +28,22 @@
   /* `brand/tint`(불투명, Figma `255:96` 이어풀기 최종 답 배너 실측, 2026-09) — 기존
      `--color-fill-tint-brand`(반투명 `#5e6e8229`)와는 다른 별도 신규 색상 토큰이다. */
   --color-brand-tint: #c3ccd9;
+  /* (design-agent 사후검수 신규, 2026-09) 마이페이지 개선 3번 체크박스 checked 배경/보더.
+     Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1204;279:839`, fileKey
+     `ltyPrCk8UT8DsB3tFuw7Sr`)에서 Figma가 이미 `var(--color-brand-rest)`라는 CSS 변수명으로
+     노출한 값이다 — `--color-brand-deep`(`#46536a`)로 근사했던 이전 구현을 이 정확값으로 교체한다. */
+  --color-brand-rest: #3e4c5f;
   --color-accent-green: #6fa898;
   --color-accent-purple: #9a93b0;
   --color-accent-orange: #d9a05b;
   --color-accent-yellow: #dcc08a;
   /* 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 */
   --color-accent-red: #c97b6e;
+  /* (design-agent 사후검수 신규, 2026-09) 마이페이지 개선 3번 "풀이 내역 지우기" 버튼 활성 배경.
+     Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:1202`, fileKey
+     `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--accent/steel)` 값 — `--color-brand-deep`으로 근사했던
+     이전 구현을 이 정확값으로 교체한다. */
+  --color-accent-steel: #6c8693;
 
   --color-separator: #3c3c431f;
   --color-fill-quaternary: #7676801f;
@@ -46,4 +62,15 @@
   --color-modal-subtitle: rgba(35, 43, 56, 0.65);
   --color-modal-divider: rgba(35, 43, 56, 0.12);
   --color-modal-border: rgba(35, 43, 56, 0.14);
+
+  /* (design-agent 사후검수 신규, 2026-09) 마이페이지 개선 3번 체크박스 unchecked 보더.
+     Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1113;279:839`, fileKey
+     `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--color-stroke-1)` 값 — `--color-label-quaternary`
+     (반투명 다크 그레이)로 근사했던 이전 구현과 달리 실제로는 불투명 블루그레이다. */
+  --color-stroke-1: #d3dce4;
+  /* (design-agent 사후검수 신규, 2026-09) 마이페이지 개선 3번 "풀이 내역 지우기" 버튼 비활성 배경.
+     Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:930`, fileKey
+     `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--bg/scrim)` 값 — 앱 공용 pill 비활성 패턴
+     (`--color-icon-default`)으로 근사했던 이전 구현을 이 화면 실측값으로 교체한다. */
+  --color-bg-scrim: #d9d7d2;
 }

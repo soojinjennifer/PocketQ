@@ -39,7 +39,7 @@ function createFakeClient(result: FakeResult = { error: null }) {
   return { client: client as unknown as SupabaseClient, calls };
 }
 
-type FakeQueryResult = { data: unknown; error: unknown };
+type FakeQueryResult = { data: unknown; error: unknown; count?: number | null };
 
 /**
  * 조회용 가짜 클라이언트. `select/eq/in/order`는 자기 자신(thenable)을 돌려주고,
@@ -53,8 +53,10 @@ function createFakeQueryClient(resultsByTable: Record<string, FakeQueryResult>) 
 
     const builder = {
       select: (...args: unknown[]) => record("select", args),
+      delete: (...args: unknown[]) => record("delete", args),
       eq: (...args: unknown[]) => record("eq", args),
       in: (...args: unknown[]) => record("in", args),
+      gte: (...args: unknown[]) => record("gte", args),
       order: (...args: unknown[]) => record("order", args),
       maybeSingle: (...args: unknown[]) => {
         record("maybeSingle", args);
@@ -398,6 +400,82 @@ describe("problemRepository", () => {
 
       await expect(
         createProblemRepository(client).getProblemDetail("user-1", "problem-1"),
+      ).rejects.toThrow(ProblemHistoryQueryError);
+    });
+  });
+
+  describe("deleteProblems", () => {
+    it("user_id/id 조건으로 delete하고 실제로 삭제된 id 목록을 반환한다", async () => {
+      const { client, calls } = createFakeQueryClient({
+        problems: { data: [{ id: "problem-1" }, { id: "problem-2" }], error: null },
+      });
+
+      const deleted = await createProblemRepository(client).deleteProblems("user-1", [
+        "problem-1",
+        "problem-2",
+      ]);
+
+      expect(deleted).toEqual(["problem-1", "problem-2"]);
+      expect(calls).toContainEqual({ table: "problems", method: "delete", args: [] });
+      expect(calls).toContainEqual({ table: "problems", method: "eq", args: ["user_id", "user-1"] });
+      expect(calls).toContainEqual({
+        table: "problems",
+        method: "in",
+        args: ["id", ["problem-1", "problem-2"]],
+      });
+    });
+
+    it("아무 것도 삭제되지 않으면(존재하지 않거나 타인 소유) 빈 배열을 반환한다", async () => {
+      const { client } = createFakeQueryClient({
+        problems: { data: [], error: null },
+      });
+
+      await expect(
+        createProblemRepository(client).deleteProblems("user-1", ["problem-x"]),
+      ).resolves.toEqual([]);
+    });
+
+    it("쿼리가 에러를 반환하면 원본 메시지를 감춘 에러로 throw한다", async () => {
+      const { client } = createFakeQueryClient({
+        problems: { data: null, error: { message: "permission denied for table problems" } },
+      });
+
+      await expect(
+        createProblemRepository(client).deleteProblems("user-1", ["problem-1"]),
+      ).rejects.toThrow(ProblemHistoryQueryError);
+    });
+  });
+
+  describe("countProblemsCreatedToday", () => {
+    it("오늘 생성된 problems 행 개수를 반환한다", async () => {
+      const { client, calls } = createFakeQueryClient({
+        problems: { data: null, error: null, count: 3 },
+      });
+
+      await expect(
+        createProblemRepository(client).countProblemsCreatedToday("user-1"),
+      ).resolves.toBe(3);
+      expect(calls).toContainEqual({ table: "problems", method: "eq", args: ["user_id", "user-1"] });
+      expect(calls.some((call) => call.table === "problems" && call.method === "gte")).toBe(true);
+    });
+
+    it("count가 null이면 0을 반환한다", async () => {
+      const { client } = createFakeQueryClient({
+        problems: { data: null, error: null, count: null },
+      });
+
+      await expect(
+        createProblemRepository(client).countProblemsCreatedToday("user-1"),
+      ).resolves.toBe(0);
+    });
+
+    it("쿼리가 에러를 반환하면 원본 메시지를 감춘 에러로 throw한다", async () => {
+      const { client } = createFakeQueryClient({
+        problems: { data: null, error: { message: "permission denied for table problems" } },
+      });
+
+      await expect(
+        createProblemRepository(client).countProblemsCreatedToday("user-1"),
       ).rejects.toThrow(ProblemHistoryQueryError);
     });
   });

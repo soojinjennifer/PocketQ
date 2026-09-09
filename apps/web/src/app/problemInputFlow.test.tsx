@@ -96,6 +96,7 @@ vi.mock("../shared/api/resumeProblem", () => ({
 vi.mock("../shared/api/problemHistory", () => ({
   listProblemHistory: vi.fn(),
   getProblemHistoryDetail: vi.fn(),
+  bulkDeleteProblemHistory: vi.fn(),
   reopenProblemHistory: vi.fn().mockResolvedValue({
     problemId: "problem-reopened",
     recognizedText: "저장돼 있던 문제 원문",
@@ -673,5 +674,75 @@ describe("마이페이지 '다시 풀기' — 사진/필기 없이 재수화 후
     renderApp([{ pathname: "/solve/landscape", state: { resumeProblemId: "problem-x" } }]);
 
     expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
+  });
+});
+
+describe("마이페이지 개선 4번 '다시풀기' — 사진/필기 없이 재수화 후 WORK 단계로 곧바로 진입한다", () => {
+  it("resumeToWorkProblemId가 담긴 state로 /solve/pencilcanvas에 진입하면 reopen만 실행되고 solve는 호출되지 않는다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { solveProblemStream } = await import("../shared/api/solveProblem");
+
+    renderApp([
+      { pathname: "/solve/pencilcanvas", state: { resumeToWorkProblemId: "problem-history-1" } },
+    ]);
+
+    await waitFor(() => expect(reopenProblemHistory).toHaveBeenCalledWith("problem-history-1"));
+
+    // WORK 단계로 곧바로 전환된다("문제 인식하기"가 아니라 "아직 못 풀겠어요"가 활성화된다).
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+    expect(screen.getByText("저장돼 있던 문제 원문")).toBeInTheDocument();
+
+    // solve()는 호출되지 않는다 — 개념설명/풀이 결과 화면으로 자동 이동하지 않아야 한다.
+    expect(solveProblemStream).not.toHaveBeenCalled();
+  });
+
+  it("재수화가 실패하면 기존 인식 실패 에러 팝업을 그대로 재사용한다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { ApiError } = await import("../shared/api/ApiError");
+    vi.mocked(reopenProblemHistory).mockRejectedValueOnce(
+      new ApiError("internal_error", "기록을 찾을 수 없습니다.", 404),
+    );
+
+    renderApp([
+      { pathname: "/solve/pencilcanvas", state: { resumeToWorkProblemId: "problem-x" } },
+    ]);
+
+    expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
+  });
+});
+
+describe("마이페이지 개선 4번 — History Row '다시풀기' 버튼을 누르면 /solve/pencilcanvas로 이동해 WORK 단계가 된다", () => {
+  it("MyPage에서 '다시풀기'를 누르면 /solve/pencilcanvas로 이동하고 곧바로 WORK 단계가 된다", async () => {
+    const { listProblemHistory, reopenProblemHistory } = await import("../shared/api/problemHistory");
+    vi.mocked(listProblemHistory).mockResolvedValue({
+      items: [
+        {
+          problemId: "problem-1",
+          recognizedText: "x^2 - 5x + 6 = 0을 풀어라",
+          conceptTags: ["이차방정식"],
+          createdAt: "2026-07-12T09:30:00.000Z",
+        },
+      ],
+    });
+
+    renderApp(["/mypage"]);
+
+    // 버튼 접근성 이름은 문제 텍스트를 포함한다(`HistoryRow`의 `aria-label`, 상세보기 오버레이의
+    // 동일 문구 "다시 풀기" 버튼과 스크린리더에서 구분하기 위함).
+    const retryButton = await screen.findByRole("button", {
+      name: "다시 풀기 x^2 - 5x + 6 = 0을 풀어라",
+    });
+    fireEvent.click(retryButton);
+
+    await waitFor(() =>
+      expect(reopenProblemHistory).toHaveBeenCalledWith("problem-1"),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+    );
+    expect(screen.getByText("저장돼 있던 문제 원문")).toBeInTheDocument();
   });
 });

@@ -12,6 +12,9 @@ import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblem
 import { getRequestUser } from "../../shared/lib/request-user";
 import { uploadProblemImage } from "./upload";
 
+/** 소프트 캡(오너 확정): 하루 10회, 매일 자정 UTC 리셋. 초과해도 인식 자체를 차단하지 않는다. */
+const DAILY_RECOGNIZE_LIMIT = 10;
+
 function requireImageFile(req: Request, _res: Response, next: NextFunction): void {
   if (!req.file) {
     next(new AppError("validation_error", "이미지 파일(image)이 필요합니다.", 400));
@@ -57,11 +60,27 @@ function createHandleRecognize(adapter: LLMAdapter) {
         createdAt,
       });
 
+      // 소프트 캡(하루 10회, 오너 확정) 안내용 카운트. 인식 자체는 절대 막지 않는다 — 조회가
+      // 실패해도(또는 인증 사용자 id가 없어도) 그냥 값을 생략할 뿐, recognize 응답은 그대로
+      // 200으로 성공 처리한다.
+      let dailyUsageCount: number | undefined;
+      let dailyUsageLimit: number | undefined;
+      if (userId !== "unknown") {
+        try {
+          dailyUsageCount = await problemRepository.countProblemsCreatedToday(userId);
+          dailyUsageLimit = DAILY_RECOGNIZE_LIMIT;
+        } catch (error) {
+          console.error("[recognition.router] countProblemsCreatedToday 실패", error);
+        }
+      }
+
       const responseBody = recognizeResponseSchema.parse({
         problemId,
         recognizedText: recognized.recognizedText,
         recognizedLatex: recognized.recognizedLatex,
         createdAt,
+        dailyUsageCount,
+        dailyUsageLimit,
       });
 
       res.status(200).json(responseBody);

@@ -68,6 +68,24 @@ export interface ProblemRepository {
   saveChatTurn(input: SaveChatTurnInput): Promise<void>;
   listProblems(userId: string): Promise<ProblemHistoryListItem[]>;
   getProblemDetail(userId: string, problemId: string): Promise<ProblemHistoryDetail | null>;
+  /**
+   * 마이페이지 개선 3번(체크박스 일괄 삭제). `user_id`가 일치하는 행만 삭제하고(타인 소유 문제는
+   * 조용히 건너뜀 — `getProblemDetail`과 동일한 정보 비노출 원칙), 실제로 삭제된 `problemId`
+   * 목록만 반환한다. `solutions`/`chat_messages`는 FK `on delete cascade`(마이그레이션
+   * `20260816000000_persistence.sql`)로 자동 삭제되므로 별도 삭제 쿼리가 필요 없다.
+   * 조회 메서드와 동일하게 실패를 삼키지 않고 throw한다 — 삭제 실패를 "삭제됨"으로 오인시키면
+   * 안 되기 때문이다.
+   */
+  deleteProblems(userId: string, problemIds: string[]): Promise<string[]>;
+  /**
+   * 소프트 캡(하루 10회, 매일 자정 UTC 리셋, 오너 확정) 안내용. 오늘(UTC 자정 기준) 생성된 해당
+   * 유저의 `problems` 행 개수를 센다. 별도 카운터 테이블을 두지 않고 기존 `problems` 데이터로
+   * 계산한다(오너 확정 — 카운트 1회 = recognize 1회 성공).
+   * 조회 메서드(`listProblems`/`getProblemDetail`/`deleteProblems`)와 동일하게 실패를 삼키지 않고
+   * throw한다 — 호출부(recognition 라우터)가 이 실패로 인식 자체가 막히지 않도록 best-effort로
+   * 감싼다.
+   */
+  countProblemsCreatedToday(userId: string): Promise<number>;
 }
 
 /** 조회 실패를 라우터로 알리는 에러. Supabase 원본 메시지는 담지 않는다(클라이언트 노출 방지). */
@@ -123,6 +141,15 @@ function logIfError(operation: string, error: unknown): void {
   if (error) {
     console.error(`[problemRepository] ${operation} 실패`, error);
   }
+}
+
+/**
+ * 오늘(UTC 자정 기준) 0시 ISO 문자열. 이 프로젝트에는 아직 별도 타임존 관례가 없어(예:
+ * `problems.created_at`도 서버 `new Date().toISOString()`을 그대로 저장) UTC를 기준으로 삼는다.
+ */
+function getStartOfTodayUtcIso(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 }
 
 export function createProblemRepository(client: SupabaseClient): ProblemRepository {
@@ -285,6 +312,30 @@ export function createProblemRepository(client: SupabaseClient): ProblemReposito
         })),
       };
     },
+
+    async deleteProblems(userId, problemIds) {
+      const result = (await client
+        .from("problems")
+        .delete()
+        .eq("user_id", userId)
+        .in("id", problemIds)
+        .select("id")) as { data: { id: string }[] | null; error: unknown };
+      throwIfQueryError("deleteProblems", result.error);
+
+      return (result.data ?? []).map((row) => row.id);
+    },
+
+    async countProblemsCreatedToday(userId) {
+      const startOfTodayUtcIso = getStartOfTodayUtcIso();
+      const result = (await client
+        .from("problems")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", startOfTodayUtcIso)) as { count: number | null; error: unknown };
+      throwIfQueryError("countProblemsCreatedToday", result.error);
+
+      return result.count ?? 0;
+    },
   };
 }
 
@@ -323,6 +374,14 @@ export const problemRepository: ProblemRepository = {
   },
   async getProblemDetail(userId, problemId) {
     return await requireDefaultRepository("getProblemDetail").getProblemDetail(userId, problemId);
+  },
+  async deleteProblems(userId, problemIds) {
+    return await requireDefaultRepository("deleteProblems").deleteProblems(userId, problemIds);
+  },
+  async countProblemsCreatedToday(userId) {
+    return await requireDefaultRepository("countProblemsCreatedToday").countProblemsCreatedToday(
+      userId,
+    );
   },
 };
 

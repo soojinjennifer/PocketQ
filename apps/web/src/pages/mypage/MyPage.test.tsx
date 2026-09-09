@@ -12,9 +12,10 @@ vi.mock("../../shared/lib/supabase/client", () => ({
 vi.mock("../../shared/api/problemHistory", () => ({
   listProblemHistory: vi.fn(),
   getProblemHistoryDetail: vi.fn(),
+  bulkDeleteProblemHistory: vi.fn(),
 }));
 
-const { getProblemHistoryDetail, listProblemHistory } = await import(
+const { getProblemHistoryDetail, listProblemHistory, bulkDeleteProblemHistory } = await import(
   "../../shared/api/problemHistory"
 );
 const { MyPage } = await import("./MyPage");
@@ -106,6 +107,18 @@ describe("MyPage", () => {
     expect(screen.getByRole("button", { name: "전체" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "이차방정식" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "일차함수" })).toBeInTheDocument();
+  });
+
+  it("필터 Pill 행은 줄바꿈 대신 1줄 가로 스크롤 컨테이너로 렌더링된다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    const allPill = await screen.findByRole("button", { name: "전체" });
+    const filterRow = allPill.parentElement;
+
+    expect(filterRow?.className).toContain("flex-nowrap");
+    expect(filterRow?.className).toContain("overflow-x-auto");
+    expect(filterRow?.className).not.toContain("flex-wrap");
   });
 
   it("필터 Pill을 선택하면 해당 개념 태그의 기록만 남는다", async () => {
@@ -232,5 +245,127 @@ describe("MyPage", () => {
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.queryByText("boom")).not.toBeInTheDocument();
+  });
+});
+
+describe("MyPage — 마이페이지 개선 3번(체크박스 일괄 삭제)", () => {
+  it("체크박스를 선택하지 않으면 '풀이 내역 지우기' 버튼이 비활성이다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    const deleteButton = await screen.findByRole("button", { name: "풀이 내역 지우기" });
+    expect(deleteButton).toBeDisabled();
+  });
+
+  it("체크박스를 선택하면 버튼이 활성화되고, 클릭하면 확인 모달이 뜬다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+
+    const deleteButton = screen.getByRole("button", { name: "풀이 내역 지우기" });
+    expect(deleteButton).not.toBeDisabled();
+
+    fireEvent.click(deleteButton);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("풀이 기록을 삭제할까요?")).toBeInTheDocument();
+  });
+
+  it("체크박스를 클릭해도 상세보기 오버레이가 열리지 않는다(행 클릭과 분리)", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(getProblemHistoryDetail).not.toHaveBeenCalled();
+  });
+
+  it("확인 모달에서 '취소'를 누르면 선택 상태를 유지한 채 모달만 닫힌다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "풀이 내역 지우기" }));
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(bulkDeleteProblemHistory).not.toHaveBeenCalled();
+    // 선택 상태가 유지돼 버튼이 여전히 활성이다.
+    expect(screen.getByRole("button", { name: "풀이 내역 지우기" })).not.toBeDisabled();
+  });
+
+  it("확인 모달에서 '삭제'를 누르면 API를 호출하고 목록을 새로고침하며 선택을 초기화한다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    vi.mocked(bulkDeleteProblemHistory).mockResolvedValue({ deletedProblemIds: ["problem-1"] });
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "풀이 내역 지우기" }));
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(bulkDeleteProblemHistory).toHaveBeenCalledWith(["problem-1"]));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    // 삭제 성공 후 목록을 다시 조회한다(최초 1회 + 삭제 후 1회).
+    await waitFor(() => expect(listProblemHistory).toHaveBeenCalledTimes(2));
+    // 선택 상태가 초기화돼 버튼이 다시 비활성이다.
+    expect(screen.getByRole("button", { name: "풀이 내역 지우기" })).toBeDisabled();
+  });
+
+  it("stage-qa HIGH 결함 재현: 태그 필터를 바꾸면 화면에서 사라진 체크 선택이 초기화돼, 다시 보이지 않는 항목이 삭제 대상에 섞이지 않는다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    renderMyPage();
+
+    // 1) "이차방정식" 태그로 필터링한 뒤 화면에 보이는 problem-1을 체크한다.
+    await waitFor(() => expect(screen.getAllByText(ITEMS[0]!.recognizedText).length).toBe(2));
+    fireEvent.click(screen.getByRole("button", { name: "이차방정식" }));
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("checkbox", { name: `${ITEMS[0]!.recognizedText} 선택` }));
+    expect(screen.getByRole("button", { name: "풀이 내역 지우기" })).not.toBeDisabled();
+
+    // 2) 다른 태그("일차함수")로 필터를 전환한다 — 체크했던 problem-1은 화면에서 사라진다.
+    fireEvent.click(screen.getByRole("button", { name: "일차함수" }));
+    await waitFor(() => expect(screen.getAllByText(ITEMS[1]!.recognizedText).length).toBe(2));
+    expect(screen.queryByText(ITEMS[0]!.recognizedText)).not.toBeInTheDocument();
+
+    // 3) 선택 상태가 필터 전환 시 초기화돼 "풀이 내역 지우기" 버튼은 다시 비활성이어야 한다.
+    expect(screen.getByRole("button", { name: "풀이 내역 지우기" })).toBeDisabled();
+
+    // 4) 방어적으로 이 필터에서 새로 체크한 뒤 삭제해도, 화면에 보이지 않는 problem-1은
+    //    삭제 요청에 포함되지 않는다(현재 필터로 보이는 problem-2만 포함).
+    vi.mocked(bulkDeleteProblemHistory).mockResolvedValue({ deletedProblemIds: ["problem-2"] });
+    fireEvent.click(screen.getByRole("checkbox", { name: `${ITEMS[1]!.recognizedText} 선택` }));
+    fireEvent.click(screen.getByRole("button", { name: "풀이 내역 지우기" }));
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(bulkDeleteProblemHistory).toHaveBeenCalledWith(["problem-2"]));
+    expect(bulkDeleteProblemHistory).not.toHaveBeenCalledWith(
+      expect.arrayContaining(["problem-1"]),
+    );
+  });
+
+  it("삭제에 실패하면 모달이 아니라 별도 에러 모달로 원본 메시지를 감추고 안내한다", async () => {
+    vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
+    vi.mocked(bulkDeleteProblemHistory).mockRejectedValue(new Error("network down"));
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "풀이 내역 지우기" }));
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("풀이 기록을 삭제하지 못했습니다.")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("network down")).not.toBeInTheDocument();
+    // 목록은 다시 조회하지 않는다(실패했으므로).
+    expect(listProblemHistory).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(screen.queryByText("풀이 기록을 삭제하지 못했습니다.")).not.toBeInTheDocument();
   });
 });

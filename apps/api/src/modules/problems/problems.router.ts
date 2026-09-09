@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import {
+  bulkDeleteProblemsRequestSchema,
+  bulkDeleteProblemsResponseSchema,
   problemHistoryDetailSchema,
   problemHistoryListResponseSchema,
   recognizeResponseSchema,
+  type BulkDeleteProblemsRequestDto,
 } from "validation";
 import { authenticate } from "../../middleware/authenticate";
 import { rateLimiter } from "../../middleware/rate-limiter";
+import { validateRequest } from "../../middleware/validate-request";
 import { AppError } from "../../shared/errors/AppError";
 import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
@@ -139,6 +143,45 @@ async function handleReopenProblem(req: Request, res: Response, next: NextFuncti
 }
 
 /**
+ * 마이페이지 개선 3번(체크박스 일괄 삭제). `DELETE /api/problems` 대신 이 라우터의 다른 액션형
+ * 엔드포인트(`POST /api/problems/:problemId/reopen`)와 동일한 POST 액션 경로 컨벤션을 따른다.
+ *
+ * 요청에 포함된 `problemId` 중 일부가 존재하지 않거나 타인 소유여도 에러로 처리하지 않는다 —
+ * 저장소가 본인 소유로 확인된 항목만 삭제하고 그 목록만 돌려준다(`getProblemDetail`과 동일한
+ * 정보 비노출 원칙). 다만 **요청한 항목이 하나도 삭제되지 않았다면**(전부 없거나 타인 소유)
+ * `getProblemDetail`이 없음/타인 소유를 구분하지 않고 404를 응답하는 것과 동일하게 404로
+ * 응답한다.
+ */
+async function handleBulkDeleteProblems(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const userId = getRequestUser(req)?.id;
+  if (!userId) {
+    next(new AppError("unauthorized", "인증이 필요합니다.", 401));
+    return;
+  }
+
+  const { problemIds } = req.body as BulkDeleteProblemsRequestDto;
+
+  let deletedProblemIds: string[];
+  try {
+    deletedProblemIds = await problemRepository.deleteProblems(userId, problemIds);
+  } catch (error) {
+    next(historyQueryFailed("deleteProblems", error));
+    return;
+  }
+
+  if (deletedProblemIds.length === 0) {
+    next(new AppError("validation_error", "삭제할 풀이 기록을 찾을 수 없습니다.", 404));
+    return;
+  }
+
+  res.status(200).json(bulkDeleteProblemsResponseSchema.parse({ deletedProblemIds }));
+}
+
+/**
  * 마이페이지 풀이 이력 조회 라우터.
  * AI 어댑터를 쓰지 않는 순수 조회 라우트라 다른 라우터와 달리 `adapter` 파라미터가 없다.
  */
@@ -148,6 +191,13 @@ export function createProblemsRouter(): Router {
   router.get("/problems", authenticate, rateLimiter, handleListProblems);
   router.get("/problems/:problemId", authenticate, rateLimiter, handleGetProblemDetail);
   router.post("/problems/:problemId/reopen", authenticate, rateLimiter, handleReopenProblem);
+  router.post(
+    "/problems/bulk-delete",
+    authenticate,
+    rateLimiter,
+    validateRequest(bulkDeleteProblemsRequestSchema),
+    handleBulkDeleteProblems,
+  );
 
   return router;
 }

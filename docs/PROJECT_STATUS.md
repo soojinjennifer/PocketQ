@@ -502,7 +502,7 @@ design-agent 사후검수 PASS(Figma 재조회로 두 수정 모두 정확히 �
 - iPad 실기기 전용 미검증 항목: 실제 Apple Pencil 호버 시 iOS 네이티브 팜 리젝션과 이번 수동 스크롤 로직의 상호작용, 실제 1/2손가락 스크롤 체감, 터치가 스크롤 중 캔버스 밖(예: `PenRail`)으로 벗어날 때 `setPointerCapture` 미적용으로 인한 제스처 중단 가능성(MEDIUM, 코드 리뷰 기반 가설, jsdom으로 재현 불가), 1194×834 가로/좁은 Split View에서의 실제 시각적 레이아웃과 캔버스 확장 동작.
 - 캔버스 콘텐츠 확장에 상한이 없음(오너 승인, 극단적으로 긴 풀이에 대한 메모리/성능 부하는 미검증).
 
-### 3.29 `/solve/landscape` 결과 화면 — 사진 미리보기 완전 은닉 (§3.22 결정 번복, 2026-09-08, 미커밋)
+### 3.29 `/solve/landscape` 결과 화면 — 사진 미리보기 완전 은닉 (§3.22 결정 번복, 2026-09-08, 커밋 `1f8e6d4`)
 
 오너가 §3.22의 "사진 입력이면 결과 화면에서도 사진 유지" 결정을 iPad 실기기에서 실제로 확인한 뒤 번복 — WORK 단계의 작은 "인식됨" 표시에서 결과 화면의 큰 사진 카드로 갑자기 바뀌는 게 퇴보처럼 느껴진다고 지적. **새 결정: 결과 화면에서는 입력 방식(사진/필기) 및 결과 경로(WORK-4 solve / SOLVE-2 diagnose)와 무관하게 사진을 완전히 숨긴다.**
 
@@ -518,6 +518,151 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 - `ProblemInputProvider.tsx`의 `submitProblem`/`giveUp`/`diagnose`가 `lastInputType==="photo"`일 때 `clearCapturedImage()`를 스킵하는 로직(§3.22에서 도입)의 근거 주석("결과 화면에 사진을 계속 보여줘야 하므로")이 이번 변경으로 더 이상 사실이 아니게 됐다 — `capturedImage`를 이 페이지에서 소비하는 곳(`problemCardData`의 `imageUrl` 분기)이 없어졌기 때문. 기능/테스트/빌드에는 영향 없지만, 다음 세션에서 이 스킵 로직을 제거하거나 주석을 갱신할 것(design-agent 발견, MEDIUM 비차단).
 - Figma `38:21`에서 발견된 캔버스 좌상단 `Recognized Chip` 인스턴스를 `/solve/landscape`에도 추가할지 — 오너 확인 후 별도 작업.
 - iPad 실기기 시각 확인 미검증(이번 변경 자체가 실기기 확인 결과를 반영한 것이라 로직 검증으로 충분하다고 판단되나, 여백/레이아웃 흔들림은 재확인 권장).
+
+### 3.30 `SolveScroll` — WORK 캔버스 스크롤 인디케이터 (2026-09-08, 미커밋)
+
+오너가 Figma `Solve Scroll (Step=First)`(node `302:167`)를 근거로 `/solve/pencilcanvas` WORK 단계 캔버스(§3.28 손가락 스크롤)에 시각적 스크롤 인디케이터를 요청. 마커 4개가 스크롤 가능 범위의 0/33/66/100% 지점을 가리키며, 펜으로 탭하면 그 비율 위치로 캔버스가 프로그래매틱하게 스크롤된다(오너 확정: 고정 4단계, 비율 매핑).
+
+**구현**: 신규 `apps/web/src/features/drawing-canvas/SolveScroll.tsx` — 64×252, PenRail 바로 아래 16px gap·x축 중심 정렬. `HandwritingCanvas.tsx`를 `forwardRef`+`useImperativeHandle`로 확장해 `scrollToRatio(ratio)`/`isPenActive()`를 노출(순수 추가, `scrollable=false` 기존 사용부는 byte-identical no-op). `SolvePencilcanvasPage.tsx`는 `PenRail.tsx` 자체를 수정하지 않고 스타일 없는 측정용 wrapper(`penRailBoxRef`)로 감싸 `useLayoutEffect`+`ResizeObserver`로 실제 렌더링 위치를 읽어 배치(세로/가로 모드 전환 대응).
+
+**Figma 실측 재확인 과정에서 발견한 3가지 미정 항목은 오너 결정으로 해소**: (1) 마커 개수는 콘텐츠 길이와 무관하게 고정 4개, (2) 힌트 카드 모서리(4px)/텍스트(9.5px)는 기존 토큰(`rounded-[6px]`, Caption 12px 패턴)으로 근사, (3) PenRail-SolveScroll 간격은 오너가 Figma에서 직접 조정 후 재실측(16px로 최종 확정, 도트 트랙 높이만 234→252로 변경, 마커 개수는 4개로 불변).
+
+**design-agent 사후검수에서 실제 버그 5건 발견·직접 수정**(재실측 오류): 좌표 15px 오프셋 누락, 트랙/미선택 마커 색상 토큰 오류, **미선택 마커에 `border` 두께 클래스 자체가 없어 실제로 화면에 전혀 안 보였을 High급 결함**, 선택됨 마커 3겹 원 구조 중 글래스 레이어 누락, 힌트 카드 그림자 누락. 전부 코드로 직접 확인·재검증.
+
+**검증**: development-agent 구현 → orchestrator 독립 재검증(4게이트+diff 리뷰) → design-agent 사후검수(버그 발견·수정, 재검증) → orchestrator 재검증 → stage-qa-agent **STAGE PASS**(신규 `SolveScroll.test.tsx` 4개 테스트 비공허성 확인, `HandwritingCanvas.test.tsx` 팜 리젝션 회귀 없음, `PenRail.tsx`/`/solve/landscape`/`HandwritingHighlightOverlay.tsx` zero-diff 확인). **게이트**: web typecheck/lint/test 426/426/build 전부 통과. iPad 실기기 시각 확인은 미검증(NOT VERIFIED, 물리 기기 필요).
+
+### 3.31 `RecognizedChip` 확장 — WORK 단계 인식 카드 좌측 확대 (2026-09-08, 미커밋)
+
+오너가 Figma `267:607`의 확장 인스턴스 오버라이드(316×230)를 근거로 WORK 단계 인식 카드를 확장 가능하게 요청. 트리거는 칩 자체 탭이 아니라 별도 확장 버튼, 축소 상태는 기존 위치(화면 상단 중앙) 유지, 확장 시에만 PenRail 우측으로 이동, 사진 입력이면 확대 이미지·필기 입력이면 인식 텍스트 전체 표시(모두 오너 확정).
+
+**구현**: `RecognizedChip.tsx`에 `isExpanded`/`onToggleExpand`/`imageUrl` props와 chevron 토글 버튼 추가. `SolvePencilcanvasPage.tsx`는 §3.30에서 만든 PenRail 위치 측정 패턴(`penRailBoxRef`)을 재사용해 PenRail 우측 좌표(`recognizedChipLeft`)를 계산하고, 확장 상태만 별도 오버레이 컨테이너로 그 위치에 배치(캔버스 폭 영향 없음). `lastInputType`/`capturedImage`를 배선해 사진/필기 입력을 분기.
+
+**design-agent 사후검수에서 실제 버그 4건 발견·직접 수정**: (1) **HIGH — PRD 접근성 요구사항(최소 터치 타깃 44px, `docs/PRD_WHYMATH.md` §"접근성") 위반** — 토글 버튼이 18×18px에 불과해 `-inset-[13px]`로 실제 탭 영역을 44×44px까지 확장(시각 아이콘 크기는 18px 유지), (2) HIGH — 확장/축소 시 칩과 카드가 서로 다른 DOM 위치에 조건부 렌더링돼 토글마다 포커스가 `document.body`로 유실 — `autoFocusToggle` prop으로 사용자가 토글을 누른 경우에만 새 버튼에 포커스 이전, (3) MEDIUM — 확장 카드 고정폭(316px)이 좁은 Split View에서 뷰포트를 벗어날 위험 — `max-w-[calc(100vw-32px)]` 안전장치 추가, (4) LOW — Figma에 없는 chevron 아이콘값을 "결정 필요"로 문서화.
+
+**stage-qa-agent 1차 검증에서 추가 MEDIUM 버그 1건 발견**(자체 임시 테스트로 실제 재현 후 즉시 삭제): `autoFocusToggle`을 켜는 `shouldAutoFocusChipToggle` state가 WORK 단계를 벗어나도 리셋되지 않아, 이후 완전히 무관한 새 문제의 WORK 단계 첫 진입 시에도 토글 버튼이 포커스를 가로채는 경로가 있었음(CONDITIONAL PASS). development-agent가 기존 리셋 블록에 한 줄 추가로 수정, 신규 회귀 테스트(`SolvePencilcanvasPage.test.tsx`, 이 페이지 최초의 컴포넌트 테스트) 추가. stage-qa-agent가 수정 전 코드로 되돌려 실패 재현 후 원복해 통과를 독립 확인.
+
+**검증**: development-agent 구현 → orchestrator 독립 재검증 → design-agent 사후검수(버그 4건 발견·수정) → orchestrator 재검증 → stage-qa-agent 1차 CONDITIONAL PASS(MEDIUM 1건) → development-agent 수정 → orchestrator 재검증 → stage-qa-agent 재검증 STAGE PASS. **게이트**: web typecheck/lint/test 435/435/build 전부 통과. `PenRail.tsx`/`SolveScroll.tsx`/`HandwritingCanvas.tsx`/`/solve/landscape` zero-diff 확인(§3.30과 파일 겹침 없음). iPad 실기기 시각 확인은 이 시점까지 미검증.
+
+**실기기 확인 후 후속 수정 (2026-09-08, 같은 날 재확인)**: 오너가 iPad에서 실제 테스트 중 4가지 문제 보고 — (1) `SolveScroll` 전혀 안 보임, (2) `RecognizedChip` 확장 위치가 PenRail 옆으로 이동 안 함, (3) 토글 chevron 방향이 반대로 보임, (4) 토글(접기) 시 인식 카드 영역 전체가 사라짐. `Stage-qa-agent`를 활용해 재점검하되 "검증 안 되면 다시 확인해달라 하지 말라"는 오너 지시에 따라 실제 헤드리스 브라우저(Playwright, Chromium+WebKit/iPad 프로필)로 직접 재현·검증:
+
+- 이 세션 내내 켜져 있던 dev 서버(수많은 구조적 변경 — `forwardRef` 전환 등 — 을 거친 HMR 상태)를 근본 원인 후보로 보고 완전 재시작(`apps/api`/`apps/web` kill 후 fresh 기동).
+- 재시작된 서버 대상 실제 회원가입→로그인→학년설정→필기→실제 OpenAI 인식→WORK 단계→확장→축소 전체 E2E를 Chromium/WebKit(Safari 엔진, iPad Pro 11" 랜드스케이프+터치 프로필) 각 1회씩 독립 실행 — **4가지 증상 전부 재현 안 됨**(`SolveScroll`은 `PenRail.bottom+16px`에 정확 위치, 확장 카드는 `PenRail.right+16px`로 정확 이동, 축소해도 사라지지 않음, chevron 방향은 코드 설계대로 정상). 근본 원인은 오래된 dev 서버의 HMR 누적 상태였을 가능성이 높다고 결론.
+- 별도로 오너의 실제 스크린샷(8줄 분량 수능형 수열 문제)을 직접 재확인하는 과정에서 진짜 결함 1건을 새로 발견: `RecognizedChip.tsx`의 배지+텍스트+토글을 감싸는 행이 `items-center`였는데, 인식 텍스트가 여러 줄로 감싸질 때 배지/토글 버튼이 전체 문단 높이의 중앙(문단 중간)에 위치하는 버그. `items-start`+`mt-[1px]` 베이스라인 보정으로 수정.
+- 이 수정을 실제 8줄/398자 분량의 긴 텍스트로 Playwright 재검증(`page.route`로 recognize 응답의 `recognizedText`만 실제 긴 문제로 치환, 1194×834/1024×768 두 뷰포트) — 배지/토글이 첫 줄에 정확히 정렬됨을 좌표 실측 확인, `SolveScroll`이 긴 카드에 가려지지 않음을 `document.elementFromPoint()` 히트테스트로 구조적으로 확인(SolveScroll은 화면 좌측 고정, 인식 카드는 중앙 고정폭 컬럼이라 겹칠 수 없음). orchestrator가 스크린샷을 직접 열어 육안으로도 재확인.
+- `RecognizedChip.test.tsx`에 `items-start` 회귀 테스트 추가(stage-qa-agent가 "이 수정을 고정하는 자동 테스트가 없다"고 지적한 LOW 항목 반영).
+- **최종 stage-qa-agent 재검증 STAGE PASS**: 코드 diff가 `RecognizedChip.tsx`/`.test.tsx`에만 있음을 재확인(`PenRail.tsx` 무변경, mtime 한 달 전), 실제 컴파일된 CSS(`dist/assets/index-*.css`)를 직접 grep해 `border`/`border-brand`/`mt-[1px]` 등 클래스가 정상 컴파일됨을 아티팩트 레벨로 재확인, 게이트 web 436/436 재실행 통과.
+- **알려진 비차단 사항(§3.32에서 구조 자체를 재작업함)**: `useLayoutEffect`/`ResizeObserver` 기반 위치 측정은 PenRail의 "크기" 변화에는 반응하지만 "위치만" 바뀌는 경우(예: 향후 다른 형제 요소가 리사이즈 이벤트 없이 레이아웃을 밀어내는 경우)에는 재측정 트리거가 없는 구조적 약점이 이론상 존재 — 현재는 재현되는 트리거가 없어 비차단으로 기록. iPad 실기기 최종 확인은 오너 몫으로 남음.
+
+> **§3.32에서 대체됨**: 오너가 iPad 실기기에서 "PenRail+SolveScroll 그룹이 화면 중앙에 와서 잘림", "RecognizedChip이 처음부터 왼쪽 고정이어야 하는데 위 §3.31 방식(축소=중앙, 확장=PenRail 우측)이 적용 안 됨"을 재차 보고 → PenRail 자체 위치 지정 + `autoFocusToggle` 포커스 유지 메커니즘 전체를 폐기하고 그룹 컨테이너화 + 위치 고정으로 재작업했다. 아래 §3.32 참고.
+
+### 3.32 PenRail+SolveScroll 그룹화 + `RecognizedChip` Figma 정식 컴포넌트 반영 (2026-09-08, 미커밋)
+
+오너가 iPad 실기기에서 §3.30/§3.31 결과물을 테스트한 뒤 두 가지를 재요청: (1) PenRail+SolveScroll 그룹 위치가 화면 중앙에 와서 잘림, (2) `RecognizedChip`을 Figma에 새로 만든 정식 컴포넌트(node `310:1498`, 접힘 인스턴스 `250:56`/펼침 인스턴스 `310:1499`)로 다시 구현하고 "축소=중앙/확장=PenRail 우측"이 아니라 "처음부터 PenRail 그룹 우측에 고정, 펼쳐도 위치 불변"으로 변경.
+
+**근본 원인(PenRail+SolveScroll)**: `PenRail`이 자체 CSS(`absolute top-1/2 left-5 -translate-y-1/2`)로 화면 세로 중앙에 위치하고, `SolveScroll`은 그 실제 렌더링 위치를 측정해 아래 16px에 배치하는 구조였다 — PenRail *혼자만* 중앙에 오고 SolveScroll이 그 아래로 늘어지는 형태라 뷰포트가 짧으면 SolveScroll이 화면 밖으로 잘렸다.
+
+**구현**: `PenRail.tsx`에 `positioned?: boolean`(기본 `true`, 하위 호환) 옵트인 prop 추가 — `false`면 위치 클래스만 빠지고 나머지 스타일은 유지. INPUT 단계/`/solve/landscape` 3개 호출부는 prop 생략으로 기존과 byte-identical(design-agent·stage-qa-agent 각각 `git diff`로 확인). WORK 단계에서만 `positioned={false}`로 렌더링하고, 페이지가 만든 그룹 컨테이너(`absolute top-1/2 left-5 z-10 -translate-y-1/2 flex flex-col gap-4`) 하나에 PenRail+SolveScroll을 함께 넣어 그룹 전체를 세로 중앙 정렬 — 기존 `penRailBoxRef`+PenRail 위치 측정 로직은 제거.
+
+`RecognizedChip`은 Figma 정식 컴포넌트 실측(400×38 접힘/400×122 펼침, `rounded-[14px]`·1줄 ellipsis는 오너 결정) 기준으로 재구현하고, 이중 컨테이너(축소=중앙, 확장=PenRail 우측)를 하나로 통합해 **처음부터 PenRail 그룹 우측(`recognizedChipLeft`, 그룹 컨테이너의 `getBoundingClientRect().right+16px`)에 고정** — `isExpanded` prop만 크기/내용 전환에 씀. 위치가 더 이상 안 바뀌므로 §3.31의 `autoFocusToggle`/`shouldAutoFocusChipToggle` 포커스 유지 메커니즘 전체를 삭제했다(같은 DOM 위치를 유지해 포커스가 자연히 보존됨).
+
+**development-agent가 구현 중 발견·수정한 타이밍 버그**: 사진 입력은 `problemId`가 채워져 `isWorkStage`가 `true`가 되는 시점에 "문제가 인식되었습니다" 팝업이 함께 뜨는데, 팝업이 열려 있는 동안은 PenRail 그룹 자체가 DOM에 없어 `useLayoutEffect`의 최초 실행이 실패하고, `isWorkStage`만 의존성 배열에 있으면 팝업이 닫혀 그룹이 마운트돼도 재실행되지 않아 `recognizedChipLeft`가 영원히 `null`로 남는 문제 — 의존성 배열에 `isRecognizedPreviewOpen` 추가로 수정.
+
+**design-agent 사후검수에서 실제 버그 3건 추가 발견·직접 수정**(Figma `310:1498` MCP 재조회 기반):
+1. **HIGH — 접힘 상태 컨테이너에 폭 제약이 전혀 없어 1줄 말줄임(`truncate`)이 실제로는 전혀 동작하지 않던 결함** — `flex-1 truncate` 텍스트가 부모 flex 트랙 폭을 콘텐츠 크기만큼 늘려버림. `w-[400px] max-w-[calc(100vw-32px)]`를 접힘 상태에도 추가. 기존 테스트는 클래스 존재만 확인해 이 결함을 못 잡았음(테스트도 함께 강화).
+2. **HIGH — 펼침 카드 치수가 존재하지 않는 노드(`267:607`) 근거로 `316×230`을 쓰고 있던 것을 실제 정식 컴포넌트 실측(400px, 높이는 hug)으로 정정.**
+3. **MEDIUM — 정적 `max-w-[calc(100vw-32px)]`가 실제 배치 x좌표(PenRail 그룹 우측의 가변 위치)를 반영 못해 좁은 Split View에서 여전히 밀려날 수 있었음** — `RecognizedChip`에 `maxWidthPx?: number | null` prop 추가, 페이지가 `groupRect.right` 기준 실제 남은 폭(최소 160px 하한)을 계산해 전달.
+
+**검증**: development-agent 구현(타이밍 버그 자체 발견·수정) → orchestrator 독립 재검증 → design-agent 사후검수(버그 3건 발견·수정) → orchestrator 재검증 → stage-qa-agent **STAGE PASS**. **게이트**: web typecheck/lint/test 440/440/build 전부 통과. `PenRail.tsx` 하위 호환 3곳 byte-identical 확인, `/solve/landscape`·`HandwritingHighlightOverlay.tsx` zero-diff 확인, `HandwritingCanvas.tsx`/`SolveScroll.tsx`의 diff는 별도 동시 work-order(§3.30) 소관이며 이번 변경과 섞이지 않음(grep으로 PenRail/RecognizedChip 관련 코드 0건 확인). iPad 실기기 최종 시각 확인은 미검증(NOT VERIFIED, 물리 기기 필요) — 다만 오너가 보고한 두 구조적 원인(그룹 중앙정렬 분리, 위치 이동에 따른 포커스 유실)은 코드 레벨로 해소됨.
+
+> **RecognizedChip 위치는 §3.33에서 다시 원복됨**: 오너가 iPad 실기기에서 "PenRail 그룹 우측 고정"을 확인한 뒤 왼쪽 치우침을 이유로 철회, 화면 상단 중앙(Figma 실측 확인)으로 되돌렸다. PenRail+SolveScroll 그룹화(잘림 방지) 자체는 §3.33에서도 그대로 유지된다.
+
+### 3.33 `RecognizedChip` 화면 상단 중앙 위치 원복 + 1줄 말줄임 실제 동작 수정 (2026-09-09, 미커밋)
+
+오너가 §3.32의 "RecognizedChip을 PenRail 그룹 우측에 고정" 결과물을 iPad 실기기에서 확인한 뒤 두 가지를 재보고: (1) 칩이 화면 왼쪽으로 치우쳐 보기 이상함 — "왼쪽 고정" 요구사항을 철회하고 Figma에 실제 디자인된 화면 상단 중앙 배치로 되돌려달라(확장 시 사진 노출 기능은 유지), (2) 긴 인식 텍스트에서 1줄 말줄임(ellipsis)이 동작하지 않고 텍스트가 박스 밖으로 삐져나감.
+
+**Figma 재확인**(`267:607`/`38:21` 두 프레임 모두 fileKey `ltyPrCk8UT8DsB3tFuw7Sr`): `Solve`(RecognizedChip) 인스턴스가 두 프레임에서 정확히 동일한 좌표(x=400, y=98, w=400, h=38, 1194×834 프레임 기준)로 화면 상단 중앙에 배치돼 있음을 확인 — 중앙 배치가 확정 스펙. y=98px과 이 페이지 다른 상단 요소가 공유하는 `top-[90px]` 사이 8px 차이는 시각적 일관성을 위해 `top-[90px]`을 그대로 쓰기로 하고 "결정 필요"로 주석에 남김(오너 재확인 전까지 비차단).
+
+**ellipsis 버그 근본 원인**: `RecognizedChip.tsx`에서 배지+텍스트+토글을 감싸는 중간 `<div className="flex items-start gap-[8px]">`가 바깥 고정폭(`w-[400px]`) 컨테이너의 유일한 자식인데, flex item 기본값(`flex-grow:0`)이라 부모의 고정폭을 채우도록 강제되지 않고 콘텐츠(뱃지+전체 텍스트+토글) 크기만큼 늘어날 수 있었다. 안쪽 `<p>`의 `min-w-0 flex-1 truncate`는 "이 row 안에서"는 줄어들 수 있게 할 뿐, row 자체가 무한정 넓어지는 것은 막지 못해 400px 박스를 넘어 텍스트가 삐져나갔다 — `w-full`을 이 중간 row에 추가해 해결(`ProblemCard.tsx`의 기존 `w-full flex-col` 컨벤션과 동일 패턴, 임의 도입 아님).
+
+**이번 라운드 프로세스 특이사항**: 오너가 design-agent에 코드 수정까지 요청했으나, 이번 design-agent 인스턴스는 `CLAUDE.md`의 "읽기 전용 검수" 역할 정의를 근거로 코드 수정을 거부하고 Figma 재조회+코드 추적으로 정확한 근본 원인과 수정 지시만 리포트했다(이전 여러 라운드에서는 사후검수 중 design-agent가 직접 코드를 고쳤던 것과 다른 판단 — 세션 내 일관성 차이로 기록). orchestrator가 이 리포트를 그대로 development-agent에 정확한 지시로 전달해 구현했다.
+
+**구현**: `SolvePencilcanvasPage.tsx`의 `recognizedChipLeft`/`recognizedChipMaxWidth` state와 PenRail 그룹 우측을 측정하던 `useLayoutEffect`를 완전히 제거하고, RecognizedChip 컨테이너를 `ProblemCard`/`EmptyStateHint`가 쓰는 것과 동일한 `absolute inset-x-0 top-[90px] z-10 mx-auto w-[400px] max-w-[calc(100%-3rem)]` 패턴으로 교체(렌더 조건도 `isWorkStage && recognizedText`로 단순화, `recognizedChipLeft !== null` 절 제거). `RecognizedChip`의 `maxWidthPx` prop도 더 이상 필요 없어 제거. **PenRail+SolveScroll 그룹 컨테이너(§3.32, 세로 중앙정렬 잘림 방지)는 이번 요구사항과 무관해 그대로 유지** — `PenRail.tsx`/`SolveScroll.tsx` zero-diff로 확인. 축소/확장 모두 여전히 같은 DOM 위치(이번엔 화면 상단 중앙)에서 `isExpanded` prop만 바뀌어 포커스 유지 메커니즘이 불필요한 상태는 그대로 유지된다.
+
+**stage-qa-agent가 fail→fix→pass 재현으로 회귀 테스트의 실효성을 직접 검증**: `w-full`을 임시로 제거해 원래 결함 상태로 되돌려 관련 테스트가 정확히 그 지점에서 실패하는 것을 확인 후 원복, 위치 컨테이너도 동일한 방식으로 검증. 컴파일된 CSS 아티팩트(`dist/assets/index-*.css`)에서 `w-full`/`top-[90px]`/`inset-x-0` 등이 실제로 생성됐음을 grep으로 재확인.
+
+**후속 정리**: stage-qa-agent가 LOW로 지적한, 더 이상 아무것도 읽지 않는 죽은 `rootRef`/`penRailGroupRef`(§3.32에서 PenRail 우측 측정에 쓰였다가 이번에 그 용도가 사라진 잔재)를 orchestrator가 직접 제거.
+
+**검증**: design-agent 조사(읽기 전용, 정확한 수정 지시) → development-agent 구현 → orchestrator 독립 재검증 → stage-qa-agent **STAGE PASS**(fail→fix→pass 재현 포함) → orchestrator가 죽은 ref 정리 후 4게이트 재확인. **게이트**: web typecheck/lint/test 439/439/build 전부 통과. `PenRail.tsx`/`SolveScroll.tsx`/`/solve/landscape` zero-diff 확인. iPad 실기기 최종 시각 확인은 미검증(NOT VERIFIED, 물리 기기 필요).
+
+### 3.34 `/solve/landscape` PenRail+SolveScroll 그룹 확장 + `SolveScroll` disabled 상태 + 배경 Pattern Fill 정정 (2026-09-09, 미커밋)
+
+오너가 iPad 실기기에서 `/solve/landscape`(진단 결과 화면)를 확인한 뒤 세 가지를 요청: (1) 결과 패널이 떠 있는 상태에서도 좌측에 `PenRail`+`SolveScroll` 그룹이 계속 보여야 함(현재는 PenRail만 있고 SolveScroll이 아예 없었음), (2) 풀이가 짧아 스크롤이 필요 없어도 `SolveScroll`을 없애지 말고 탭 동작만 비활성화, (3) Solve 화면 전체 배경에 Pattern Fill이 정교하게 적용/유지돼야 함.
+
+**Figma 재확인**(`38:21` 3-2 Landscape, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`): PenRail(x=19,y=214)과 `Solve Scroll`(node `302:167`, x=13,y=461)이 `/solve/pencilcanvas`와 정확히 동일한 좌표로 같은 좌측 그룹에 함께 배치돼 있음을 확인 — landscape에도 이 그룹이 있어야 하는 것이 확정 스펙.
+
+**구현**: `SolveLandscapePage.tsx`의 진단 전/후 두 분기 모두에 `positioned={false}` PenRail + `SolveScroll`을 `absolute top-1/2 left-5 z-10 -translate-y-1/2 flex flex-col gap-4` 그룹 컨테이너로 묶어 추가(`/solve/pencilcanvas`와 바이트 단위로 동일한 클래스 문자열 재사용). 두 분기가 배타적으로만 마운트되므로 `canvasScrollRef`/`canvasScrollRatio`/`isCanvasScrollable` state를 공유. `HandwritingCanvas.tsx`에 `onScrollableChange`/`isScrollable()` 순수 추가(콘텐츠 성장 시점에 `outer.scrollHeight > outer.clientHeight`를 상위에 알림). `SolveScroll.tsx`에 `disabled?: boolean` prop 추가 — 마커/트랙/힌트카드는 그대로 렌더링하되(요청사항: 없애지 않음) 탭 시 no-op, `opacity-40` 톤다운 + 네이티브 `disabled`/`aria-disabled`. 배경은 `SolveLandscapePage.tsx` 루트의 `bg-bg-canvas`(단색)를 `bg-canvas-texture`(패턴)로 교체 — 조사 결과 `/solve/pencilcanvas`는 이미 패턴 배경을 쓰는데 landscape만 단색이었던 단순 누락.
+
+**design-agent 사후검수에서 배경 Pattern Fill 실측값 자체의 오류 발견·정정**: 기존 코드(20px 타일/2×2px 도트/불투명도 0.1/배경색 `#f5f2ed`)는 Figma 근거 없는 추정값이었음이 이번에 밝혀짐 — `38:21`/`127:445` 두 프레임 스크린샷을 1194×834 원본 그대로(스케일 없음) 픽셀 샘플링해 **24px 타일/4×4px 도트/불투명도 약 0.03/배경색 `#fbfaf6`**(=`--color-bg-canvas`와 동일, 별도 텍스처 전용 색이 아니었음)로 정정. `textures.css`/`tokens.css`/`docs/DESIGN_TOKEN_MAP.md`에 검증 근거와 함께 반영.
+
+**design-agent 사후검수에서 HIGH 회귀 버그 1건 추가 발견·수정**: `onScrollableChange`가 콘텐츠 높이 변경(`contentHeight` state)에만 반응하도록 구현돼 있어, 콘텐츠 크기는 그대로인 채 뷰포트(`outer`)만 리사이즈되는 경우(iPad 회전, Split View 폭 변경)를 놓쳐 `SolveScroll`의 `disabled` 상태가 갱신되지 않는 문제 — outer/content 양쪽 `ResizeObserver` 콜백에서 직접 `notifyScrollable()`을 호출하도록 수정(기존 팜 리젝션/터치 스크롤 로직은 `git diff -w`로 무변경 확인).
+
+**검증**: development-agent 구현 → orchestrator 독립 재검증 → design-agent 사후검수(배경 실측 오류 정정 + HIGH 리사이즈 버그 수정) → orchestrator 재검증 → stage-qa-agent **STAGE PASS**. **게이트**: web typecheck/lint/test 444/444/build 전부 통과. `RecognizedChip.tsx`/`PenRail.tsx`(`positioned` prop 외)/`HandwritingHighlightOverlay.tsx` 의도치 않은 diff 없음 확인.
+
+**알려진 비차단 사항**: jsdom의 `ResizeObserver` 폴리필이 콜백을 전혀 호출하지 않는 no-op라서, 이번 수정이 정확히 겨냥한 "콘텐츠 불변+뷰포트만 리사이즈" 시나리오를 자동 테스트로 직접 재현하지 못함(코드 리뷰로 대칭적 호출 구조만 확인) — iPad 실기기 회전/Split View 실제 동작은 미검증(NOT VERIFIED, 물리 기기 필요).
+
+### 3.35 마이페이지 개선 4항목 — 썸네일 확대/카테고리 필터 가로스크롤/체크박스 일괄삭제/"다시풀기" (2026-09-09, 미커밋)
+
+오너가 마이페이지(`/mypage`, 풀이 내역 화면)에 4가지 개선을 요청 — 표준 프로세스(plan-agent+design-agent 사전조사 → development-agent → design-agent 사후검수)를 항목별로 하나씩 반복하고, 최종 테스트만 stage-qa-agent로 한 번에 통합 진행(오너 지시).
+
+**사전조사**: Figma `40:34`("MyPage/Nonselect")/`279:1176`("MyPage/Selected")/`40:45`(같은 화면의 Body 서브프레임) 3개 프레임 실측 — 두 상태(체크박스 선택 여부)만 다른 variant 쌍이며 별도 "편집모드" 진입 트리거는 없음(체크박스 상시 노출). History Row 컨테이너 1040×78, 좌우 패딩 18/16px, 요소 간 gap 14px 고정. 오너에게 3가지 확인 필요 사항을 질의해 결정: (1) "태그 1줄 스크롤"은 행 내부 태그가 아니라 상단 카테고리 필터 Pill 그룹을 가리킴(Figma 근거: 필터 아래 스크롤 인디케이터 바), (2) 삭제는 로컬 숨김이 아니라 실제 서버 삭제(신규 백엔드 API 필요), (3) 썸네일 확대는 정확한 목표 px가 아니라 "다시풀기 버튼이 추가돼도 두 줄로 안 깨지게"가 핵심 — Figma `40:45` 재실측으로 체크박스(24)+썸네일+본문(가변)+"다시풀기"(112)+chevron이 모두 한 줄에 들어가는 실제 레이아웃 확보.
+
+**1. History Row 썸네일 확대** (`HistoryRow.tsx`): 72px→120px(높이 52px 유지). 최초 근거는 Figma 프레임 폭 1040px 기준이었으나, design-agent 사후검수로 실제 렌더 폭은 `MyPage.tsx`의 `max-w-[760px]` + 앱 전역 `ViewportGuard`(1024px 미만 차단) 조합으로 항상 712px임을 밝혀 근거를 정정(값 자체는 그대로 안전). 본문 컨테이너는 기존부터 있던 `flex-1 min-w-0`+제목 truncate로 이후 항목이 추가돼도 두 줄로 안 깨짐.
+
+**2. 카테고리 필터 1줄 가로스크롤** (`MyPage.tsx`, `FilterPill.tsx`): 상단 필터 Pill 그룹을 `flex flex-wrap`→`flex flex-nowrap overflow-x-auto`로 교체, `FilterPill`에 `shrink-0` 추가. 필터 클릭 로직은 무변경.
+
+**3. 체크박스 + 풀이 내역 일괄 삭제**: 신규 백엔드 `POST /api/problems/bulk-delete`(`problems.router.ts`, `problemRepository.deleteProblems` — `user_id` 쿼리 스코핑으로 소유권 강제, `getProblemDetail`과 동일하게 없음/타인소유 구분 없이 404 통일). 신규 공용 `apps/web/src/shared/ui/checkbox/Checkbox.tsx`(네이티브 `<input>` 기반, 접근성 보존). `HistoryRow.tsx`를 `<button>`→`<div>`+내부 `<button>` 구조로 변경(체크박스를 버튼 안에 중첩하면 유효하지 않은 HTML이라 형제 요소로 분리). `MyPage.tsx`에 선택 상태(`checkedProblemIds`)+확인 `Modal`(파괴적 작업이라 확인 없이 즉시 삭제 안 됨)+삭제 흐름. design-agent 사후검수에서 Figma 재조회로 색상 근사값 오류 4건 발견·정정, 신규 토큰 4종(`--color-brand-rest`/`--color-stroke-1`/`--color-accent-steel`/`--color-bg-scrim`) 등록.
+
+**stage-qa-agent 통합 검증에서 HIGH 데이터 안전 결함 발견**: 카테고리 필터를 바꿔도 `checkedProblemIds`(체크 상태)가 초기화되지 않아, 필터 전환으로 화면에서 사라진 항목이 선택된 채로 남아 "풀이 내역 지우기" 클릭 시 **보이지 않는 항목까지 실제로 삭제될 수 있는** 문제. `selectedTag` 변경 시 선택 상태를 즉시 초기화(기존 `prevIsWorkStage` 패턴 재사용)하고, 삭제 실행 직전에도 `visibleItems`와 교집합하는 이중 방어를 추가해 수정. stage-qa-agent가 직접 재현 테스트(원 시나리오 + 스스로 고안한 변형 시나리오)로 재검증 후 최종 STAGE PASS.
+
+**4. History Row "다시풀기" 버튼**: 기존 `resumeFromHistory`(reopen 후 곧바로 solve까지 호출, `/solve/landscape`로 이동해 전체 풀이 결과를 보여줌)는 오너 요구("WORK 단계로 인식된 것처럼 재진입")와 목적지·단계가 달라 재사용 불가 — `solve()` 호출 없이 reopen만 실행하고 이전 문제의 모든 잔재(채팅/추천질문/인식/진단/이어풀기 상태, INPUT·WORK 캔버스 획, 촬영 이미지, `lastInputType`)를 리셋하는 신규 `resumeToWork()`를 `ProblemInputProvider`에 추가. 마이페이지는 Provider 트리 밖이라 직접 호출 불가 — router state(`resumeToWorkProblemId`)로 의도만 `/solve/pencilcanvas`에 전달하고, 그 화면(Provider 안쪽)의 `useEffect`가 `useRef` 가드+즉시 state 소거(`navigate(..., {replace:true, state:null})`)로 재트리거 없이 트리거(`SolveLandscapePage`의 기존 `resumeProblemId` 패턴과 동일). design-agent 사후검수에서 Figma 재조회로 버튼 문구("다시풀기"→"다시 풀기" 공백 정정)/폰트 크기(13px→15px) 오류를 발견·수정하고, 상세보기 오버레이의 동명 버튼과 접근성 이름이 중복되던 문제도 함께 발견·수정(`aria-label="다시 풀기 ${recognizedText}"`).
+
+**검증**: 4개 항목 각각 development-agent 구현 → orchestrator 독립 재검증(4/전체 게이트) → design-agent 사후검수(항목별) 순으로 순차 진행 → 4개 항목 완료 후 stage-qa-agent **통합 STAGE PASS**(1차 CONDITIONAL PASS, HIGH 수정 후 재검증 PASS). **게이트**: 루트 전체(shared-types/validation/api/web) typecheck/lint/build 전부 통과, test api 324/324·web 470/470. iPad 실기기 시각 확인(체크박스+120px 썸네일+본문+다시풀기+chevron 5요소 한 줄 배치)은 미검증(NOT VERIFIED, 물리 기기 필요).
+
+### 3.36 WORK 단계 "봐 주세요" 진단(diagnose) 중 로딩 표시 공백 수정 (2026-09-09, 미커밋)
+
+오너가 "풀이 결과가 나오기까지 시간이 꽤 걸리는데, 로딩 이미지가 중간에 사라져서 에러 나고 멈춘 것 같은 느낌을 준다"고 실기기에서 보고.
+
+**근본 원인**: `SolvePencilcanvasPage.tsx`의 WORK 단계 "봐 주세요"(`handleDiagnose`)는 `recognizeWork()`→`diagnose()`를 순서대로 실행한 뒤 성공하면 `/solve/landscape`로 이동한다. 로딩 표시 조건이 `isRecognizing || isRecognizingWork`(즉 `recognizeStatus`/`recognizeWorkStatus`만)였고 **`diagnoseStatus === "loading"`이 전혀 반영돼 있지 않았다** — `recognizeWork`가 끝나 `recognizeWorkStatus`가 `"success"`로 바뀌는 순간 로딩이 사라지고, 그 뒤 오래 걸리는 `diagnose()`(CAS 검증+LLM 진단) 동안 화면에 아무 표시도 없어 멈춘 것처럼 보였다. 형제 화면 `SolveLandscapePage.tsx`는 이미 `recognizeStatus`/`recognizeWorkStatus`/`diagnoseStatus` 세 가지를 전부 로딩 조건에 반영하고 있어 이 버그가 없었다.
+
+**수정**: `isDiagnosing = isWorkStage && diagnoseStatus === "loading"` 추가, 로딩 표시 조건을 `isRecognizing || isRecognizingWork || isDiagnosing`으로 확장, 로딩 라벨에 `SolveLandscapePage.tsx`와 동일한 문구 `"진단하는 중"` 추가(byte-identical 재사용, 신규 문구 발명 아님). `exportStrokesToPngBlob`(캔버스 export, 순수 동기 draw+`toBlob`)도 재확인해 다른 로딩 공백이 없음을 확인.
+
+**검증**: orchestrator가 직접 원인 진단+수정(작고 명확한 로직 갭이라 별도 design-agent 라운드 없이 직접 처리, Figma/시각 변경 없음) → 신규 회귀 테스트 2건 추가 → stage-qa-agent가 수정을 임시로 되돌려 테스트가 정확히 실패하는지 확인 후 원복하는 방식으로 재현성 검증 → **STAGE PASS**. **게이트**: web typecheck/lint/test 472/472/build 전부 통과. `git diff` mtime 대조로 같은 파일에 공존하는 다른 미완료 work-order 코드(PenRail/SolveScroll/RecognizedChip/resumeToWork)와 로직적으로 얽히지 않음 확인.
+
+### 3.37 배포 준비 — 유저 `plan`/`trial_ends_at` 스키마 + 문제 인식 하루 10회 소프트 캡 (2026-09-09, 미커밋·마이그레이션 미적용)
+
+오너가 Render 배포(`app.groundmoyo.com` 서브도메인 예정) 전 두 가지를 준비: (1) 15일 무료체험 후 과금 예정이라 `plan`/`trial_ends_at` 필드를 미리 준비(이번엔 스키마만 — 트라이얼 만료 차단/토스페이먼츠 연동은 명시적으로 범위 밖), (2) 문제 인식 하루 10회 소프트 캡(오너 확정: 초과해도 차단하지 않고 경고만).
+
+**`profiles` 테이블 신설(`user_metadata` 아님, 보안 근거)**: `grade`처럼 Supabase Auth의 `user_metadata`에 저장하면 클라이언트가 `supabase.auth.updateUser()`로 직접 고칠 수 있다 — `plan`/`trial_ends_at`은 결제 상태를 좌우하므로 반드시 서버(service role) 전용 테이블이어야 한다. 신규 마이그레이션(`supabase/migrations/20260909000000_profiles.sql`): `plan`(CHECK `trial|paid|expired`, 기본 `trial`)/`trial_ends_at`(NOT NULL) 컬럼, 가입 시 자동으로 `trial_ends_at=가입+15일`을 채우는 `handle_new_user` 트리거, RLS는 **SELECT(본인만)만 있고 INSERT/UPDATE/DELETE 정책은 의도적으로 없음**(서버가 service role 키로만 씀 — `apps/api`가 실제로 service role 키를 쓰는지 stage-qa-agent가 재확인). **파일만 작성, 실제 DB에는 미적용**(오너가 배포 시 Supabase 대시보드 SQL Editor에서 직접 실행 예정, 기존 마이그레이션과 동일한 적용 관례).
+
+**소프트 캡(하루 10회, UTC 자정 리셋, 절대 차단 없음)**: 새 카운터 테이블 없이 기존 `problems` 테이블 행 수를 재사용(`problemRepository.countProblemsCreatedToday`, UTC 자정 경계). `recognition.router.ts`가 recognize 성공 후 best-effort로 오늘 카운트를 조회해 응답에 `dailyUsageCount`/`dailyUsageLimit`(상수 10)을 추가 — 카운트 조회가 실패하거나 인증 id가 없어도 recognize 자체는 그대로 200 성공(차단 경로 자체가 없음). 프론트(`SolvePencilcanvasPage.tsx`)는 `dailyUsageCount > dailyUsageLimit`일 때 한 번만(`ref` 가드) "확인" 버튼 하나짜리 비차단 안내 `Modal`을 보여줌(Figma 없음, 운영성 안내로 최소 구현 — 추후 디자인 필요 시 갱신).
+
+**검증**: development-agent 구현 → orchestrator 독립 재검증(마이그레이션 SQL 직접 읽고 기존 마이그레이션 스타일과 대조, 카운트/라우터 로직 diff 확인) → stage-qa-agent **STAGE PASS**. **게이트**: 루트 전체(shared-types/validation/api/web) typecheck/lint/build 전부 통과, test api 330/330·web 476/476. `recognizeResponseSchema`를 공유하는 `reopen`(마이페이지 "다시 풀기"/"다시풀기") 응답도 optional 필드라 영향 없음 확인.
+
+**알려진 비차단 사항**: (1) `profiles` 트리거는 신규 가입(`auth.users` INSERT)에만 반응 — **기존 가입자는 `profiles` 행이 없음**, 추후 실제로 트라이얼/과금 로직을 켤 때 기존 가입자 백필이 필요(이번 범위 밖, 오너에게 별도 전달). (2) RLS 정책 설계는 SQL 텍스트로만 검토됨 — 마이그레이션이 실제 DB에 적용되지 않아 라이브 동작은 미검증(NOT VERIFIED, 오너가 배포 시 적용 후 확인 필요).
+
+### 3.38 Render 배포 설정 준비 (`render.yaml`, `docs/DEPLOYMENT.md`) (2026-09-09, 미커밋·미배포)
+
+오너가 Render(`app.groundmoyo.com` 서브도메인)에 배포하려 함 — 이 환경엔 Render 계정/CLI 접근 권한이 없어 **설정 파일만 준비, 실제 서비스 생성/배포/도메인 연결은 오너가 대시보드에서 직접 진행**하기로 확정(오너 선택).
+
+**배포 대상 3개**: `pocketq-web`(apps/web 정적 사이트), `pocketq-api`(apps/api Express), `pocketq-cas`(services/cas FastAPI, **Private Service** — CAS 엔드포인트에 인증이 전혀 없어 공개 노출 시 누구나 호출 가능하므로 반드시 내부 전용으로 구성).
+
+**실제로 재현·확인한 배포 블로커 1건과 수정**: `apps/api`의 컴파일 산출물(`tsc -p tsconfig.build.json`)을 `node dist/server.js`로 직접 실행하면 `ERR_MODULE_NOT_FOUND`가 발생함을 로컬에서 직접 재현·확인 — `tsconfig.json`의 `moduleResolution: "bundler"` 설정 때문에 컴파일된 JS의 상대 import에 `.js` 확장자가 안 붙어 Node 네이티브 ESM 로더가 해석하지 못함. 별도 컴파일 빌드 없이 `tsx`로 TypeScript를 직접 실행하는 방식(`apps/api/package.json`에 `"start": "tsx src/server.ts"` 신규 추가)으로 우회 — `tsx`를 `devDependencies`에서 `dependencies`로 이동(프로덕션 설치에서도 항상 포함되도록). 이 `start` 스크립트가 실제로 정상 기동/응답하는지 저장소 루트에서 `pnpm --filter api start`로 직접 실행해 확인함(추가로 `AI_MODEL` 환경변수가 비어있으면 기동 즉시 에러로 종료되는 것도 이 과정에서 발견, 문서에 필수값으로 명시).
+
+**작성 파일**:
+- `render.yaml`(신규, 저장소 루트) — 3개 서비스 정의, 민감정보는 `sync: false`로 표시해 파일에 값을 넣지 않고 대시보드에서 입력하도록 함.
+- `docs/DEPLOYMENT.md`(신규) — 배포 순서(cas→api→web, 이전 서비스의 URL을 다음 서비스 환경변수에 채워야 하므로), 서비스별 환경변수 체크리스트, `app.groundmoyo.com` 도메인 연결 절차, `profiles` 마이그레이션 적용 안내(§3.37과 연결, 기존 가입자 백필 필요성 재강조).
+
+**검증**: `render.yaml`을 Render에 실제로 업로드해 검증하지는 못함(계정 접근 권한 없음, 문서에 이 한계 명시) — 대신 로컬에서 직접 검증 가능한 것은 전부 실행: (1) YAML 문법 유효성(`python3 -c "import yaml; yaml.safe_load(...)"`), (2) `pocketq-web` 빌드 명령(`pnpm --filter shared-types --filter validation --filter web build`)을 그대로 실행해 성공 확인, (3) `pocketq-api` 시작 명령(`pnpm --filter api start`)을 Render 런타임과 동일하게 `.env` 파일 없이 환경변수만 주입해 실행, `/health` 200 응답 확인, (4) `pnpm typecheck && pnpm lint && pnpm test && pnpm build`(루트, 전체) 재실행 — `apps/api/package.json` 변경(tsx 이동, `start` 스크립트 추가) 이후에도 전부 통과(api 330/330, web 476/476).
 
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
@@ -549,7 +694,8 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 | 5 | 실제 AI Provider 연결(OpenAI) | ✅ 완료 — 코드 + 라이브 스모크 테스트(실제 키로 이미지 인식/풀이) 통과, 그 과정에서 발견한 파서 버그도 수정·검증 완료 |
 | 6 | 프론트 문제 제출 연결 | ✅ 완료(§3.5~3.7) — recognize+solve 연결 + 정식 Figma Result Panel(개념/풀이/답 카드, KaTeX, 3단계 리사이즈)까지 |
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
-| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** +**DIAG 결과 화면 사진 미리보기 완전 은닉, §3.22 결정 번복(§3.29)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤해 확장할 수 있으며, 결과 화면에서는 입력 방식(사진/필기)과 무관하게 사진 미리보기가 노출되지 않음(WORK 단계와 동일하게 완전 숨김). 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. 전부 미커밋 상태 |
+| 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** +**DIAG 결과 화면 사진 미리보기 완전 은닉, §3.22 결정 번복(§3.29, 커밋 `1f8e6d4`)** +**`SolveScroll` WORK 캔버스 스크롤 인디케이터(§3.30)** +**`RecognizedChip` 좌측 확대(§3.31) → PenRail+SolveScroll 그룹 중앙정렬(§3.32) → RecognizedChip 화면 상단 중앙 위치 원복+ellipsis 수정(§3.33) → `/solve/landscape`에도 PenRail+SolveScroll 그룹 확장+SolveScroll disabled 상태+배경 Pattern Fill 실측 정정(§3.34)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤(+펜으로 마커를 탭해 스크롤 이동)해 확장할 수 있으며, 결과 화면에서는 입력 방식(사진/필기)과 무관하게 사진 미리보기가 노출되지 않고(WORK 단계와 동일하게 완전 숨김), WORK 단계 인식 카드는 별도 버튼으로 확장해 사진/인식 텍스트 전체를 확인할 수 있음. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건, SolveScroll 좌표/토큰/렌더링 버그 5건(미선택 마커 완전 비노출 포함), RecognizedChip 확장 접근성 HIGH 2건+MEDIUM 2건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. §3.29만 커밋 완료(`1f8e6d4`/`4802a69`), §3.30~3.31은 미커밋 |
+| 6.7 | 마이페이지(`/mypage`) 개선 4항목 | ✅ 완료(§3.35, 미커밋) — History Row 썸네일 확대(72→120px), 상단 카테고리 필터 1줄 가로스크롤, 체크박스+"풀이 내역 지우기" 일괄 삭제(신규 백엔드 `POST /api/problems/bulk-delete`, 소유권 검증), 각 행 "다시풀기" 버튼(신규 `resumeToWork` — 기존 `resumeFromHistory`와 달리 solve 미호출, `/solve/pencilcanvas` WORK 단계로 재진입). stage-qa-agent 통합 검증에서 HIGH 데이터 안전 결함(필터 전환 시 안 보이는 선택 항목이 삭제 대상에 섞임) 발견·수정 후 최종 STAGE PASS. iPad 실기기 시각 확인은 미검증 |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 

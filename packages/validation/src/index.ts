@@ -35,6 +35,15 @@ export const recognizeResponseSchema = z.object({
   recognizedText: z.string(),
   recognizedLatex: z.string().nullable(),
   createdAt: z.string(),
+  /**
+   * 소프트 캡(하루 10회, 매일 자정 UTC 리셋, 오너 확정) 안내용 — 오늘 누적 인식 횟수(이번 요청
+   * 포함). 인증된 사용자에 대해서만, 그리고 서버의 카운트 조회가 성공했을 때만 채워진다(선택
+   * 필드). 이 값이 있어도 인식 자체는 절대 차단되지 않는다 — `dailyUsageLimit`을 초과했을 때
+   * 경고를 보여줄지는 프론트가 자유롭게 판단한다(별도 boolean 경고 플래그 없음).
+   */
+  dailyUsageCount: z.number().optional(),
+  /** `dailyUsageCount`의 소프트 캡 상한(항상 10). */
+  dailyUsageLimit: z.number().optional(),
 });
 export type RecognizeResponseDto = z.infer<typeof recognizeResponseSchema>;
 
@@ -186,3 +195,24 @@ export const resumeRequestSchema = z.object({
   mode: z.enum(["own", "alternative"]),
 });
 export type ResumeRequestDto = z.infer<typeof resumeRequestSchema>;
+
+/**
+ * `POST /api/problems/bulk-delete` 요청 스키마(마이페이지 개선 3번, 체크박스 일괄 삭제).
+ * `DELETE /api/problems`가 아니라 POST 액션 경로를 쓴다 — 이 라우터의 다른 변형 액션
+ * (`POST /api/problems/:problemId/reopen`)과 동일한 컨벤션을 따른다.
+ */
+export const bulkDeleteProblemsRequestSchema = z.object({
+  problemIds: z.array(z.string()).min(1),
+});
+export type BulkDeleteProblemsRequestDto = z.infer<typeof bulkDeleteProblemsRequestSchema>;
+
+/**
+ * `POST /api/problems/bulk-delete` 응답 스키마. `getProblemDetail`과 동일한 정보 노출 방지
+ * 원칙(존재하지 않음/타인 소유를 구분하지 않음)에 따라, 실제로 삭제된(=본인 소유로 확인된)
+ * `problemId`만 돌려준다 — 요청에 포함됐지만 삭제되지 않은 id가 "없어서"인지 "타인 소유"인지는
+ * 응답에서 구분하지 않는다.
+ */
+export const bulkDeleteProblemsResponseSchema = z.object({
+  deletedProblemIds: z.array(z.string()),
+});
+export type BulkDeleteProblemsResponseDto = z.infer<typeof bulkDeleteProblemsResponseSchema>;

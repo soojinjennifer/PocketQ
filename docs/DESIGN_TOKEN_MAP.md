@@ -14,7 +14,7 @@
 | `label/on-dark-secondary` | `#ffffffb2` | `--color-label-on-dark-secondary` | — |
 | `bg/primary` | `#eceae2` | `--color-bg-primary` | `math-material.css`의 `--math-surface-canvas` (동일 값) |
 | `bg/canvas` | `#fbfaf6` | `--color-bg-canvas` | `math-material.css`의 `--math-glass-fill` (동일 값) |
-| `bg/canvas-texture` | `#f5f2ed` | `--color-bg-canvas-texture` | 신규 (필기 캔버스 배경 텍스처 전용, `/solve/pencilcanvas`·`/solve/landscape`) |
+| `bg/canvas-texture` | `#fbfaf6`(design-agent 2026-09 정정, 이전 `#f5f2ed`는 추정값) | `--color-bg-canvas-texture` | 필기 캔버스 배경 텍스처 전용(`/solve/pencilcanvas`·`/solve/landscape`) — Figma MCP `get_variable_defs`(`38:21`/`127:445`)엔 이 화면에 별도 `bg/canvas-texture` 변수가 없고, 두 프레임 스크린샷의 도트 없는 영역 픽셀이 `bg/canvas`(`#fbfaf6`)와 정확히 일치함을 확인해 `--color-bg-canvas`와 동일 값으로 정정했다. 도트 패턴 자체(24px 타일/4×4px 하드엣지/약 3% 불투명도)는 `shared/styles/textures.css`의 `.bg-canvas-texture` 주석 참고 |
 | `bg/elevated` | `#ffffff` | `--color-bg-elevated` | `math-material.css`의 `--math-glass-fill-strong` |
 | `bg/viewfinder` | `#2f3745` | `--color-bg-viewfinder` | 신규 (카메라 전용) |
 | `bg/camera-sheet` | `#232b38` | `--color-bg-camera-sheet` | 신규 (카메라 전용) |
@@ -26,6 +26,8 @@
 | `accent/orange` | `#d9a05b` | `--color-accent-orange` | `colors-pastel.css`의 `--accents-orange` (동일 값) |
 | `accent/yellow` | `#dcc08a` | `--color-accent-yellow` | `colors-pastel.css`의 `--accents-yellow` (동일 값) |
 | `accent/red` | `#c97b6e` | `--color-accent-red` | 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 |
+| `accent/steel` | `#6c8693` | `--color-accent-steel` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:1202`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 "풀이 내역 지우기" 버튼 활성 배경) — 이전엔 `--color-brand-deep`으로 근사했으나 확연히 다른 톤이라 별도 등록 |
+| `color-brand-rest` | `#3e4c5f` | `--color-brand-rest` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1204;279:839`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 체크박스 checked 배경/보더) — `--color-brand-deep`(`#46536a`)과는 다른 별도 톤 |
 | `separator` | `#3c3c431f` | `--color-separator` | — |
 | `fill/quaternary` | `#7676801f` | `--color-fill-quaternary` | — |
 | `fill/tint-blue` | `#5e6e8229` | `--color-fill-tint-brand` | brand 16% 알파 |
@@ -36,6 +38,8 @@
 | `kakao/yellow` | `#fee500` | `--color-kakao-bg` | 신규 (소셜 로그인 전용) |
 | `kakao/label` | `#191919` | `--color-kakao-label` | 신규 |
 | `iConColor` | `#8a8a8e` | `--color-icon-default` | — |
+| `color-stroke-1` | `#d3dce4` | `--color-stroke-1` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1113;279:839`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 체크박스 unchecked 보더) — 불투명 블루그레이, `--color-label-quaternary`(반투명 다크 그레이)와 다른 별도 톤 |
+| `bg/scrim` | `#d9d7d2` | `--color-bg-scrim` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:930`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 "풀이 내역 지우기" 버튼 비활성 배경) — 앱 공용 pill 비활성 패턴(`--color-icon-default`)과 다른 이 화면 전용 값 |
 | (Popup 전용 ink, `label/primary`와 동일 베이스 `#232b38` 다른 알파) | `rgba(35,43,56,0.65)` | `--color-modal-subtitle` | 2026-08-01 `Popup/Register`·`Popup/Login`·`Popup/Emailcheck` 실측. `label-secondary`(`#3c3c43` 계열)와 베이스가 달라 별도 토큰 |
 | (Popup 전용 ink) | `rgba(35,43,56,0.12)` | `--color-modal-divider` | 위와 동일 출처, 팝업 내부 콘텐츠·버튼 영역 구분선 |
 | (Popup 전용 ink) | `rgba(35,43,56,0.14)` | `--color-modal-border` | 위와 동일 출처, 팝업 카드 외곽 보더 |
@@ -62,6 +66,7 @@ Figma에 Radius/Spacing Variable Collection이 존재하지 않는다 — 임의
 - `radius/14` 외 반경 값이 확인되지 않았다. `docs/DESIGN_SYSTEM.md` §5/§7 참고. 화면 구현 착수 전 각 컴포넌트(Button, Card, Input, Grade Card 등)의 실제 반경을 위 프로세스로 재확인해야 한다.
 - `radius/18`: `18px` — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). 기존 반경 값들과 마찬가지로 별도 CSS Variable을 만들지 않고 Tailwind 임의값(`rounded-[18px]`)으로 코드에 직접 표현한다(코드베이스의 기존 `radius/14` 처리 방식과 동일, `rounded-[14px]` 리터럴이 여러 컴포넌트에 그대로 쓰이고 있다).
 - Spacing 스케일 자체가 문서화되어 있지 않다(참고 ZIP도 "격자 없음"이라 명시). Tailwind 기본 spacing 스케일을 사용하되, 컴포넌트별로 필요한 값을 위 프로세스로 개별 확인한다.
+- `radius/sm`: `2px` — 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 컴포넌트, node `279:816`/`279:818`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) 실측. 마이페이지 개선 3번 체크박스(`shared/ui/checkbox/Checkbox.tsx`) 전용 — 기존에 임의로 쓰던 `rounded-[6px]`는 이 실측값과 맞지 않아 `rounded-[2px]`로 정정. `radius/14`/`radius/18`과 동일하게 별도 CSS Variable 없이 Tailwind 임의값으로 표현한다.
 
 ## 5. 사용 금지 목록
 

@@ -21,11 +21,13 @@
   --color-brand: var(--color-brand);
   --color-brand-deep: var(--color-brand-deep);
   --color-brand-tint: var(--color-brand-tint);
+  --color-brand-rest: var(--color-brand-rest);
   --color-accent-green: var(--color-accent-green);
   --color-accent-purple: var(--color-accent-purple);
   --color-accent-orange: var(--color-accent-orange);
   --color-accent-yellow: var(--color-accent-yellow);
   --color-accent-red: var(--color-accent-red);
+  --color-accent-steel: var(--color-accent-steel);
 
   --color-separator: var(--color-separator);
   --color-fill-quaternary: var(--color-fill-quaternary);
@@ -34,6 +36,8 @@
   --color-fill-tint-red: var(--color-fill-tint-red);
   --color-glass-fill: var(--color-glass-fill);
   --color-glass-border: var(--color-glass-border);
+  --color-stroke-1: var(--color-stroke-1);
+  --color-bg-scrim: var(--color-bg-scrim);
 
   --color-kakao-bg: var(--color-kakao-bg);
   --color-kakao-label: var(--color-kakao-label);

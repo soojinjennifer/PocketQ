@@ -1,6 +1,7 @@
+import { createRef } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HandwritingCanvas } from "./HandwritingCanvas";
+import { HandwritingCanvas, type HandwritingCanvasHandle } from "./HandwritingCanvas";
 import type { Stroke } from "../../shared/lib/canvas/useDrawingStrokes";
 
 interface FillCall {
@@ -474,5 +475,82 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
     );
 
     expect(content.style.height).toBe("200px");
+  });
+});
+
+describe("HandwritingCanvas isScrollable()", () => {
+  it("scrollable=false면 항상 false를 반환한다", () => {
+    const ref = createRef<HandwritingCanvasHandle>();
+    render(
+      <HandwritingCanvas ref={ref} strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+    );
+
+    expect(ref.current?.isScrollable()).toBe(false);
+  });
+
+  it("scrollable=true이고 outer.scrollHeight > outer.clientHeight면 true를 반환한다", () => {
+    const ref = createRef<HandwritingCanvasHandle>();
+    const { container } = render(
+      <HandwritingCanvas
+        ref={ref}
+        strokes={[]}
+        onStartStroke={vi.fn()}
+        onAddPoint={vi.fn()}
+        scrollable
+      />,
+    );
+    const outer = container.firstElementChild as HTMLDivElement;
+
+    // jsdom은 scrollHeight/clientHeight를 항상 0으로 보고하므로 실측값을 흉내 내도록 주입한다.
+    Object.defineProperty(outer, "scrollHeight", { value: 400, configurable: true });
+    Object.defineProperty(outer, "clientHeight", { value: 100, configurable: true });
+
+    expect(ref.current?.isScrollable()).toBe(true);
+  });
+
+  it("scrollable=true여도 outer.scrollHeight === outer.clientHeight면 false를 반환한다(스크롤 불필요)", () => {
+    const ref = createRef<HandwritingCanvasHandle>();
+    const { container } = render(
+      <HandwritingCanvas
+        ref={ref}
+        strokes={[]}
+        onStartStroke={vi.fn()}
+        onAddPoint={vi.fn()}
+        scrollable
+      />,
+    );
+    const outer = container.firstElementChild as HTMLDivElement;
+
+    Object.defineProperty(outer, "scrollHeight", { value: 100, configurable: true });
+    Object.defineProperty(outer, "clientHeight", { value: 100, configurable: true });
+
+    expect(ref.current?.isScrollable()).toBe(false);
+  });
+
+  it("onScrollableChange는 scrollable=true일 때 콘텐츠 높이가 바뀌면 호출된다", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 300,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const onScrollableChange = vi.fn();
+    render(
+      <HandwritingCanvas
+        strokes={[]}
+        onStartStroke={vi.fn()}
+        onAddPoint={vi.fn()}
+        scrollable
+        onScrollableChange={onScrollableChange}
+      />,
+    );
+
+    expect(onScrollableChange).toHaveBeenCalled();
   });
 });

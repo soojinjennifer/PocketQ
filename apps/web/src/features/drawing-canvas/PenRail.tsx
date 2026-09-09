@@ -7,6 +7,16 @@ interface PenRailProps {
   onSelectTool: (tool: DrawingTool) => void;
   onUndo: () => void;
   onClear: () => void;
+  /**
+   * PenRail 스스로 화면 위치(세로 중앙 고정)를 가질지 여부. 기본값 `true`(기존 동작 유지) —
+   * `/solve/pencilcanvas` INPUT 단계, `/solve/landscape` 등 PenRail 단독 배치에는 그대로 둔다.
+   * `false`면 위치 클래스(`absolute top-1/2 left-5 z-10 -translate-y-1/2`)만 빠지고 나머지
+   * 스타일(배경/보더/그림자/flex 레이아웃/padding)은 그대로 유지된다 — 상위 컴포넌트가 PenRail을
+   * SolveScroll 등과 하나의 그룹으로 묶어 직접 배치할 때 쓴다(`SolvePencilcanvasPage` WORK
+   * 단계 참고, 오너 iPad 실기기 보고 수정: PenRail 혼자만 화면 중앙에 오고 SolveScroll이 그 아래로
+   * 늘어져 잘리는 문제).
+   */
+  positioned?: boolean;
 }
 
 /**
@@ -16,11 +26,21 @@ interface PenRailProps {
  * 전체 삭제하는 `onClear`를 호출한다. PenRail 자체는 필기 상태를 갖지 않는다(상위 페이지가 소유).
  * "사진" 항목만 `/camera`로 이동시킨다.
  */
-export function PenRail({ activeTool, onSelectTool, onUndo, onClear }: PenRailProps) {
+export function PenRail({
+  activeTool,
+  onSelectTool,
+  onUndo,
+  onClear,
+  positioned = true,
+}: PenRailProps) {
   const navigate = useNavigate();
 
+  const containerClassName = positioned
+    ? "border-glass-border bg-glass-fill absolute top-1/2 left-5 z-10 flex w-[52px] -translate-y-1/2 flex-col items-center gap-3 rounded-full border py-4 drop-shadow-[0px_7px_6.5px_rgba(35,43,56,0.11),0px_2px_0px_rgba(35,43,56,0.18)]"
+    : "border-glass-border bg-glass-fill flex w-[52px] flex-col items-center gap-3 rounded-full border py-4 drop-shadow-[0px_7px_6.5px_rgba(35,43,56,0.11),0px_2px_0px_rgba(35,43,56,0.18)]";
+
   return (
-    <div className="border-glass-border bg-glass-fill absolute top-1/2 left-5 z-10 flex w-[52px] -translate-y-1/2 flex-col items-center gap-3 rounded-full border py-4 drop-shadow-[0px_7px_6.5px_rgba(35,43,56,0.11),0px_2px_0px_rgba(35,43,56,0.18)]">
+    <div className={containerClassName}>
       <PenRailIcon label="펜" active={activeTool === "pen"} onClick={() => onSelectTool("pen")}>
         <PenGlyph />
       </PenRailIcon>

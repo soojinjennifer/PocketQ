@@ -8,7 +8,9 @@ interface FilterPillProps {
 const FOCUS_STYLE =
   "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
 
-const BASE_STYLE = `inline-flex items-center justify-center rounded-full px-[16px] py-[7px] text-[15px] font-[590] ${FOCUS_STYLE}`;
+// `shrink-0`: 마이페이지 필터 행(가로 스크롤 컨테이너) 안에서 Pill이 눌려 찌그러지지 않도록 한다
+// — `flex-wrap` 컨테이너에서 쓰여도 줄바꿈 여부에는 영향이 없어 안전하다.
+const BASE_STYLE = `inline-flex shrink-0 items-center justify-center rounded-full px-[16px] py-[7px] text-[15px] font-[590] ${FOCUS_STYLE}`;
 
 /**
  * Figma `4 · MyPage` 필터 Pill 행(node `40:56`) 실측 스타일. 선택 상태는 브랜드 채움

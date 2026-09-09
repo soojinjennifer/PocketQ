@@ -46,6 +46,8 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     status: recognizeStatus,
     problemId,
     recognizedText,
+    dailyUsageCount,
+    dailyUsageLimit,
     errorMessage: recognizeErrorMessage,
     recognize,
     resumeFromHistory: recognizeResumeFromHistory,
@@ -343,6 +345,53 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   );
 
   /**
+   * 마이페이지 History Row "다시풀기" 버튼(마이페이지 개선 4번) 전용. `resumeFromHistory`(위)와
+   * 이미지/텍스트를 서버에 재수화하는 첫 단계(`recognizeResumeFromHistory` → `reopen` API)는
+   * 동일하지만, 그 뒤 `solve()`를 호출하지 않는다 — 오너 확정: "문제풀기 화면에 문제 인식이 이미
+   * 된 것처럼 표시되어(문제 인식 버튼이 아니라 바로 풀 수 있는 WORK 단계) 다시 풀 수 있어야" 하기
+   * 때문이다. `SolvePencilcanvasPage`의 `isWorkStage = problemId !== null` 판정을 그대로 타므로,
+   * 이 함수가 성공하면(=`problemId`가 채워지면) 화면은 자동으로 WORK 캔버스로 전환된다.
+   *
+   * 새 문제를 시작하는 시점과 동일하므로 `startNewProblem()`과 같은 이유로 이전 문제의 부가
+   * 상태(채팅/제안 질문/학생풀이인식/진단/이어풀기/INPUT·WORK 캔버스 획/사진)를 모두 초기화한다 —
+   * 마이페이지는 `ProblemInputProvider` 트리 밖이라 이 호출 자체는 항상 Provider가 막 새로
+   * 마운트된 시점(=이미 비어 있는 상태)에 일어나지만, 방어적으로 명시 초기화한다.
+   */
+  const resumeToWork = useCallback(
+    async (historyProblemId: string): Promise<boolean> => {
+      if (!grade) {
+        return false;
+      }
+
+      resetChat();
+      setSuggestedQuestions(null);
+      resetRecognizeWork();
+      resetDiagnose();
+      resetResume();
+      clearStrokes();
+      clearWorkStrokes();
+      clearCapturedImage();
+      setLastInputType(null);
+
+      const resumedProblemId = await recognizeResumeFromHistory(historyProblemId);
+      return resumedProblemId !== null;
+    },
+    [
+      grade,
+      resetChat,
+      setSuggestedQuestions,
+      resetRecognizeWork,
+      resetDiagnose,
+      resetResume,
+      clearStrokes,
+      clearWorkStrokes,
+      clearCapturedImage,
+      setLastInputType,
+      recognizeResumeFromHistory,
+    ],
+  );
+
+  /**
    * RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 전용. `beginReinput`("수정" 재입력 흐름,
    * 같은 문제를 다시 입력받기 위해 recognize/solve/chat만 초기화)과는 완전히 별개의 함수다 —
    * 문제/풀이/채팅/진단/학생풀이인식 상태를 전부 리셋하고, INPUT용 캔버스(`strokes`)와 WORK용
@@ -450,6 +499,8 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       recognizeStatus,
       problemId,
       recognizedText,
+      dailyUsageCount,
+      dailyUsageLimit,
       solveStatus,
       streamedText,
       solveResult,
@@ -459,6 +510,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       recognizeOnly,
       giveUp,
       resumeFromHistory,
+      resumeToWork,
       resetSubmission,
       chatMessages,
       chatStatus,
@@ -510,6 +562,8 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       recognizeStatus,
       problemId,
       recognizedText,
+      dailyUsageCount,
+      dailyUsageLimit,
       solveStatus,
       streamedText,
       solveResult,
@@ -519,6 +573,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       recognizeOnly,
       giveUp,
       resumeFromHistory,
+      resumeToWork,
       resetSubmission,
       chatMessages,
       chatStatus,

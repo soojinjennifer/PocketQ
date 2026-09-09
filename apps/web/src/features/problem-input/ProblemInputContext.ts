@@ -69,6 +69,11 @@ export interface ProblemInputContextValue {
   problemId: string | null;
   /** recognize 성공 시 채워지는 인식된 문제 원문. `RecognizedProblemBar`(Result Panel) 표시용. */
   recognizedText: string | null;
+  /** 소프트 캡(하루 10회, 오너 확정) 안내용 — 서버가 recognize 응답에 실어 보낸 오늘 누적 인식
+   *  횟수. 서버가 값을 생략했으면(reopen 재수화, 카운트 조회 실패 등) `null`이다. */
+  dailyUsageCount: number | null;
+  /** `dailyUsageCount`의 소프트 캡 상한(항상 10, 값이 있을 때만 함께 채워진다). */
+  dailyUsageLimit: number | null;
   solveStatus: SolveStreamStatus;
   streamedText: string;
   solveResult: Solution | null;
@@ -90,6 +95,12 @@ export interface ProblemInputContextValue {
    *  곧바로 solve를 실행한다. 풀이까지 성공하면 `true`, 중간에 실패하면 `false`를 반환한다.
    *  실패 시 에러 메시지는 `submitErrorMessage`로 흘러 기존 에러 Modal이 그대로 재사용된다. */
   resumeFromHistory: (historyProblemId: string) => Promise<boolean>;
+  /** 마이페이지 History Row "다시풀기" 버튼(마이페이지 개선 4번) 전용. `resumeFromHistory`와 달리
+   *  재수화 직후 solve()를 호출하지 않고 WORK 단계(`problemId !== null`)까지만 진입시킨다 — 오너
+   *  확정: 인식이 이미 된 것처럼 표시하되 곧바로 학생이 풀 수 있어야 한다. 성공하면 `true`, 실패하면
+   *  `false`를 반환한다(실패 시 에러 메시지는 `submitErrorMessage`로 흘러 기존 에러 Modal이 그대로
+   *  재사용된다, `resumeFromHistory`와 동일). */
+  resumeToWork: (historyProblemId: string) => Promise<boolean>;
   resetSubmission: () => void;
 
   // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해

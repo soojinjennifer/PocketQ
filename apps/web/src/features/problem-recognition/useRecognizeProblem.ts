@@ -17,6 +17,12 @@ interface UseRecognizeProblemResult {
   problemId: string | null;
   recognizedText: string | null;
   errorMessage: string | null;
+  /** 소프트 캡(하루 10회, 오너 확정) 안내용 — 서버가 응답에 실어 보낸 오늘 누적 인식 횟수. 서버가
+   *  값을 생략했으면(예: 카운트 조회 실패) `null`이다. 이 값만으로는 절대 인식을 막지 않는다 —
+   *  화면이 `dailyUsageCount > dailyUsageLimit`일 때만 가벼운 안내를 보여줄지 판단한다. */
+  dailyUsageCount: number | null;
+  /** `dailyUsageCount`의 소프트 캡 상한(항상 10, 서버가 함께 채워줄 때만 값이 있다). */
+  dailyUsageLimit: number | null;
   /** 성공하면 `problemId`를, 실패하면 `null`을 반환한다(호출 측이 이어서 solve를 트리거할 때 사용). */
   recognize: (input: RecognizeProblemInput) => Promise<string | null>;
   /** 마이페이지 "다시 풀기" — 이미지 없이 저장된 과거 기록으로 인식 상태를 재수화한다.
@@ -34,6 +40,8 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
   const [problemId, setProblemId] = useState<string | null>(null);
   const [recognizedText, setRecognizedText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dailyUsageCount, setDailyUsageCount] = useState<number | null>(null);
+  const [dailyUsageLimit, setDailyUsageLimit] = useState<number | null>(null);
 
   const recognize = useCallback(async (input: RecognizeProblemInput): Promise<string | null> => {
     setStatus("loading");
@@ -43,6 +51,8 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
       const response = await recognizeProblem(input);
       setProblemId(response.problemId);
       setRecognizedText(response.recognizedText);
+      setDailyUsageCount(response.dailyUsageCount ?? null);
+      setDailyUsageLimit(response.dailyUsageLimit ?? null);
       setStatus("success");
       return response.problemId;
     } catch (error) {
@@ -66,6 +76,10 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
       const response = await reopenProblemHistory(historyProblemId);
       setProblemId(response.problemId);
       setRecognizedText(response.recognizedText);
+      // reopen 응답은 소프트 캡 카운트를 채우지 않는다(recognize 1회로 집계되는 새 인식이 아니다) —
+      // 이전 recognize 시도의 값이 남아 화면에 잘못 표시되지 않도록 명시적으로 비운다.
+      setDailyUsageCount(null);
+      setDailyUsageLimit(null);
       setStatus("success");
       return response.problemId;
     } catch (error) {
@@ -81,7 +95,19 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
     setProblemId(null);
     setRecognizedText(null);
     setErrorMessage(null);
+    setDailyUsageCount(null);
+    setDailyUsageLimit(null);
   }, []);
 
-  return { status, problemId, recognizedText, errorMessage, recognize, resumeFromHistory, reset };
+  return {
+    status,
+    problemId,
+    recognizedText,
+    errorMessage,
+    dailyUsageCount,
+    dailyUsageLimit,
+    recognize,
+    resumeFromHistory,
+    reset,
+  };
 }

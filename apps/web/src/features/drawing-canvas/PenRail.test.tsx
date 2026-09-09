@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { PenRail } from "./PenRail";
 
-function renderPenRail(activeTool: "pen" | "eraser" = "pen") {
+function renderPenRail(activeTool: "pen" | "eraser" = "pen", positioned?: boolean) {
   const onSelectTool = vi.fn();
   const onUndo = vi.fn();
   const onClear = vi.fn();
@@ -15,6 +15,7 @@ function renderPenRail(activeTool: "pen" | "eraser" = "pen") {
         onSelectTool={onSelectTool}
         onUndo={onUndo}
         onClear={onClear}
+        positioned={positioned}
       />
     </MemoryRouter>,
   );
@@ -51,5 +52,30 @@ describe("PenRail", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("positioned 기본값(생략 시)에서는 위치 클래스(absolute top-1/2 등)를 그대로 갖는다", () => {
+    renderPenRail("pen");
+
+    const container = screen.getByRole("button", { name: "펜" }).closest("div[class*='bg-glass-fill']");
+    expect(container).toHaveClass("absolute");
+    expect(container).toHaveClass("top-1/2");
+    expect(container).toHaveClass("left-5");
+    expect(container).toHaveClass("-translate-y-1/2");
+  });
+
+  it("positioned=false면 위치 클래스가 빠지고 나머지 스타일(배경/보더/그림자/flex 레이아웃)은 유지된다", () => {
+    renderPenRail("pen", false);
+
+    const container = screen.getByRole("button", { name: "펜" }).closest("div[class*='bg-glass-fill']");
+    expect(container).not.toHaveClass("absolute");
+    expect(container).not.toHaveClass("top-1/2");
+    expect(container).not.toHaveClass("left-5");
+    expect(container).not.toHaveClass("-translate-y-1/2");
+    expect(container).toHaveClass("bg-glass-fill");
+    expect(container).toHaveClass("border-glass-border");
+    expect(container).toHaveClass("flex");
+    expect(container).toHaveClass("flex-col");
+    expect(container).toHaveClass("rounded-full");
   });
 });

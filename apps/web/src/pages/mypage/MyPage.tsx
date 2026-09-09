@@ -7,16 +7,19 @@ import { useAuth } from "../../features/auth/useAuth";
 import { useAuthActions } from "../../features/auth/useAuthActions";
 import { ChatBubble } from "../../features/follow-up-chat/ChatBubble";
 import { GRADE_OPTIONS } from "../../features/grade-setup/useGradeSetup";
+import { DeleteHistoryButton } from "../../features/learning-history/DeleteHistoryButton";
 import { HistoryDetailPanel } from "../../features/learning-history/HistoryDetailPanel";
 import { HistoryEmptyState } from "../../features/learning-history/HistoryEmptyState";
 import { HistoryRow } from "../../features/learning-history/HistoryRow";
 import { ProfileHeaderCard } from "../../features/learning-history/ProfileHeaderCard";
 import { useProblemHistoryDetail } from "../../features/learning-history/useProblemHistoryDetail";
 import { useProblemHistoryList } from "../../features/learning-history/useProblemHistoryList";
+import { bulkDeleteProblemHistory } from "../../shared/api/problemHistory";
 import { Button } from "../../shared/ui/button/Button";
 import { FilterPill } from "../../shared/ui/filter-pill/FilterPill";
 import { LoadingMark } from "../../shared/ui/loading-mark/LoadingMark";
 import { Logo } from "../../shared/ui/logo/Logo";
+import { Modal } from "../../shared/ui/modal/Modal";
 import { NavTabBar } from "../../shared/ui/nav-tab-bar/NavTabBar";
 
 const NAV_TABS = [
@@ -56,6 +59,23 @@ export function MyPage() {
   const [selectedTag, setSelectedTag] = useState<string>(ALL_TAGS);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
 
+  // 마이페이지 개선 3번: 체크박스 일괄 삭제. 편집모드 진입 없이 체크박스가 항상 노출되므로
+  // 선택 상태도 별도 모드 없이 이 페이지가 곧바로 소유한다.
+  const [checkedProblemIds, setCheckedProblemIds] = useState<Set<string>>(new Set());
+  // 필터(`selectedTag`)를 바꾸면 화면에 보이던 체크 항목이 사라져 선택 상태가 사용자에게 보이지
+  // 않게 된다 — 그 상태로 "풀이 내역 지우기"를 누르면 안 보이는 항목까지 삭제 요청에 포함되는
+  // 데이터 안전 결함(stage-qa 발견)으로 이어진다. `SolvePencilcanvasPage`의 `prevIsWorkStage`와
+  // 동일한 "렌더링 중 이전 값과 비교해 조정" 패턴(React 공식 "Adjusting state when a prop
+  // changes")으로 필터 전환 시점에 선택 상태를 즉시 초기화한다.
+  const [prevSelectedTag, setPrevSelectedTag] = useState(selectedTag);
+  if (selectedTag !== prevSelectedTag) {
+    setPrevSelectedTag(selectedTag);
+    setCheckedProblemIds(new Set());
+  }
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
+
   const {
     status: detailStatus,
     detail,
@@ -81,6 +101,55 @@ export function MyPage() {
         : items.filter((item) => item.conceptTags.includes(selectedTag)),
     [items, selectedTag],
   );
+
+  const toggleChecked = (problemId: string) => {
+    setCheckedProblemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(problemId)) {
+        next.delete(problemId);
+      } else {
+        next.add(problemId);
+      }
+      return next;
+    });
+  };
+
+  /**
+   * 마이페이지 개선 4번: History Row의 "다시풀기" 버튼. 이 페이지는 `ProblemInputProvider` 트리
+   * 밖이라(주석 상단 참고) `resumeToWork()`를 직접 호출할 수 없다 — 기존 "다시 풀기"
+   * (`RecognizedProblemBar`의 `onEdit`, 아래 `resumeProblemId`)와 동일하게, 의도만 라우터 state로
+   * 실어 `/solve/pencilcanvas`로 넘기고 실제 재수화는 그 화면(Provider 안쪽)이 트리거한다.
+   * 로딩/에러 UI도 목적지 화면(`SolvePencilcanvasPage`)이 기존 인식 로딩/에러 Modal을 그대로
+   * 재사용해 보여준다 — 이 페이지에서 별도로 처리하지 않는다.
+   */
+  const handleRetry = (problemId: string) => {
+    void navigate("/solve/pencilcanvas", { state: { resumeToWorkProblemId: problemId } });
+  };
+
+  /**
+   * 실제 서버 데이터를 영구 삭제한다(로컬 숨김 아님, 오너 확정) — 되돌릴 수 없으므로 반드시
+   * `isDeleteConfirmOpen` 확인 모달을 거친 뒤에만 호출된다.
+   */
+  const handleConfirmDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      // 이중 방어: 필터 전환 시 선택 상태를 초기화하는 로직(위 `prevSelectedTag`)이 있어도,
+      // 실제 삭제 요청 직전에 한 번 더 `visibleItems`(현재 필터로 화면에 보이는 항목)와
+      // 교집합해 화면에 없는 항목이 삭제 대상에 섞여 들어가지 않도록 한다.
+      const visibleProblemIds = new Set(visibleItems.map((item) => item.problemId));
+      const idsToDelete = [...checkedProblemIds].filter((id) => visibleProblemIds.has(id));
+      await bulkDeleteProblemHistory(idsToDelete);
+      setIsDeleteConfirmOpen(false);
+      setCheckedProblemIds(new Set());
+      reload();
+    } catch {
+      setIsDeleteConfirmOpen(false);
+      setDeleteErrorMessage("풀이 기록을 삭제하지 못했습니다.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const nickname = getUserNickname(user);
   const grade = getUserGrade(user);
@@ -114,7 +183,10 @@ export function MyPage() {
         />
 
         {tagOptions.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          // Figma(40:34/279:1176) 실측: 필터 Pill 행은 줄바꿈 없이 1줄 가로 스크롤이다.
+          // Pill 아래 폭 193px의 얇은 바(스크롤 인디케이터로 추정)는 정적 장식인지 네이티브
+          // 스크롤바인지 불명확해 임의로 만들지 않고 생략한다 — 결정 필요.
+          <div className="flex flex-nowrap gap-2 overflow-x-auto">
             <FilterPill
               label="전체"
               selected={selectedTag === ALL_TAGS}
@@ -155,14 +227,29 @@ export function MyPage() {
         ) : null}
 
         {listStatus === "success" && items.length > 0 ? (
+          // Figma(40:34/279:1176) 실측: 필터 Pill 바로 아래·리스트 바로 위, 우측 정렬로 항상
+          // 렌더링된다(선택 항목이 없으면 비활성 스타일로만 바뀌고 언마운트되지 않는다).
+          <div className="flex justify-end">
+            <DeleteHistoryButton
+              disabled={checkedProblemIds.size === 0}
+              onClick={() => setIsDeleteConfirmOpen(true)}
+            />
+          </div>
+        ) : null}
+
+        {listStatus === "success" && items.length > 0 ? (
           <section className="overflow-hidden rounded-[16px]">
             {visibleItems.map((item) => (
               <HistoryRow
                 key={item.problemId}
+                problemId={item.problemId}
                 recognizedText={item.recognizedText}
                 conceptTags={item.conceptTags}
                 createdAt={item.createdAt}
                 onClick={() => setSelectedProblemId(item.problemId)}
+                isSelected={checkedProblemIds.has(item.problemId)}
+                onToggleSelect={toggleChecked}
+                onRetry={handleRetry}
               />
             ))}
             {visibleItems.length === 0 ? (
@@ -234,6 +321,30 @@ export function MyPage() {
             )
           ) : null}
         </HistoryDetailPanel>
+      ) : null}
+
+      {/* 삭제는 되돌릴 수 없는 파괴적 작업이라(오너 확정: 실제 서버 삭제, 로컬 숨김 아님) 확인 없이
+          바로 지우지 않고 이 확인 모달을 거친다. `shared/ui/modal`의 확인/취소 2버튼 레이아웃
+          (`cancelLabel`/`onCancel`)을 재사용한다(로그인 화면의 "로그인 이력 없음" 팝업과 동일 패턴). */}
+      {isDeleteConfirmOpen ? (
+        <Modal
+          title="풀이 기록을 삭제할까요?"
+          description="선택한 풀이 기록을 삭제하면 되돌릴 수 없어요."
+          actionLabel="삭제"
+          onAction={() => void handleConfirmDelete()}
+          cancelLabel="취소"
+          onCancel={() => setIsDeleteConfirmOpen(false)}
+        />
+      ) : null}
+
+      {deleteErrorMessage ? (
+        <Modal
+          icon="error"
+          title="풀이 기록을 삭제하지 못했습니다"
+          description={deleteErrorMessage}
+          actionLabel="확인"
+          onAction={() => setDeleteErrorMessage(null)}
+        />
       ) : null}
     </div>
   );

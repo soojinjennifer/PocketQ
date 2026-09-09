@@ -1,7 +1,9 @@
 import {
+  bulkDeleteProblemsResponseSchema,
   problemHistoryDetailSchema,
   problemHistoryListResponseSchema,
   recognizeResponseSchema,
+  type BulkDeleteProblemsResponseDto,
   type ProblemHistoryDetailDto,
   type ProblemHistoryListResponseDto,
   type RecognizeResponseDto,
@@ -80,4 +82,29 @@ export async function reopenProblemHistory(problemId: string): Promise<Recognize
   }
 
   return recognizeResponseSchema.parse(body);
+}
+
+/**
+ * `POST /api/problems/bulk-delete` — 마이페이지 개선 3번(체크박스 일괄 삭제). 실제 서버 데이터를
+ * 영구 삭제하므로(로컬 숨김 아님) 되돌릴 수 없다 — 호출 전 확인 모달을 거치는 것은 호출부
+ * (`MyPage`)의 책임이다.
+ */
+export async function bulkDeleteProblemHistory(
+  problemIds: string[],
+): Promise<BulkDeleteProblemsResponseDto> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(buildApiUrl("/api/problems/bulk-delete"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify({ problemIds }),
+    signal: createTimeoutSignal(),
+  });
+
+  const body: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw parseApiErrorBody(body, response.status, "풀이 기록을 삭제하지 못했습니다.");
+  }
+
+  return bulkDeleteProblemsResponseSchema.parse(body);
 }

@@ -38,6 +38,9 @@ importers:
       shared-types:
         specifier: workspace:*
         version: link:../../packages/shared-types
+      tsx:
+        specifier: 4.23.11
+        version: 4.23.11
       validation:
         specifier: workspace:*
         version: link:../../packages/validation
@@ -63,9 +66,6 @@ importers:
       supertest:
         specifier: 7.2.2
         version: 7.2.2
-      tsx:
-        specifier: 4.23.11
-        version: 4.23.11
       typescript:
         specifier: 6.0.2
         version: 6.0.2

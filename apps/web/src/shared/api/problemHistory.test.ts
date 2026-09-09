@@ -10,9 +10,8 @@ vi.mock("../lib/supabase/client", () => ({
 }));
 
 const { supabase } = await import("../lib/supabase/client");
-const { getProblemHistoryDetail, listProblemHistory, reopenProblemHistory } = await import(
-  "./problemHistory"
-);
+const { getProblemHistoryDetail, listProblemHistory, reopenProblemHistory, bulkDeleteProblemHistory } =
+  await import("./problemHistory");
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -169,6 +168,46 @@ describe("reopenProblemHistory", () => {
       name: "ApiError",
       status: 404,
       message: "기록을 찾을 수 없습니다.",
+    });
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("bulkDeleteProblemHistory", () => {
+  it("problemIds를 JSON 본문에 담아 POST /api/problems/bulk-delete를 호출한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, { deletedProblemIds: ["problem-1", "problem-2"] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await bulkDeleteProblemHistory(["problem-1", "problem-2"]);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/problems/bulk-delete");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-access-token");
+    expect(JSON.parse(init.body as string)).toEqual({ problemIds: ["problem-1", "problem-2"] });
+    expect(result.deletedProblemIds).toEqual(["problem-1", "problem-2"]);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("응답이 실패하면 ApiError를 던진다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(404, {
+          error: { code: "validation_error", message: "삭제할 풀이 기록을 찾을 수 없습니다." },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(bulkDeleteProblemHistory(["problem-x"])).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+      message: "삭제할 풀이 기록을 찾을 수 없습니다.",
     });
 
     vi.unstubAllGlobals();

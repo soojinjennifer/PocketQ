@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { HandwritingCanvas } from "../../../features/drawing-canvas/HandwritingCanvas";
+import {
+  HandwritingCanvas,
+  type HandwritingCanvasHandle,
+} from "../../../features/drawing-canvas/HandwritingCanvas";
 import { HandwritingHighlightOverlay } from "../../../features/drawing-canvas/HandwritingHighlightOverlay";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
+import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
 import { DiagnosisCard } from "../../../features/ai-solution/DiagnosisCard";
 import { parseStreamingSolve } from "../../../features/ai-solution/parseStreamingSolve";
@@ -141,6 +145,15 @@ export function SolveLandscapePage() {
   // state — 오너 확정). 켜지면 `diagnosis.conceptExplanations`를 관련 개념 카드로 보여준다.
   const [isConceptCardVisible, setIsConceptCardVisible] = useState(false);
 
+  // PenRail+SolveScroll 그룹(오너 iPad 실기기 보고 수정, `38:21` 재실측 — landscape에도
+  // `/solve/pencilcanvas`와 동일한 좌측 그룹이 있어야 한다). 진단 전(`strokes`)/후(`workStrokes`)
+  // 두 분기는 서로 다른 조건부 렌더링 블록으로 배타적으로 마운트되므로(둘이 동시에 보이는 경우가
+  // 없다) ref/state 하나를 공유해도 안전하다 — `SolvePencilcanvasPage`의 `workCanvasRef` 명명
+  // 패턴을 그대로 재사용한다.
+  const canvasScrollRef = useRef<HandwritingCanvasHandle>(null);
+  const [canvasScrollRatio, setCanvasScrollRatio] = useState(0);
+  const [isCanvasScrollable, setIsCanvasScrollable] = useState(false);
+
   const handleRequestReinput = () => setIsReinputModalOpen(true);
 
   const handleReinputConfirm = () => {
@@ -224,7 +237,7 @@ export function SolveLandscapePage() {
   }
 
   return (
-    <div className="bg-bg-canvas solve-no-callout relative min-h-screen">
+    <div className="bg-canvas-texture solve-no-callout relative min-h-screen">
       <SolveHeader />
 
       {/* 캔버스/PenRail 소스 전환(오너 승인, work-order 6단계 발견 A 수정): 진단(DIAG) 결과가
@@ -237,18 +250,58 @@ export function SolveLandscapePage() {
       {isDiagnosisReady ? (
         <>
           <HandwritingHighlightOverlay region={highlightRegion} />
-          <HandwritingCanvas strokes={workStrokes} onStartStroke={startWorkStroke} onAddPoint={addWorkPoint} />
-          <PenRail
-            activeTool={workTool}
-            onSelectTool={setWorkTool}
-            onUndo={undoWorkStroke}
-            onClear={clearWorkStrokes}
+          <HandwritingCanvas
+            ref={canvasScrollRef}
+            strokes={workStrokes}
+            onStartStroke={startWorkStroke}
+            onAddPoint={addWorkPoint}
+            onScrollRatioChange={setCanvasScrollRatio}
+            onScrollableChange={setIsCanvasScrollable}
+            scrollable
           />
+          {/* PenRail+SolveScroll 그룹(`/solve/pencilcanvas` WORK 단계와 동일 패턴, 위 그룹 state
+              주석 참고) — Figma(`38:21`) 실측 결과 이 화면에도 동일 좌표(wrapper left-5, 화면 세로
+              중앙)로 같은 그룹이 있어야 한다. */}
+          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-4">
+            <PenRail
+              positioned={false}
+              activeTool={workTool}
+              onSelectTool={setWorkTool}
+              onUndo={undoWorkStroke}
+              onClear={clearWorkStrokes}
+            />
+            <SolveScroll
+              canvasRef={canvasScrollRef}
+              currentRatio={canvasScrollRatio}
+              disabled={!isCanvasScrollable}
+            />
+          </div>
         </>
       ) : (
         <>
-          <HandwritingCanvas strokes={strokes} onStartStroke={startStroke} onAddPoint={addPoint} />
-          <PenRail activeTool={tool} onSelectTool={setTool} onUndo={undoStroke} onClear={clearStrokes} />
+          <HandwritingCanvas
+            ref={canvasScrollRef}
+            strokes={strokes}
+            onStartStroke={startStroke}
+            onAddPoint={addPoint}
+            onScrollRatioChange={setCanvasScrollRatio}
+            onScrollableChange={setIsCanvasScrollable}
+            scrollable
+          />
+          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-4">
+            <PenRail
+              positioned={false}
+              activeTool={tool}
+              onSelectTool={setTool}
+              onUndo={undoStroke}
+              onClear={clearStrokes}
+            />
+            <SolveScroll
+              canvasRef={canvasScrollRef}
+              currentRatio={canvasScrollRatio}
+              disabled={!isCanvasScrollable}
+            />
+          </div>
         </>
       )}
 
