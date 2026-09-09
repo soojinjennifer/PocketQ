@@ -30,3 +30,8 @@ apps/web/public/rootCA.pem
 
 data/references/**/*.pdf
 data/references/**/.extraction-cache/
+
+# ChatGPT 대화 저장 HTML(수동 저장 시 OpenAI 세션 토큰이 페이지에 그대로 포함될 수 있음 —
+# 2026-09-09에 실제 만료된 세션 JWT가 포함된 채 커밋된 사례 발견, 추적 해제 후 재추가 방지)
+Prompt/모노레버구조 다이어그램.html
+Prompt/*_files/
