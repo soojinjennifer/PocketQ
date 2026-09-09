@@ -8,17 +8,32 @@
 # Render가 서비스 생성 시 값을 입력하라고 대시보드에서 물어봅니다.
 #
 # 구성:
-# - pocketq-web   : apps/web 정적 사이트 (Vite 빌드 산출물)
+# - pocketq-web   : apps/web 정적 사이트 (Vite 빌드 산출물), 커스텀 도메인 https://pocketq.groundmoyo.com
 # - pocketq-api   : apps/api Express 서버 (컴파일 없이 tsx로 TS를 직접 실행 — 아래 build 스크립트의
-#                    ESM 확장자 이슈 회피, 이번 세션에서 직접 재현·확인함)
+#                    ESM 확장자 이슈 회피, 이번 세션에서 직접 재현·확인함), 커스텀 도메인
+#                    https://pocketq-api.groundmoyo.com
 # - pocketq-cas   : services/cas FastAPI 서버, Private Service(외부 공개 안 함) — CAS 엔드포인트에
-#                    인증이 전혀 없어(services/cas/app/main.py) 공개 노출 시 누구나 호출 가능하기 때문
+#                    인증이 전혀 없어(services/cas/app/main.py) 공개 노출 시 누구나 호출 가능하기 때문.
+#                    Private Service는 Render 대시보드에 Custom Domain 항목 자체가 없다 — 외부
+#                    도메인을 연결하지 않는다(내부 전용).
+#
+# 도메인 주의: app.groundmoyo.com은 기존 서비스 "내편문서"가 이미 사용 중인 도메인이다.
+# PocketQ는 반드시 위 pocketq.groundmoyo.com / pocketq-api.groundmoyo.com 서브도메인만
+# 사용하고, app.groundmoyo.com의 DNS 레코드나 Custom Domain 연결은 절대 건드리지 않는다
+# (docs/DEPLOYMENT.md 참고).
+#
+# 리전: pocketq-api와 pocketq-cas는 같은 리전(아래 region: singapore)이어야 한다 — 서로 다른
+# 리전에 있으면 CAS_SERVICE_URL의 Render 내부망 주소로 통신할 수 없다. pocketq-web은 정적
+# 사이트라 CDN으로 전역 서비스되므로 region을 지정하지 않는다.
 
 services:
   # ── apps/web: 정적 사이트 ─────────────────────────────────────────────
   - type: web
     name: pocketq-web
     runtime: static
+    # 첫 배포와 QA가 끝날 때까지 git push마다 자동 재배포되지 않도록 끈다. QA 통과 후 Render
+    # 대시보드에서 Settings → Build & Deploy → Auto-Deploy를 켜거나, 이 값을 `commit`으로 바꾼다.
+    autoDeployTrigger: "off"
     rootDir: .
     buildCommand: >-
       corepack enable &&
@@ -32,9 +47,9 @@ services:
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
       - key: VITE_API_BASE_URL
-        # pocketq-api 서비스의 공개 URL(예: https://api.app.groundmoyo.com 또는
-        # https://pocketq-api.onrender.com)로 채운다. apps/web보다 먼저 pocketq-api를
-        # 만들어 URL을 확정한 뒤 이 값을 채워야 한다.
+        # pocketq-api 서비스의 공개 URL(운영에서는 https://pocketq-api.groundmoyo.com, 커스텀
+        # 도메인 연결 전 임시로는 https://pocketq-api.onrender.com)로 채운다. apps/web보다
+        # 먼저 pocketq-api를 만들어 URL을 확정한 뒤 이 값을 채워야 한다.
         sync: false
     routes:
       # SPA 라우팅(React Router) — 존재하지 않는 경로도 전부 index.html로 보내 클라이언트
@@ -42,14 +57,22 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-    # 오너가 직접 Render 대시보드에서 app.groundmoyo.com을 Custom Domain으로 연결하고
-    # groundmoyo.com DNS에 CNAME 레코드를 추가한다(docs/DEPLOYMENT.md 참고).
+    # 오너가 직접 Render 대시보드에서 pocketq.groundmoyo.com을 Custom Domain으로 연결하고
+    # groundmoyo.com DNS에 CNAME 레코드를 추가한다(docs/DEPLOYMENT.md 참고). app.groundmoyo.com은
+    # 기존 서비스 "내편문서"가 사용 중이므로 절대 여기에 연결하거나 그 DNS 레코드를 건드리지 않는다.
 
   # ── apps/api: Express 서버 ────────────────────────────────────────────
   - type: web
     name: pocketq-api
     runtime: node
-    plan: starter
+    region: singapore
+    # `starter`는 Render의 예전 플랜 이름으로, 현재 Blueprint 스펙의 유효한 plan ID가 아니다
+    # (유효 값: `free` 또는 `0.5c-512mb`/`1c-2g` 같은 컴퓨트 사이즈 ID) — `free`로 무료 배포
+    # 우선 전략([[project_deployment_monetization_plan]])에 맞춤. 단, Render 무료 웹 서비스는
+    # 15분간 요청이 없으면 슬립되고 다음 요청에서 콜드스타트(수십 초)가 발생한다 — 응답 지연이
+    # 허용 안 되면 유료 컴퓨트 사이즈(예: `0.5c-512mb`)로 바꾼다.
+    plan: free
+    autoDeployTrigger: "off"
     rootDir: .
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     # `pnpm -F api build`(tsc)로 컴파일한 dist/*.js는 tsconfig의 moduleResolution:"bundler"
@@ -65,9 +88,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: CORS_ORIGIN
-        # pocketq-web의 최종 공개 URL(커스텀 도메인 연결 후에는 https://app.groundmoyo.com).
+        # pocketq-web의 최종 공개 URL(커스텀 도메인 연결 후에는 https://pocketq.groundmoyo.com).
         # 로컬 개발도 계속 허용하려면 쉼표로 이어서
-        # "https://app.groundmoyo.com,http://localhost:5173" 형태로.
+        # "https://pocketq.groundmoyo.com,http://localhost:5173" 형태로.
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -93,14 +116,19 @@ services:
         value: "30"
       - key: RATE_LIMIT_WINDOW_MS
         value: "60000"
-    # 오너가 직접 Render 대시보드에서 api.app.groundmoyo.com(권장) 또는 기본 onrender.com
-    # 도메인을 Custom Domain으로 연결한다.
+    # 오너가 직접 Render 대시보드에서 pocketq-api.groundmoyo.com을 Custom Domain으로 연결한다
+    # (도메인 연결 전 임시로는 기본 onrender.com 주소로도 동작함). app.groundmoyo.com 계열
+    # 서브도메인은 사용하지 않는다 — "내편문서"가 쓰고 있는 도메인이다.
 
   # ── services/cas: FastAPI(SymPy) 서버, 내부 전용 ─────────────────────
   - type: pserv
     name: pocketq-cas
     runtime: python
-    plan: starter
+    region: singapore
+    # Private Service는 무료 플랜(`free`)을 지원하지 않는다 — 유효한 최소 컴퓨트 사이즈인
+    # `0.5c-512mb`가 이 서비스에 대해 실질적인 최소 요금제다(무료로 배포 불가한 서비스).
+    plan: 0.5c-512mb
+    autoDeployTrigger: "off"
     rootDir: services/cas
     # 이 프로젝트는 requirements.txt가 없고 uv.lock(uv 전용)만 있다 — Render Python
     # 런타임에 uv가 기본 설치돼 있지 않으므로 pip로 uv 자체를 먼저 설치한 뒤 lockfile
