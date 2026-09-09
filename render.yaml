@@ -35,8 +35,11 @@ services:
     # 대시보드에서 Settings → Build & Deploy → Auto-Deploy를 켜거나, 이 값을 `commit`으로 바꾼다.
     autoDeployTrigger: "off"
     rootDir: .
+    # Render의 Node 환경엔 pnpm이 이미 read-only 시스템 경로(/usr/bin/pnpm)에 설치돼 있어
+    # `corepack enable`이 이를 덮어쓰려다 `EROFS: read-only file system` 오류로 빌드가 실패한다
+    # (2026-09-09 실제 배포 실패로 확인). corepack 없이 이미 설치된 pnpm을 그대로 쓴다 — 버전은
+    # 루트 `package.json`의 `packageManager` 필드(Render가 자동 인식)로 고정돼 있다.
     buildCommand: >-
-      corepack enable &&
       pnpm install --frozen-lockfile &&
       pnpm --filter shared-types --filter validation --filter web build
     staticPublishPath: apps/web/dist
@@ -74,7 +77,8 @@ services:
     plan: free
     autoDeployTrigger: "off"
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    # corepack enable을 뺀 이유는 위 pocketq-web과 동일(Render의 read-only /usr/bin/pnpm 충돌).
+    buildCommand: pnpm install --frozen-lockfile
     # `pnpm -F api build`(tsc)로 컴파일한 dist/*.js는 tsconfig의 moduleResolution:"bundler"
     # 설정 때문에 상대 import에 .js 확장자가 없어 Node ESM 로더가 직접 실행하지 못한다
     # (이번 세션에 `node apps/api/dist/server.js`를 직접 실행해 ERR_MODULE_NOT_FOUND로
