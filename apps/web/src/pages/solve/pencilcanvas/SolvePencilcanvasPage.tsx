@@ -14,6 +14,7 @@ import { ProblemCard, type ProblemCardData } from "../../../features/solve-sessi
 import { RecognizedChip } from "../../../features/solve-session/RecognizedChip";
 import { RecognizedProblemPopup } from "../../../features/solve-session/RecognizedProblemPopup";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
+import { useBodyClass } from "../../../shared/lib/dom/useBodyClass";
 import { Modal } from "../../../shared/ui/modal/Modal";
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 
@@ -38,6 +39,12 @@ import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
  * 패턴). solve()는 호출하지 않으므로 "봐 주세요"/"아직 못 풀겠어요"를 눌러야 다음 단계로 넘어간다.
  */
 export function SolvePencilcanvasPage() {
+  // 이 화면 자체엔 현재 텍스트 입력창이 없지만, `/solve/landscape`와 동일하게 PenRail/SolveScroll을
+  // absolute로 배치한다 — 이 그룹이 iOS 키보드/받아쓰기 툴바로 인한 body의 scroll-into-view에
+  // 함께 끌려 올라가는 것을 막기 위해 두 화면에 동일하게 방어적으로 적용한다(`shared/styles/
+  // textures.css`의 `.solve-viewport-lock` JSDoc 참고).
+  useBodyClass("solve-viewport-lock");
+
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -227,7 +234,7 @@ export function SolvePencilcanvasPage() {
   }, [dailyUsageCount, dailyUsageLimit]);
 
   return (
-    <div className="bg-canvas-texture solve-no-callout relative min-h-screen">
+    <div className="bg-canvas-texture solve-no-callout relative h-dvh">
       <SolveHeader />
 
       {isRecognizedPreviewOpen ? (

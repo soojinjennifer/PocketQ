@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
  * WebKit 동작 때문에 생기는 문제를 보완하기 위한 훅이다.
  *
  * `SolveLandscapePage`(`pages/solve/landscape`)는 모든 자식을 `absolute`로 배치하고
- * `min-h-screen`(100vh)으로 루트 높이를 정하는 레이아웃이라, `ResultPanelShell`이 그 루트 기준
+ * `h-dvh`(100dvh)로 루트 높이를 정하는 레이아웃이라, `ResultPanelShell`이 그 루트 기준
  * `bottom-*`으로 하단을 고정해도 키보드가 열리면 루트 높이 자체가 줄지 않아 하단 콘텐츠(후속 질문
  * 입력창)가 키보드 뒤로 가려진다. 이 훅은 그 가려진 높이(px)를 반환해서 `ResultPanelShell`이 자신의
  * `bottom` 오프셋에 더할 수 있게 한다 — 패널 전체 높이가 그만큼 줄어들며 위로 당겨지고, 내부

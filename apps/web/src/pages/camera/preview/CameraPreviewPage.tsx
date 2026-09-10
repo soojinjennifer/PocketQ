@@ -24,7 +24,7 @@ export function CameraPreviewPage() {
   };
 
   return (
-    <div className="bg-bg-camera-sheet relative flex min-h-screen flex-col">
+    <div className="bg-bg-camera-sheet relative flex h-dvh flex-col">
       <CameraTopBar title="이대로 사용할까요?" />
 
       <div className="bg-bg-viewfinder relative mx-4 flex flex-1 items-center justify-center overflow-hidden rounded-[14px]">

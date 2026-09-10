@@ -40,3 +40,36 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/**
+ * iOS 키보드/받아쓰기(dictation) 툴바가 뜰 때 Safari가 포커스된 입력창을 화면에 보이게 하려고
+ * body를 위로 스크롤시키는 것을 막는 유틸리티. `/solve/pencilcanvas`, `/solve/landscape` 두
+ * 화면은 후속 질문 입력창(`features/follow-up-chat/ChatFooter.tsx`의 `<input>`)에 포커스가 가면,
+ * PenRail/SolveScroll/RecognizedChip 등 화면 루트에 `absolute`로 붙어있는 요소들이 body 스크롤과
+ * 함께 끌려 올라가 프레임 전체가 밀리는 버그가 있었다(오너 실기기 보고). 이 두 화면이 마운트돼
+ * 있는 동안에만 `useBodyClass`(`shared/lib/dom/useBodyClass.ts`)로 body에 이 클래스를 토글해서
+ * body 자체를 뷰포트에 고정(`position: fixed; inset: 0`)시키고 넘치는 콘텐츠는 잘라내
+ * (`overflow: hidden`) 스크롤이 발생할 여지 자체를 없앤다.
+ *
+ * 전역 클래스가 아니라 이 두 화면 마운트 중에만 토글하는 이유: 마이페이지 등 다른 화면은 body
+ * 자체의 스크롤에 의존하는 구조라(각 화면이 자체 `overflow-y-auto` 컨테이너를 갖지 않고 body가
+ * 스크롤 컨테이너 역할을 한다), body를 전역으로 고정하면 그 화면들에서 스크롤이 전혀 동작하지
+ * 않는 회귀가 발생한다.
+ *
+ * 후속 수정(iPad Safari 하단 탭바 겹침 버그): 원래 `inset: 0`을 썼으나, WebKit에서 `inset`/`vh`
+ * 계열 값은 브라우저 크롬(주소창·탭바)이 완전히 접힌 "큰(large) 뷰포트" 기준으로 계산된다. 하단
+ * 탭바가 떠 있는 상태(실제 보이는 뷰포트가 더 작음)에서는 이 요소가 실제 화면보다 커지고,
+ * `overflow: hidden`이라 스크롤로 보정도 안 돼서 하단 액션 버튼 행이 탭바에 가려 잘리는 문제가
+ * 있었다. `bottom: 0` 대신 `height: 100dvh`(동적 뷰포트 높이 — 실제 보이는 영역 기준으로
+ * 크롬 상태에 따라 갱신됨)로 교체해서 해결한다. `top`/`left`/`right`/`height`만 지정하고
+ * `bottom`은 지정하지 않는다(`bottom`까지 지정하면 `height`와 함께 요소가 over-constrained되어
+ * 브라우저가 임의로 하나를 무시할 수 있다).
+ */
+.solve-viewport-lock {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100dvh;
+  overflow: hidden;
+}

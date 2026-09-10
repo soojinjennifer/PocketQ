@@ -33,7 +33,7 @@ export function CameraCapturePage() {
   };
 
   return (
-    <div className="bg-bg-camera-sheet relative flex min-h-screen flex-col">
+    <div className="bg-bg-camera-sheet relative flex h-dvh flex-col">
       <CameraTopBar title="문제가 잘 보이게 맞춰 주세요" />
 
       <div className="bg-bg-viewfinder relative mx-4 flex flex-1 items-center justify-center overflow-hidden rounded-[14px]">

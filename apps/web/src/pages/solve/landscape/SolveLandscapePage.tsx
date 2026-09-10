@@ -24,6 +24,7 @@ import { useProblemInput } from "../../../features/problem-input/useProblemInput
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
+import { useBodyClass } from "../../../shared/lib/dom/useBodyClass";
 import { deriveHighlightRegion } from "../../../shared/lib/solve/deriveHighlightRegion";
 import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLineJudgments";
 import { Badge } from "../../../shared/ui/badge/Badge";
@@ -49,6 +50,11 @@ import { Modal } from "../../../shared/ui/modal/Modal";
  * 로딩)를 보여준다(오너 요청, 2026-08-16 — Claude 자체 채팅 UI처럼 진행 중임을 알리기 위함).
  */
 export function SolveLandscapePage() {
+  // iOS 키보드/받아쓰기 툴바가 후속 질문 입력창(`ChatFooter`)에 포커스될 때 body 전체가
+  // scroll-into-view로 밀려 이 화면의 absolute 레이아웃(PenRail/SolveScroll 등)이 함께 끌려
+  // 올라가는 것을 막는다(`shared/styles/textures.css`의 `.solve-viewport-lock` JSDoc 참고).
+  useBodyClass("solve-viewport-lock");
+
   const {
     capturedImage,
     strokes,
@@ -237,7 +243,7 @@ export function SolveLandscapePage() {
   }
 
   return (
-    <div className="bg-canvas-texture solve-no-callout relative min-h-screen">
+    <div className="bg-canvas-texture solve-no-callout relative h-dvh">
       <SolveHeader />
 
       {/* 캔버스/PenRail 소스 전환(오너 승인, work-order 6단계 발견 A 수정): 진단(DIAG) 결과가

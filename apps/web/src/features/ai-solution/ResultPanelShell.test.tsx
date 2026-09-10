@@ -75,4 +75,17 @@ describe("ResultPanelShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "넓게 보기" }));
     expect(onExtend).toHaveBeenCalledTimes(1);
   });
+
+  // 오너 2026-09-10 승인 최소 확장값 회귀 방지: top-3/bottom 고정 12px 여백을 되돌리거나
+  // 실수로 더 줄이면 이 테스트가 실패해야 한다(ResultPanelShell.tsx JSDoc 참고).
+  it("최상위 wrapper가 오너 승인 top/bottom 오프셋(top-1, bottom-[env(safe-area-inset-bottom)])을 유지한다", () => {
+    const { container } = render(
+      <ResultPanelShell onExtend={vi.fn()} onBackToDefault={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()}>
+        <div>결과 콘텐츠</div>
+      </ResultPanelShell>,
+    );
+
+    expect(container.querySelector(".top-1")).not.toBeNull();
+    expect(container.querySelector(".bottom-\\[env\\(safe-area-inset-bottom\\)\\]")).not.toBeNull();
+  });
 });

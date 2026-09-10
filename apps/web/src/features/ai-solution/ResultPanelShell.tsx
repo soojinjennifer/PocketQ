@@ -24,15 +24,15 @@ interface ResultPanelShellProps {
  * 않다 — ProblemCard/ActionBar/Result Panel이 한 프레임에 항상 함께 배치돼 있으므로, 로딩
  * 단계부터 이 셸을 정식 Result Panel과 동일한 위치·폭·스타일로 노출한다.
  *
- * 위치(top-3/right-3, 하단은 `bottom-[calc(0.75rem+env(safe-area-inset-bottom))]`로 iPad
- * safe-area까지 반영, 키보드가 열리면 `useKeyboardInset()`만큼 인라인 스타일로 추가 — 아래
- * 참고)·폭(`w-[min(420px,45vw)]`, Figma 420px + 좁은 Split View 방어용 45vw 상한)·배경/
+ * 위치(top-1/right-3, 하단은 `bottom-[env(safe-area-inset-bottom)]`로 iPad safe-area까지
+ * 반영, 키보드가 열리면 `useKeyboardInset()`만큼 인라인 스타일로 추가 — 아래 참고)·폭
+ * (`w-[min(420px,45vw)]`, Figma 420px + 좁은 Split View 방어용 45vw 상한)·배경/
  * 보더(`bg-glass-fill`/`border-glass-border`, Figma `glass/fill`, `glass/border`)·모서리
  * (`rounded-[24px]`, Figma 실측값)·그림자(Figma `Elevation/Glass Panel` 재실측값)는 기존
  * `ResultPanel`이 갖고 있던 값을 그대로 옮겼다(이중 래핑 방지를 위해 `ResultPanel`에서는 제거).
  *
  * iPad 온스크린 키보드 대응(오너 6.5단계 완료 조건 보완 요청, 2026-08-16): iOS Safari는 키보드가
- * 열려도 레이아웃 뷰포트(`100vh`/`min-h-screen` 기준)가 줄지 않아, 이 셸의 `bottom` 오프셋이
+ * 열려도 레이아웃 뷰포트(`100dvh`/`h-dvh` 기준)가 줄지 않아, 이 셸의 `bottom` 오프셋이
  * 그대로면 후속 질문 입력창이 키보드 뒤에 가려진다. `useKeyboardInset()`(`window.visualViewport`
  * 기반, 미지원 환경에서는 항상 0)가 가려진 높이(px)를 반환하면 그만큼 `bottom`에 더해 패널
  * 전체를 위로 당긴다 — 내부 Header/Body/Footer 재분배는 `ResultPanel`의 기존 flex 레이아웃이
@@ -61,6 +61,15 @@ interface ResultPanelShellProps {
  * 상태에서 항상 같은 크기·위치를 유지한다. 핸들이 셸 바깥으로 튀어나와야 하므로(음수 `left`),
  * `overflow-hidden`/모서리 반경/그림자/배경은 바깥 위치 컨테이너가 아니라 안쪽 콘텐츠
  * 래퍼(`inset-0`)에만 적용한다 — 바깥 컨테이너에 `overflow-hidden`을 두면 핸들이 잘려 보인다.
+ *
+ * **`top-1`/`bottom-[env(safe-area-inset-bottom)]`는 오너가 2026-09-10에 명시 승인한
+ * 최소 확장값이다(dvh 버그 수정 이후 패널이 좁아 보인다는 실기기 피드백에 대응, plan-agent
+ * 분석 결과 top 12px→4px·bottom 고정 12px 제거를 안전한 최소값으로 확정).** 화면을 더 넓게
+ * 쓰려는 목적으로 이 값을 추가로 줄이면 안 된다 — 더 늘리면 `z-20`(위 참고)인 이 셸이
+ * ProblemCard/ActionBar 위에 겹치는 영역이 넓어지고, 그 겹침 영역에서는 ActionBar 버튼
+ * 클릭도 함께 막히는 것을 확인했다(오너 실기기 검증). 즉 ActionBar와의 시각적 겹침 및 그
+ * 영역의 클릭 차단은 의도된 트레이드오프이며, 이 값을 변경하려면 반드시 오너 재승인이
+ * 필요하다.
  */
 export function ResultPanelShell({
   children,
@@ -80,10 +89,10 @@ export function ResultPanelShell({
 
   return (
     <div
-      className={`pointer-events-auto absolute top-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-20 ${widthClassName} transition-[width,bottom] duration-300 ease-out`}
+      className={`pointer-events-auto absolute top-1 right-3 bottom-[env(safe-area-inset-bottom)] z-20 ${widthClassName} transition-[width,bottom] duration-300 ease-out`}
       style={
         keyboardInset > 0
-          ? { bottom: `calc(0.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px)` }
+          ? { bottom: `calc(env(safe-area-inset-bottom) + ${keyboardInset}px)` }
           : undefined
       }
     >
