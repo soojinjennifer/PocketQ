@@ -44,6 +44,10 @@
      `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--accent/steel)` 값 — `--color-brand-deep`으로 근사했던
      이전 구현을 이 정확값으로 교체한다. */
   --color-accent-steel: #6c8693;
+  /* (design-agent 사후검수 신규, 2026-09) 로고 보더 색상.
+     Figma MCP `get_design_context`(Logo 컴포넌트 `223:311`/`223:312`, fileKey
+     `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--accent/cyan)` 값. */
+  --color-accent-cyan: #9fc6cc;
 
   --color-separator: #3c3c431f;
   --color-fill-quaternary: #7676801f;

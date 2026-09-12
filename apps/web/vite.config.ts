@@ -26,8 +26,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "포켓큐",
-        short_name: "포켓큐",
+        name: "수풀잉",
+        short_name: "수풀잉",
         display: "standalone",
         orientation: "landscape",
         start_url: "/",

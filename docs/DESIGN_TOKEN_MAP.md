@@ -27,6 +27,7 @@
 | `accent/yellow` | `#dcc08a` | `--color-accent-yellow` | `colors-pastel.css`의 `--accents-yellow` (동일 값) |
 | `accent/red` | `#c97b6e` | `--color-accent-red` | 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 |
 | `accent/steel` | `#6c8693` | `--color-accent-steel` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:1202`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 "풀이 내역 지우기" 버튼 활성 배경) — 이전엔 `--color-brand-deep`으로 근사했으나 확연히 다른 톤이라 별도 등록 |
+| `accent/cyan` | `#9fc6cc` | `--color-accent-cyan` | 신규. 2026-09 design-agent 실측, Figma MCP `get_design_context`(Logo 컴포넌트 `223:311`/`223:312`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — 로고 보더 색상 |
 | `color-brand-rest` | `#3e4c5f` | `--color-brand-rest` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1204;279:839`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 체크박스 checked 배경/보더) — `--color-brand-deep`(`#46536a`)과는 다른 별도 톤 |
 | `separator` | `#3c3c431f` | `--color-separator` | — |
 | `fill/quaternary` | `#7676801f` | `--color-fill-quaternary` | — |
@@ -67,6 +68,7 @@ Figma에 Radius/Spacing Variable Collection이 존재하지 않는다 — 임의
 - `radius/18`: `18px` — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). 기존 반경 값들과 마찬가지로 별도 CSS Variable을 만들지 않고 Tailwind 임의값(`rounded-[18px]`)으로 코드에 직접 표현한다(코드베이스의 기존 `radius/14` 처리 방식과 동일, `rounded-[14px]` 리터럴이 여러 컴포넌트에 그대로 쓰이고 있다).
 - Spacing 스케일 자체가 문서화되어 있지 않다(참고 ZIP도 "격자 없음"이라 명시). Tailwind 기본 spacing 스케일을 사용하되, 컴포넌트별로 필요한 값을 위 프로세스로 개별 확인한다.
 - `radius/sm`: `2px` — 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 컴포넌트, node `279:816`/`279:818`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) 실측. 마이페이지 개선 3번 체크박스(`shared/ui/checkbox/Checkbox.tsx`) 전용 — 기존에 임의로 쓰던 `rounded-[6px]`는 이 실측값과 맞지 않아 `rounded-[2px]`로 정정. `radius/14`/`radius/18`과 동일하게 별도 CSS Variable 없이 Tailwind 임의값으로 표현한다.
+- `radius/10`: `10px` — 2026-09 design-agent 실측, Figma MCP `get_design_context`(Logo 컴포넌트 `223:312`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`). `shared/ui/logo/Logo.tsx`의 `size="small"`(52px) 전용 — `size="large"`(76px)는 `radius/18`을 그대로 쓴다. 다른 반경 값들과 동일하게 별도 CSS Variable 없이 Tailwind 임의값(`rounded-[10px]`)으로 표현한다.
 
 ## 5. 사용 금지 목록
 

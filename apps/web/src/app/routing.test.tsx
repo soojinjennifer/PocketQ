@@ -68,7 +68,7 @@ describe("라우팅", () => {
 
     resolveGetSession({ data: { session: null }, error: null });
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "포켓큐" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "수풀잉" })).toBeInTheDocument(),
     );
   });
 
@@ -78,7 +78,7 @@ describe("라우팅", () => {
     renderApp(["/"]);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "포켓큐" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "수풀잉" })).toBeInTheDocument(),
     );
   });
 
@@ -220,7 +220,7 @@ describe("라우팅", () => {
     renderApp(["/register"]);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "포켓큐" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "수풀잉" })).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "이메일로 가입하기" })).toBeInTheDocument();
   });
@@ -242,7 +242,7 @@ describe("라우팅", () => {
     renderApp(["/solve/pencilcanvas"]);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "포켓큐" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "수풀잉" })).toBeInTheDocument(),
     );
   });
 
@@ -271,7 +271,7 @@ describe("라우팅", () => {
     await waitFor(() =>
       expect(screen.getByText("이메일이나 비밀번호가 틀렸습니다")).toBeInTheDocument(),
     );
-    expect(screen.getByRole("heading", { name: "포켓큐" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "수풀잉" })).toBeInTheDocument();
   });
 
   it("촬영 데이터 없이 /camera/preview에 접근하면 /camera로 이동한다", async () => {
