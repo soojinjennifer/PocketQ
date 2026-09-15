@@ -6,7 +6,7 @@ import type { SolveStreamStatus } from "../ai-solution/useSolveStream";
 import type { DiagnoseInput, DiagnoseStatus } from "../ai-solution/useDiagnose";
 import type { ResumeStreamStatus } from "../ai-solution/useResumeStream";
 import type { ChatStatus } from "../follow-up-chat/useChatMessages";
-import type { DrawingTool, Stroke, StrokePoint } from "../../shared/lib/canvas/useDrawingStrokes";
+import type { DrawingTool, Stroke } from "../../shared/lib/canvas/useDrawingStrokes";
 
 export interface CapturedImage {
   blob: Blob;
@@ -28,8 +28,9 @@ export interface ProblemInputContextValue {
   strokes: Stroke[];
   tool: DrawingTool;
   setTool: (tool: DrawingTool) => void;
-  startStroke: (point: StrokePoint) => void;
-  addPoint: (point: StrokePoint) => void;
+  /** 완성된 Stroke 하나를 통째로 커밋한다(`HandwritingCanvas`가 제스처 종료 시 1회 호출,
+   *  `useDrawingStrokes` JSDoc 참고 — 필기 유실 버그 4단계 수정). */
+  commitStroke: (stroke: Stroke) => void;
   undoStroke: () => void;
   clearStrokes: () => void;
 
@@ -39,8 +40,7 @@ export interface ProblemInputContextValue {
   workStrokes: Stroke[];
   workTool: DrawingTool;
   setWorkTool: (tool: DrawingTool) => void;
-  startWorkStroke: (point: StrokePoint) => void;
-  addWorkPoint: (point: StrokePoint) => void;
+  commitWorkStroke: (stroke: Stroke) => void;
   undoWorkStroke: () => void;
   clearWorkStrokes: () => void;
 

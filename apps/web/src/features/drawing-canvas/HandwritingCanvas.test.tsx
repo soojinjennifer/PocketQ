@@ -69,7 +69,7 @@ const ERASER_STROKE: Stroke = {
 describe("HandwritingCanvas 렌더링(mock 2D 컨텍스트)", () => {
   it("펜 획은 globalCompositeOperation을 source-over로 설정하고 fill을 호출한다", () => {
     render(
-      <HandwritingCanvas strokes={[PEN_STROKE]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+      <HandwritingCanvas strokes={[PEN_STROKE]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     expect(mockCtx.fillCalls.length).toBeGreaterThan(0);
@@ -80,7 +80,7 @@ describe("HandwritingCanvas 렌더링(mock 2D 컨텍스트)", () => {
 
   it("지우개 획은 globalCompositeOperation을 destination-out으로 설정하고 fill을 호출한다", () => {
     render(
-      <HandwritingCanvas strokes={[ERASER_STROKE]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+      <HandwritingCanvas strokes={[ERASER_STROKE]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     expect(mockCtx.fillCalls.length).toBeGreaterThan(0);
@@ -91,11 +91,7 @@ describe("HandwritingCanvas 렌더링(mock 2D 컨텍스트)", () => {
 
   it("펜 획 다음 지우개 획을 그리면 각각 올바른 compositeOperation으로 fill이 호출된다", () => {
     render(
-      <HandwritingCanvas
-        strokes={[PEN_STROKE, ERASER_STROKE]}
-        onStartStroke={vi.fn()}
-        onAddPoint={vi.fn()}
-      />,
+      <HandwritingCanvas strokes={[PEN_STROKE, ERASER_STROKE]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     // 여러 렌더 패스(초기 마운트 + resize)가 있을 수 있으므로 최소 1회 이상 각 조합이
@@ -110,7 +106,7 @@ describe("HandwritingCanvas 렌더링(mock 2D 컨텍스트)", () => {
 
   it("렌더링 이후 globalCompositeOperation을 항상 source-over로 되돌린다(다음 프레임 오염 방지)", () => {
     render(
-      <HandwritingCanvas strokes={[ERASER_STROKE]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+      <HandwritingCanvas strokes={[ERASER_STROKE]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     expect(mockCtx.globalCompositeOperation).toBe("source-over");
@@ -118,19 +114,18 @@ describe("HandwritingCanvas 렌더링(mock 2D 컨텍스트)", () => {
 
   it("점 1개뿐인 짧은 지우개 획도 fill이 호출된다(짧은 획 방어 처리)", () => {
     const tapStroke: Stroke = { tool: "eraser", points: [{ x: 3, y: 3, pressure: 0.5 }] };
-    render(<HandwritingCanvas strokes={[tapStroke]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />);
+    render(<HandwritingCanvas strokes={[tapStroke]} tool="pen" onCommitStroke={vi.fn()} />);
 
     expect(mockCtx.fillCalls.length).toBeGreaterThan(0);
     expect(mockCtx.fillCalls[0]?.compositeOperation).toBe("destination-out");
   });
 });
 
-describe("HandwritingCanvas 포인터 이벤트", () => {
-  it("pointerdown은 onStartStroke를, 이어지는 pointermove는 onAddPoint를 호출한다", () => {
-    const onStartStroke = vi.fn();
-    const onAddPoint = vi.fn();
+describe("HandwritingCanvas 포인터 이벤트 — onCommitStroke 계약", () => {
+  it("pointerdown → 여러 pointermove → pointerup 시퀀스 후 onCommitStroke가 누적된 points와 함께 정확히 1회 호출된다", () => {
+    const onCommitStroke = vi.fn();
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={onStartStroke} onAddPoint={onAddPoint} />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
     );
     const canvas = container.querySelector("canvas");
     if (!canvas) {
@@ -146,9 +141,8 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       clientY: 20,
       pressure: 0.5,
     });
-    expect(onStartStroke).toHaveBeenCalledTimes(1);
-    expect(onStartStroke).toHaveBeenCalledWith({ x: 10, y: 20, pressure: 0.5 });
-    expect(onAddPoint).not.toHaveBeenCalled();
+    // pointerdown 시점에는 아직 제스처가 끝나지 않았으므로 커밋되지 않는다.
+    expect(onCommitStroke).not.toHaveBeenCalled();
 
     fireEvent.pointerMove(canvas, {
       pointerId: 1,
@@ -157,15 +151,68 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       clientY: 22,
       pressure: 0.5,
     });
-    expect(onAddPoint).toHaveBeenCalledTimes(1);
-    expect(onAddPoint).toHaveBeenCalledWith({ x: 12, y: 22, pressure: 0.5 });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 14,
+      clientY: 24,
+      pressure: 0.5,
+    });
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 14, clientY: 24 });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 10, y: 20, pressure: 0.5 },
+        { x: 12, y: 22, pressure: 0.5 },
+        { x: 14, y: 24, pressure: 0.5 },
+      ],
+    });
   });
 
-  it("touch pointerType은 무시한다(팜/오터치 방지)", () => {
-    const onStartStroke = vi.fn();
-    const onAddPoint = vi.fn();
+  it("pointercancel로 끝난 제스처도 onCommitStroke가 정확히 1회 호출된다", () => {
+    const onCommitStroke = vi.fn();
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={onStartStroke} onAddPoint={onAddPoint} />,
+      <HandwritingCanvas strokes={[]} tool="eraser" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) {
+      throw new Error("canvas element not found");
+    }
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 2,
+      clientY: 2,
+      pressure: 0.5,
+    });
+    fireEvent.pointerCancel(canvas, { pointerId: 1, pointerType: "pen" });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "eraser",
+      points: [
+        { x: 1, y: 1, pressure: 0.5 },
+        { x: 2, y: 2, pressure: 0.5 },
+      ],
+    });
+  });
+
+  it("touch pointerType은 무시한다(팜/오터치 방지) — onCommitStroke가 호출되지 않는다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
     );
     const canvas = container.querySelector("canvas");
     if (!canvas) {
@@ -173,14 +220,14 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
     }
 
     fireEvent.pointerDown(canvas, { pointerId: 1, pointerType: "touch", clientX: 1, clientY: 1 });
-    expect(onStartStroke).not.toHaveBeenCalled();
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "touch", clientX: 1, clientY: 1 });
+    expect(onCommitStroke).not.toHaveBeenCalled();
   });
 
-  it("pointerup 이후의 pointermove는 무시한다(획 종료 후 이어그리기 방지)", () => {
-    const onStartStroke = vi.fn();
-    const onAddPoint = vi.fn();
+  it("pointerup 이후의 pointermove는 무시한다(획 종료 후 이어그리기 방지, 중복 커밋도 없다)", () => {
+    const onCommitStroke = vi.fn();
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={onStartStroke} onAddPoint={onAddPoint} />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
     );
     const canvas = container.querySelector("canvas");
     if (!canvas) {
@@ -195,6 +242,7 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       pressure: 0.5,
     });
     fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 1, clientY: 1 });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
 
     fireEvent.pointerMove(canvas, {
       pointerId: 1,
@@ -203,14 +251,14 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       clientY: 2,
       pressure: 0.5,
     });
-    expect(onAddPoint).not.toHaveBeenCalled();
+    // 종료 후 pointermove는 무시되어 추가로 커밋되지 않는다.
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
   });
 
   it("pointercancel 이후의 pointermove는 무시한다(iOS 스크롤 전환 시 pointercancel 발생 대응)", () => {
-    const onStartStroke = vi.fn();
-    const onAddPoint = vi.fn();
+    const onCommitStroke = vi.fn();
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={onStartStroke} onAddPoint={onAddPoint} />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
     );
     const canvas = container.querySelector("canvas");
     if (!canvas) {
@@ -225,6 +273,7 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       pressure: 0.5,
     });
     fireEvent.pointerCancel(canvas, { pointerId: 1, pointerType: "pen" });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
 
     fireEvent.pointerMove(canvas, {
       pointerId: 1,
@@ -233,14 +282,14 @@ describe("HandwritingCanvas 포인터 이벤트", () => {
       clientY: 2,
       pressure: 0.5,
     });
-    expect(onAddPoint).not.toHaveBeenCalled();
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("HandwritingCanvas scrollable=false(기본값) 회귀 확인", () => {
   it("scrollable prop 없이 렌더링하면 outer div 1개만 존재한다(기존 DOM 구조 그대로)", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     // 기존 구조: <div class="absolute inset-0 z-0"><canvas/></div> — content 래퍼가 없다.
@@ -254,7 +303,7 @@ describe("HandwritingCanvas scrollable=false(기본값) 회귀 확인", () => {
 describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
   it("scrollable=true여도 outer div 바로 아래에 content 래퍼와 canvas가 추가된다", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
 
     const outer = container.firstElementChild;
@@ -266,7 +315,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
 
   it("(a) 펜으로 그리는 동안 터치 포인터가 움직여도 스크롤이 발동하지 않는다", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const canvas = container.querySelector("canvas");
     const outer = container.firstElementChild as HTMLDivElement;
@@ -301,7 +350,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
 
   it("(b) 펜이 그리지 않는 상태에서 터치 포인터 1개의 pointermove로 scrollTop이 바뀐다", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const canvas = container.querySelector("canvas");
     const outer = container.firstElementChild as HTMLDivElement;
@@ -327,7 +376,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
 
   it("(c) 터치 포인터 2개가 동시에 같은 속도로 움직여도 스크롤 속도가 2배가 되지 않는다(평균 적용)", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const canvas = container.querySelector("canvas");
     const outer = container.firstElementChild as HTMLDivElement;
@@ -367,7 +416,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
 
   it("(d) 펜으로 그리는 도중 닿은 손바닥(터치)은 스크롤 후보로 등록되지 않는다(팜 리젝션 유지)", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const canvas = container.querySelector("canvas");
     const outer = container.firstElementChild as HTMLDivElement;
@@ -402,7 +451,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
 
   it("(d-2) 손바닥(터치)이 펜보다 먼저 닿아 스크롤 후보로 등록된 뒤 펜이 그리기 시작하면, 이후 그 손바닥이 움직여도 스크롤이 발동하지 않는다(등록 순서 역전 케이스)", () => {
     const { container } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const canvas = container.querySelector("canvas");
     const outer = container.firstElementChild as HTMLDivElement;
@@ -436,7 +485,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
     expect(outer.scrollTop).toBe(0);
   });
 
-  it("(e) workStrokes의 최대 y가 content 높이 임계값에 가까워지면 content 높이가 늘어난다", () => {
+  it("(e) strokes(커밋된 획)의 최대 y가 content 높이 임계값에 가까워지면 content 높이가 늘어난다", () => {
     // outer/content 실측 높이를 100px로 고정한다(jsdom은 기본적으로 getBoundingClientRect가
     // 전부 0을 반환하므로, 성장 임계값 로직을 검증하려면 실측값을 모킹해야 한다).
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
@@ -452,7 +501,7 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
     });
 
     const { container, rerender } = render(
-      <HandwritingCanvas strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} scrollable />,
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const content = container.querySelector("canvas")?.parentElement as HTMLDivElement;
     expect(content.style.height).toBe("100px");
@@ -466,15 +515,58 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
       ],
     };
     rerender(
-      <HandwritingCanvas
-        strokes={[tallStroke]}
-        onStartStroke={vi.fn()}
-        onAddPoint={vi.fn()}
-        scrollable
-      />,
+      <HandwritingCanvas strokes={[tallStroke]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
 
     expect(content.style.height).toBe("200px");
+  });
+
+  it("(f) 그리는 도중(pointermove, 아직 커밋 전)에도 성장 임계값을 넘으면 즉시 확장된다", () => {
+    // (e)와 동일하게 outer/content 실측 높이를 100px로 고정한다.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 300,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const content = canvas?.parentElement as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    expect(content.style.height).toBe("100px");
+
+    // 아직 pointerup(커밋)하지 않은 상태 — y=90까지 그리는 도중에도 확장돼야 한다(회귀 방지:
+    // 이전에는 커밋된 strokes prop만 봐서 획이 끝나야 확장됐다).
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    expect(content.style.height).toBe("100px");
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 90,
+      pressure: 0.5,
+    });
+
+    expect(content.style.height).toBe("200px");
+    // 확장 시점까지도 아직 커밋되지 않았다(제스처가 끝나지 않았으므로).
+    expect(onCommitStroke).not.toHaveBeenCalled();
   });
 });
 
@@ -482,7 +574,7 @@ describe("HandwritingCanvas isScrollable()", () => {
   it("scrollable=false면 항상 false를 반환한다", () => {
     const ref = createRef<HandwritingCanvasHandle>();
     render(
-      <HandwritingCanvas ref={ref} strokes={[]} onStartStroke={vi.fn()} onAddPoint={vi.fn()} />,
+      <HandwritingCanvas ref={ref} strokes={[]} tool="pen" onCommitStroke={vi.fn()} />,
     );
 
     expect(ref.current?.isScrollable()).toBe(false);
@@ -491,13 +583,7 @@ describe("HandwritingCanvas isScrollable()", () => {
   it("scrollable=true이고 outer.scrollHeight > outer.clientHeight면 true를 반환한다", () => {
     const ref = createRef<HandwritingCanvasHandle>();
     const { container } = render(
-      <HandwritingCanvas
-        ref={ref}
-        strokes={[]}
-        onStartStroke={vi.fn()}
-        onAddPoint={vi.fn()}
-        scrollable
-      />,
+      <HandwritingCanvas ref={ref} strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const outer = container.firstElementChild as HTMLDivElement;
 
@@ -511,13 +597,7 @@ describe("HandwritingCanvas isScrollable()", () => {
   it("scrollable=true여도 outer.scrollHeight === outer.clientHeight면 false를 반환한다(스크롤 불필요)", () => {
     const ref = createRef<HandwritingCanvasHandle>();
     const { container } = render(
-      <HandwritingCanvas
-        ref={ref}
-        strokes={[]}
-        onStartStroke={vi.fn()}
-        onAddPoint={vi.fn()}
-        scrollable
-      />,
+      <HandwritingCanvas ref={ref} strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
     );
     const outer = container.firstElementChild as HTMLDivElement;
 
@@ -544,8 +624,8 @@ describe("HandwritingCanvas isScrollable()", () => {
     render(
       <HandwritingCanvas
         strokes={[]}
-        onStartStroke={vi.fn()}
-        onAddPoint={vi.fn()}
+        tool="pen"
+        onCommitStroke={vi.fn()}
         scrollable
         onScrollableChange={onScrollableChange}
       />,

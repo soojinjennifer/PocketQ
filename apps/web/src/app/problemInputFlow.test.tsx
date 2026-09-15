@@ -176,12 +176,12 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
     () => mockCtx as unknown as CanvasRenderingContext2D,
   );
-  // `exportStrokesToPngBlob`(사진 없이 필기만 있을 때 제출 직전 PNG로 export)이 호출하는 `toBlob`.
+  // `exportStrokesToJpegBlob`(사진 없이 필기만 있을 때 제출 직전 JPEG로 export)이 호출하는 `toBlob`.
   vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(
     this: HTMLCanvasElement,
     callback: BlobCallback,
   ) {
-    callback(new Blob(["fake-png"], { type: "image/png" }));
+    callback(new Blob(["fake-jpeg"], { type: "image/jpeg" }));
   });
 
   vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue({

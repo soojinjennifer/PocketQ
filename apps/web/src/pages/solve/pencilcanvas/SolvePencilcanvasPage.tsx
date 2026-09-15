@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { exportStrokesToPngBlob } from "../../../shared/lib/canvas/exportStrokesToPngBlob";
+import { exportStrokesToJpegBlob } from "../../../shared/lib/canvas/exportStrokesToJpegBlob";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -53,15 +53,13 @@ export function SolvePencilcanvasPage() {
     strokes,
     tool,
     setTool,
-    startStroke,
-    addPoint,
+    commitStroke,
     undoStroke,
     clearStrokes,
     workStrokes,
     workTool,
     setWorkTool,
-    startWorkStroke,
-    addWorkPoint,
+    commitWorkStroke,
     undoWorkStroke,
     clearWorkStrokes,
     hasProblemInput,
@@ -185,7 +183,7 @@ export function SolvePencilcanvasPage() {
     let currentWorkLines = workLines;
     if (currentWorkLines === null) {
       // WORK 단계 캔버스가 빈 상태(획 없음)면 조용히 무시한다(오너 확정, 방어적 처리).
-      const imageBlob = await exportStrokesToPngBlob(workStrokes);
+      const imageBlob = await exportStrokesToJpegBlob(workStrokes);
       if (!imageBlob) {
         return;
       }
@@ -249,8 +247,8 @@ export function SolvePencilcanvasPage() {
               <HandwritingCanvas
                 ref={workCanvasRef}
                 strokes={workStrokes}
-                onStartStroke={startWorkStroke}
-                onAddPoint={addWorkPoint}
+                tool={workTool}
+                onCommitStroke={commitWorkStroke}
                 onScrollRatioChange={setWorkScrollRatio}
                 onScrollableChange={setIsWorkScrollable}
                 scrollable
@@ -284,11 +282,7 @@ export function SolvePencilcanvasPage() {
             </>
           ) : (
             <>
-              <HandwritingCanvas
-                strokes={strokes}
-                onStartStroke={startStroke}
-                onAddPoint={addPoint}
-              />
+              <HandwritingCanvas strokes={strokes} tool={tool} onCommitStroke={commitStroke} />
               <PenRail
                 activeTool={tool}
                 onSelectTool={setTool}

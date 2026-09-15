@@ -7,7 +7,7 @@ import { useSolveStream } from "../ai-solution/useSolveStream";
 import { useChatMessages } from "../follow-up-chat/useChatMessages";
 import { useRecognizeProblem } from "../problem-recognition/useRecognizeProblem";
 import { useRecognizeWork } from "../problem-recognition/useRecognizeWork";
-import { exportStrokesToPngBlob } from "../../shared/lib/canvas/exportStrokesToPngBlob";
+import { exportStrokesToJpegBlob } from "../../shared/lib/canvas/exportStrokesToJpegBlob";
 import { useDrawingStrokes } from "../../shared/lib/canvas/useDrawingStrokes";
 import { getSuggestedQuestions } from "../../shared/api/suggestedQuestions";
 import { blobToObjectUrl, revokeObjectUrl } from "../../shared/lib/image/objectUrl";
@@ -126,8 +126,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     strokes,
     tool,
     setTool,
-    startStroke,
-    addPoint,
+    commitStroke,
     undo: undoStroke,
     clear: clearStrokes,
   } = useDrawingStrokes();
@@ -139,8 +138,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     strokes: workStrokes,
     tool: workTool,
     setTool: setWorkTool,
-    startStroke: startWorkStroke,
-    addPoint: addWorkPoint,
+    commitStroke: commitWorkStroke,
     undo: undoWorkStroke,
     clear: clearWorkStrokes,
   } = useDrawingStrokes();
@@ -204,7 +202,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       photoBlob: capturedImage?.blob ?? null,
       strokes,
       grade,
-      exportStrokes: exportStrokesToPngBlob,
+      exportStrokes: exportStrokesToJpegBlob,
     });
     if (!normalized) {
       return;
@@ -273,7 +271,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       photoBlob: capturedImage?.blob ?? null,
       strokes,
       grade,
-      exportStrokes: exportStrokesToPngBlob,
+      exportStrokes: exportStrokesToJpegBlob,
     });
     if (!normalized) {
       return null;
@@ -480,15 +478,13 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       strokes,
       tool,
       setTool,
-      startStroke,
-      addPoint,
+      commitStroke,
       undoStroke,
       clearStrokes,
       workStrokes,
       workTool,
       setWorkTool,
-      startWorkStroke,
-      addWorkPoint,
+      commitWorkStroke,
       undoWorkStroke,
       clearWorkStrokes,
       hasProblemInput,
@@ -543,15 +539,13 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       strokes,
       tool,
       setTool,
-      startStroke,
-      addPoint,
+      commitStroke,
       undoStroke,
       clearStrokes,
       workStrokes,
       workTool,
       setWorkTool,
-      startWorkStroke,
-      addWorkPoint,
+      commitWorkStroke,
       undoWorkStroke,
       clearWorkStrokes,
       hasProblemInput,

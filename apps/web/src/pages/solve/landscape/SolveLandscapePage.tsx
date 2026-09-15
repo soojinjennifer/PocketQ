@@ -60,15 +60,13 @@ export function SolveLandscapePage() {
     strokes,
     tool,
     setTool,
-    startStroke,
-    addPoint,
+    commitStroke,
     undoStroke,
     clearStrokes,
     workStrokes,
     workTool,
     setWorkTool,
-    startWorkStroke,
-    addWorkPoint,
+    commitWorkStroke,
     undoWorkStroke,
     clearWorkStrokes,
     hasProblemInput,
@@ -259,8 +257,8 @@ export function SolveLandscapePage() {
           <HandwritingCanvas
             ref={canvasScrollRef}
             strokes={workStrokes}
-            onStartStroke={startWorkStroke}
-            onAddPoint={addWorkPoint}
+            tool={workTool}
+            onCommitStroke={commitWorkStroke}
             onScrollRatioChange={setCanvasScrollRatio}
             onScrollableChange={setIsCanvasScrollable}
             scrollable
@@ -288,8 +286,8 @@ export function SolveLandscapePage() {
           <HandwritingCanvas
             ref={canvasScrollRef}
             strokes={strokes}
-            onStartStroke={startStroke}
-            onAddPoint={addPoint}
+            tool={tool}
+            onCommitStroke={commitStroke}
             onScrollRatioChange={setCanvasScrollRatio}
             onScrollableChange={setIsCanvasScrollable}
             scrollable
