@@ -97,6 +97,69 @@ describe("ActionBar", () => {
     expect(diagnoseButton.className).toContain("bg-brand-deep");
   });
 
+  it("WORK-풀이후 단계에서 '아직 못 풀겠어요'는 클릭 가능(disabled 아님)한 채로 고스트 필 스타일(bg-bg-scrim/opacity-40)이 적용된다", () => {
+    const handleGiveUp = vi.fn();
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        hasWorkInput
+        recognizeStatus="success"
+        solveStatus="idle"
+        recognizeWorkStatus="idle"
+        diagnoseStatus="idle"
+        onGiveUp={handleGiveUp}
+      />,
+    );
+
+    const giveUpButton = screen.getByRole("button", { name: "아직 못 풀겠어요" });
+    expect(giveUpButton).not.toBeDisabled();
+    expect(giveUpButton.className).toContain("bg-bg-scrim");
+    expect(giveUpButton.className).toContain("text-label-primary");
+    expect(giveUpButton.className).toContain("opacity-40");
+
+    fireEvent.click(giveUpButton);
+    expect(handleGiveUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("INPUT 단계에서 '아직 못 풀겠어요'는 비활성(disabled)이면서 고스트 필 스타일이 적용된다", () => {
+    render(
+      <ActionBar
+        problemId={null}
+        hasProblemInput
+        hasWorkInput={false}
+        recognizeStatus="idle"
+        solveStatus="idle"
+        recognizeWorkStatus="idle"
+        diagnoseStatus="idle"
+      />,
+    );
+
+    const giveUpButton = screen.getByRole("button", { name: "아직 못 풀겠어요" });
+    expect(giveUpButton).toBeDisabled();
+    expect(giveUpButton.className).toContain("bg-bg-scrim");
+    expect(giveUpButton.className).toContain("opacity-40");
+  });
+
+  it("RESULT 단계에서 '아직 못 풀겠어요'는 고스트 필이 아닌 기존 plain 비활성 스타일을 유지한다", () => {
+    render(
+      <ActionBar
+        problemId="problem-1"
+        hasProblemInput
+        hasWorkInput
+        recognizeStatus="success"
+        solveStatus="idle"
+        recognizeWorkStatus="success"
+        diagnoseStatus="success"
+      />,
+    );
+
+    const giveUpButton = screen.getByRole("button", { name: "아직 못 풀겠어요" });
+    expect(giveUpButton).toBeDisabled();
+    expect(giveUpButton.className).not.toContain("bg-bg-scrim");
+    expect(giveUpButton.className).toContain("bg-transparent");
+  });
+
   it("WORK 단계에서 진단(solve) 요청이 진행 중이면 '아직 못 풀겠어요'/'봐 주세요' 모두 비활성화된다", () => {
     render(
       <ActionBar
