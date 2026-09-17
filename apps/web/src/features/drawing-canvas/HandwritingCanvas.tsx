@@ -595,11 +595,23 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
           return;
         }
         activePointerIdRef.current = event.pointerId;
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        pointerCaptureDebtRef.current.set(
-          event.pointerId,
-          (pointerCaptureDebtRef.current.get(event.pointerId) ?? 0) + 1,
-        );
+        // iOS Safari(WebKit)는 애플펜슬 pointerId를 연속된 획 사이에서 재사용하는데, 직전 획의
+        // 캡처 해제가 브라우저 내부적으로 완전히 정리되기 전에 같은 pointerId로 다시
+        // `setPointerCapture`를 호출하면 예외를 던지는 경우가 있다(P0). 캡처는 "그리기 시작"의
+        // 전제조건이 아니라 부가 기능(포인터가 캔버스 밖으로 나가도 이벤트를 계속 받기 위한 것)이므로,
+        // 캡처 획득이 실패해도 아래 획 생성/렌더는 반드시 진행되어야 한다.
+        let captureAcquired = true;
+        try {
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        } catch {
+          captureAcquired = false;
+        }
+        if (captureAcquired) {
+          pointerCaptureDebtRef.current.set(
+            event.pointerId,
+            (pointerCaptureDebtRef.current.get(event.pointerId) ?? 0) + 1,
+          );
+        }
         pointerDownTimestampsRef.current.set(event.pointerId, performance.now());
 
         const point = toStrokePoint(event);

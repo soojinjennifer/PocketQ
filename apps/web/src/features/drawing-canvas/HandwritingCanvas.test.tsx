@@ -184,6 +184,56 @@ describe("HandwritingCanvas 포인터 이벤트 — onCommitStroke 계약", () =
     });
   });
 
+  it("setPointerCapture가 예외를 던져도(iOS Safari가 애플펜슬 pointerId를 재사용할 때 발생하는 P0 경쟁 상태) 획 입력이 유실되지 않고 onCommitStroke가 정상 호출된다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) {
+      throw new Error("canvas element not found");
+    }
+    // jsdom은 setPointerCapture가 기본적으로 no-op이거나 미구현일 수 있으므로, 이 캔버스
+    // 인스턴스에 한해 명시적으로 예외를 던지도록 오버라이드해 iOS Safari의 pointerId 재사용
+    // 경쟁 상태(직전 획의 캡처 해제가 끝나기 전 같은 pointerId로 재호출)를 재현한다.
+    canvas.setPointerCapture = vi.fn(() => {
+      throw new Error("InvalidStateError: pointer capture not available");
+    });
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "pen",
+      clientX: 30,
+      clientY: 40,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "pen",
+      clientX: 32,
+      clientY: 42,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "pen",
+      clientX: 34,
+      clientY: 44,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 2, pointerType: "pen", clientX: 34, clientY: 44 });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 30, y: 40, pressure: 0.5 },
+        { x: 32, y: 42, pressure: 0.5 },
+        { x: 34, y: 44, pressure: 0.5 },
+      ],
+    });
+  });
+
   it("pointercancel로 끝난 제스처도 onCommitStroke가 정확히 1회 호출된다", () => {
     const onCommitStroke = vi.fn();
     const { container } = render(
