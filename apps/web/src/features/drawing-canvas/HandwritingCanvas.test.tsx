@@ -920,6 +920,99 @@ describe("HandwritingCanvas — lostpointercapture (P1: pointerup/pointercancel 
     });
   });
 
+  it("재사용된 pointerId로 지연 도착한 lostpointercapture가 새로 시작된 stroke를 조기 종료시키지 않는다(P0 재발 방지, capture-release debt)", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    const REUSED_POINTER_ID = 7;
+
+    // 획1: 정상적으로 pointerup까지 진행되어 커밋된다(이때 획1의 setPointerCapture에 대응하는
+    // lostpointercapture는 아직 도착하지 않은 상태 — iOS Safari가 지연 디스패치하는 상황을 재현).
+    fireEvent.pointerDown(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+    });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenNthCalledWith(1, {
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 1, y: 1, pressure: 0.5 },
+      ],
+    });
+
+    // 획2: 같은 pointerId가 즉시 재사용되어 새 제스처를 시작한다(아직 pointerup 하지 않음).
+    fireEvent.pointerDown(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 100,
+      clientY: 100,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 105,
+      clientY: 105,
+      pressure: 0.5,
+    });
+
+    // 획1의 capture-release가 지연 도착한다(같은 pointerId) — 이 시점에 획2가 여전히 진행 중이다.
+    fireEvent.lostPointerCapture(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+    });
+
+    // stale lostpointercapture는 무시되어야 한다 — 조기 커밋되지 않는다(여전히 1회만 커밋됨).
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+
+    // 획2가 계속 이어져서 그려진다 — 이후 pointermove가 여전히 반영된다(핵심 회귀 검증 지점).
+    fireEvent.pointerMove(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 110,
+      clientY: 110,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, {
+      pointerId: REUSED_POINTER_ID,
+      pointerType: "pen",
+      clientX: 110,
+      clientY: 110,
+    });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(2);
+    expect(onCommitStroke).toHaveBeenNthCalledWith(2, {
+      tool: "pen",
+      points: [
+        { x: 100, y: 100, pressure: 0.5 },
+        { x: 105, y: 105, pressure: 0.5 },
+        { x: 110, y: 110, pressure: 0.5 },
+      ],
+    });
+  });
+
   it("다른 pointerId의 lostpointercapture는 무시한다", () => {
     const onCommitStroke = vi.fn();
     const { container } = render(

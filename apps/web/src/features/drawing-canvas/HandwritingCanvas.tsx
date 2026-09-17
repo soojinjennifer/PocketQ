@@ -220,6 +220,13 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
     // 디버그 로깅용 — pointerId별 `pointerdown` 타임스탬프. 그 pointerId의 첫 `pointermove`가 실제
     // 좌표를 push하는 시점에 경과시간(`firstDrawLatencyMs`)을 계산하고 즉시 제거한다.
     const pointerDownTimestampsRef = useRef<Map<number, number>>(new Map());
+    // pointerId별 "아직 대응하는 `lostpointercapture`가 도착하지 않은 `setPointerCapture` 호출
+    // 횟수"(debt). iOS Safari가 애플펜슬의 pointerId를 연속된 획 사이에서 재사용할 때, 획1의
+    // `pointerup`이 `activePointerIdRef`를 이미 비우고 획2의 `pointerdown`이 같은 pointerId로
+    // 새 활성 스트로크를 시작한 뒤에야 획1의 지연된 `lostpointercapture`가 뒤늦게 도착해 진행 중인
+    // 획2를 조기 종료시키는 경쟁 상태를 막기 위한 카운터다 — `setPointerCapture` 호출 1회당
+    // `lostpointercapture`가 정확히 1번 언젠가 발생한다는 스펙을 이용한다(P0 후속 수정).
+    const pointerCaptureDebtRef = useRef<Map<number, number>>(new Map());
     const [contentHeight, setContentHeight] = useState<number | null>(null);
 
     // zero-dependency: `strokesRef`만 읽어 오프스크린 캐시(커밋된 스트로크만)를 전체 재계산한다.
@@ -589,6 +596,10 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         }
         activePointerIdRef.current = event.pointerId;
         event.currentTarget.setPointerCapture?.(event.pointerId);
+        pointerCaptureDebtRef.current.set(
+          event.pointerId,
+          (pointerCaptureDebtRef.current.get(event.pointerId) ?? 0) + 1,
+        );
         pointerDownTimestampsRef.current.set(event.pointerId, performance.now());
 
         const point = toStrokePoint(event);
@@ -751,9 +762,32 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
     // pointerId로 들어올 이벤트가 없으므로 `pointerleave`와 달리 완전히 종료 처리한다: 지금까지
     // 쌓인 부분을 즉시 커밋하고 `activePointerIdRef`/`activeStrokeRef`를 모두 정리해서 다음
     // `pointerdown`이 깨끗한 상태에서 새 스트로크를 시작할 수 있게 한다.
+    //
+    // iOS Safari는 애플펜슬의 pointerId를 연속된 획 사이에서 재사용할 수 있다 — 획1의 `pointerup`이
+    // `activePointerIdRef`를 이미 비우고(정상 커밋) 획2의 `pointerdown`이 같은 pointerId로 새 활성
+    // 스트로크를 시작한 뒤에야, 획1의 capture-release에 대응하는 이 이벤트가 지연 도착하면 기존의
+    // `activePointerIdRef.current !== event.pointerId` 체크만으로는 이를 걸러내지 못해(둘 다 같은
+    // pointerId) 진행 중인 획2를 조기 커밋 후 완전히 종료시켜 버린다(P0 재발). `setPointerCapture`
+    // 호출 1회당 `lostpointercapture`가 정확히 1번 언젠가 발생한다는 스펙을 이용해, 아직 처리되지
+    // 않은 release가 2건 이상 쌓여 있으면(`debtBefore >= 2`) 이 이벤트를 "지금 활성 세션보다 오래된
+    // stale 이벤트"로 판단하고 `activePointerIdRef`/`activeStrokeRef`/`pointerDownTimestampsRef`를
+    // 전혀 건드리지 않은 채 무시한다.
     function handleLostPointerCapture(event: React.PointerEvent<HTMLCanvasElement>) {
       const activePointerIdBefore = activePointerIdRef.current;
       try {
+        const debtBefore = pointerCaptureDebtRef.current.get(event.pointerId) ?? 0;
+        const debtAfter = debtBefore - 1;
+        if (debtAfter <= 0) {
+          pointerCaptureDebtRef.current.delete(event.pointerId);
+        } else {
+          pointerCaptureDebtRef.current.set(event.pointerId, debtAfter);
+        }
+        if (debtBefore >= 2) {
+          // 지연 도착한 stale release — 이미 새 세션(같은 pointerId)이 진행 중일 수 있으므로
+          // activePointerIdRef/activeStrokeRef/pointerDownTimestampsRef를 절대 건드리지 않는다.
+          return;
+        }
+
         if (activePointerIdRef.current !== event.pointerId) {
           return;
         }
