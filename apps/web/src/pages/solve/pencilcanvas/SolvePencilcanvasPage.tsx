@@ -314,8 +314,19 @@ export function SolvePencilcanvasPage() {
           가로 제약은 Figma "Left and Right"(constraints.horizontal=STRETCH)를 반영해 좌우 고정폭
           트랜스폼(-translate-x-1/2) 대신 inset-x-0 + mx-auto로 구현한다. max-h-[70vh]는 Figma
           실측값이 아니라 유도값 — top-[90px] + ActionBar 하단 예약 공간을 고려해 안전 마진으로
-          선택한 값이다. */}
-          <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
+          선택한 값이다. `problemCardData === null`(안내 문구만 보이는 상태 — 학생이 손글씨로 문제를
+          쓰기 시작하는 바로 그 상태)일 때는 274-281행 WORK 단계와 동일하게 이 컨테이너를
+          `pointer-events-none`으로 둔다 — `EmptyStateHint` 자신은 이미 `pointer-events-none`이지만
+          부모가 `pointer-events-auto`인 채로 448px 폭 x 안내 문구 높이 영역을 캔버스보다 위에서
+          가로채, 학생이 그 영역에서 펜으로 문제를 쓰기 시작하면 입력이 캔버스에 전혀 닿지 않는 P0
+          데드존 버그였다(iPad 실기기 보고). `ProblemCard`가 실제로 보일 때(`problemCardData !==
+          null`, 사진 업로드 후 스크롤 가능한 카드)만 `pointer-events-auto`로 되돌려 카드 스크롤/탭이
+          정상 동작하게 한다. */}
+          <div
+            className={`absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto ${
+              !isWorkStage && problemCardData === null ? "pointer-events-none" : "pointer-events-auto"
+            }`}
+          >
             {!isWorkStage && problemCardData === null ? (
               <EmptyStateHint
                 title="Apple Pencil이나 마우스로 문제를 써 보세요"

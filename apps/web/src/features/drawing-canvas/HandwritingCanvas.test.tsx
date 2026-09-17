@@ -2,21 +2,27 @@ import { createRef } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HandwritingCanvas, type HandwritingCanvasHandle } from "./HandwritingCanvas";
-import type { Stroke } from "../../shared/lib/canvas/useDrawingStrokes";
+import { useDrawingStrokes, type Stroke } from "../../shared/lib/canvas/useDrawingStrokes";
 
 interface FillCall {
   compositeOperation: string;
   fillStyle: string;
 }
 
-/** `fillStyle`/`globalCompositeOperation`/`fill` 호출을 기록하는 최소 2D 컨텍스트 mock. */
+/**
+ * `fillStyle`/`globalCompositeOperation`/`fill` 호출을 기록하는 최소 2D 컨텍스트 mock.
+ * `drawImage`는 오프스크린 캐시 → 화면 캔버스 blit(P1~P2 캐시 기반 렌더링 전환)에서 호출된다 —
+ * 실제 픽셀 복사는 검증하지 않고 호출 여부/횟수만 필요하면 `drawImageCalls`로 확인한다.
+ */
 interface MockContext2D {
   fillStyle: string;
   globalCompositeOperation: string;
   fillCalls: FillCall[];
+  drawImageCalls: number;
   setTransform: (...args: number[]) => void;
   clearRect: (...args: number[]) => void;
   fill: (path?: unknown) => void;
+  drawImage: (...args: unknown[]) => void;
 }
 
 function createMockContext(): MockContext2D {
@@ -24,15 +30,20 @@ function createMockContext(): MockContext2D {
     fillStyle: "",
     globalCompositeOperation: "source-over",
     fillCalls: [],
+    drawImageCalls: 0,
     setTransform: vi.fn(),
     clearRect: vi.fn(),
     fill: () => {},
+    drawImage: () => {},
   };
   ctx.fill = vi.fn(() => {
     ctx.fillCalls.push({
       compositeOperation: ctx.globalCompositeOperation,
       fillStyle: ctx.fillStyle,
     });
+  });
+  ctx.drawImage = vi.fn(() => {
+    ctx.drawImageCalls += 1;
   });
   return ctx;
 }
@@ -414,6 +425,56 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
     expect(outer.scrollTop).toBe(20);
   });
 
+  it("(c-2) 스크롤 후보로 등록된 터치 포인터가 pointerup/cancel 없이 pointerleave만 발생시켜도 유령으로 남지 않는다(회귀 확인)", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
+    );
+    const canvas = container.querySelector("canvas");
+    const outer = container.firstElementChild as HTMLDivElement;
+    if (!canvas) throw new Error("canvas element not found");
+    outer.scrollTop = 0;
+
+    // 손가락 1이 스크롤 후보로 등록된 뒤 40px만큼 스크롤하고, pointerup/cancel 없이 캔버스
+    // 경계를 벗어나 pointerleave만 발생한다(좁은 화면/Split View에서 흔한 상황).
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 60,
+    });
+    expect(outer.scrollTop).toBe(40);
+    fireEvent.pointerLeave(canvas, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 0,
+      clientY: 60,
+    });
+
+    // 손가락 2가 새로 스크롤을 시작해서 20px만큼 이동한다. 손가락 1이 유령으로 남아 있으면
+    // `handleScrollTouchMove`의 평균 분모가 2가 되어 절반(10px)만 반영되지만, 정상적으로
+    // 정리됐다면 손가락 1개분(20px)이 그대로 반영돼야 한다.
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 200,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 2,
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 180,
+    });
+
+    expect(outer.scrollTop).toBe(60);
+  });
+
   it("(d) 펜으로 그리는 도중 닿은 손바닥(터치)은 스크롤 후보로 등록되지 않는다(팜 리젝션 유지)", () => {
     const { container } = render(
       <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
@@ -632,5 +693,389 @@ describe("HandwritingCanvas isScrollable()", () => {
     );
 
     expect(onScrollableChange).toHaveBeenCalled();
+  });
+});
+
+describe("HandwritingCanvas — 다른 pointerId는 진행 중인 스트로크에 영향을 주지 않는다(P0/P1 회귀 방지)", () => {
+  it("다른 pointerId의 pointerup은 진행 중인 스트로크를 종료하지 않는다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 99, pointerType: "pen", clientX: 5, clientY: 5 });
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 1, clientY: 1 });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+  });
+
+  it("다른 pointerId의 pointercancel은 진행 중인 스트로크를 종료하지 않는다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerCancel(canvas, { pointerId: 99, pointerType: "pen" });
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerCancel(canvas, { pointerId: 1, pointerType: "pen" });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * `useDrawingStrokes`를 실제로 사용해 `strokes`/`commitStroke`를 배선하는 통합 하니스 — `onCommit`
+ * spy로 커밋 호출을 관찰하면서도, `HandwritingCanvas`가 실제 앱과 동일하게 커밋 직후 `strokes` prop
+ * 갱신 → effect 재실행을 겪게 한다. `pointerleave` 커밋 이후에도 `activePointerIdRef`가 여전히
+ * 채워져 있어 그 effect가 활성 스트로크를 초기화하지 않는지(경쟁 상태 회귀 방지)를 이 하니스로만
+ * 검증할 수 있다 — `strokes` prop이 고정된 배열이면 effect가 재실행되지 않아 이 경쟁 상태 자체가
+ * 재현되지 않는다.
+ */
+function DrawingStrokesHarness({ onCommit }: { onCommit: (stroke: Stroke) => void }) {
+  const { strokes, tool, commitStroke } = useDrawingStrokes();
+  return (
+    <HandwritingCanvas
+      strokes={strokes}
+      tool={tool}
+      onCommitStroke={(stroke) => {
+        onCommit(stroke);
+        commitStroke(stroke);
+      }}
+    />
+  );
+}
+
+describe("HandwritingCanvas — pointerleave (P1: 캡처 상태에서 캔버스 경계를 스치는 경우)", () => {
+  it("leave 시점까지의 부분이 먼저 커밋되고, 이후 같은 pointerId의 pointermove가 새 활성 스트로크로 계속 그려진다", () => {
+    const onCommit = vi.fn();
+    const { container } = render(<DrawingStrokesHarness onCommit={onCommit} />);
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 5,
+      clientY: 5,
+      pressure: 0.5,
+    });
+    fireEvent.pointerLeave(canvas, { pointerId: 1, pointerType: "pen", clientX: 10, clientY: 10 });
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 5, y: 5, pressure: 0.5 },
+      ],
+    });
+
+    // leave로 인해 실제 부모 state(useDrawingStrokes)가 갱신되어 strokes prop이 바뀌고, 그 결과
+    // strokes 동기화 effect가 재실행되더라도 activePointerIdRef가 여전히 채워져 있으므로 활성
+    // 스트로크가 초기화되지 않는다 — 이어지는 pointermove가 조용히 버려지지 않는다(핵심 회귀 포인트).
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 20,
+      clientY: 20,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 20, clientY: 20 });
+
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenLastCalledWith({
+      tool: "pen",
+      points: [{ x: 20, y: 20, pressure: 0.5 }],
+    });
+  });
+
+  it("다른 pointerId의 pointerleave는 무시한다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerLeave(canvas, { pointerId: 99, pointerType: "pen" });
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 1, clientY: 1 });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("HandwritingCanvas — lostpointercapture (P1: pointerup/pointercancel 없이 캡처만 풀리는 경우)", () => {
+  it("그때까지의 스트로크가 커밋되고 activePointerIdRef가 완전히 정리되어, 다음 pointerdown이 정상적으로 새 스트로크를 시작한다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 5,
+      clientY: 5,
+      pressure: 0.5,
+    });
+    fireEvent.lostPointerCapture(canvas, { pointerId: 1, pointerType: "pen" });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 5, y: 5, pressure: 0.5 },
+      ],
+    });
+
+    // 완전히 정리되었으므로 캡처 없이 들어오는 leftover pointermove는 무시된다.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 6,
+      clientY: 6,
+      pressure: 0.5,
+    });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+
+    // 새 pointerdown은 깨끗한 상태에서 새 스트로크를 시작한다.
+    fireEvent.pointerDown(canvas, {
+      pointerId: 2,
+      pointerType: "pen",
+      clientX: 50,
+      clientY: 50,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 2, pointerType: "pen", clientX: 50, clientY: 50 });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(2);
+    expect(onCommitStroke).toHaveBeenLastCalledWith({
+      tool: "pen",
+      points: [{ x: 50, y: 50, pressure: 0.5 }],
+    });
+  });
+
+  it("다른 pointerId의 lostpointercapture는 무시한다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    fireEvent.lostPointerCapture(canvas, { pointerId: 99, pointerType: "pen" });
+    expect(onCommitStroke).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 1, clientY: 1 });
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("HandwritingCanvas — getCoalescedEvents (P2: 좌표 누락 최소화)", () => {
+  it("getCoalescedEvents가 있으면 그 결과 좌표 전부가 순서대로 활성 스트로크에 반영된다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+
+    const coalesced = [
+      new PointerEvent("pointermove", { pointerId: 1, clientX: 2, clientY: 2 }),
+      new PointerEvent("pointermove", { pointerId: 1, clientX: 4, clientY: 4 }),
+      new PointerEvent("pointermove", { pointerId: 1, clientX: 6, clientY: 6 }),
+    ];
+    const moveEvent = new PointerEvent("pointermove", {
+      pointerId: 1,
+      clientX: 6,
+      clientY: 6,
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(moveEvent, "getCoalescedEvents", {
+      value: () => coalesced,
+      configurable: true,
+    });
+    fireEvent(canvas, moveEvent);
+
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 6, clientY: 6 });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        // pressure=0인 native PointerEvent 기본값은 0.5로 폴백된다(기존 toStrokePoint 규칙 유지).
+        { x: 2, y: 2, pressure: 0.5 },
+        { x: 4, y: 4, pressure: 0.5 },
+        { x: 6, y: 6, pressure: 0.5 },
+      ],
+    });
+  });
+
+  it("getCoalescedEvents가 없는 환경(폴백)에서는 기존처럼 단일 이벤트 좌표만 반영된다", () => {
+    const onCommitStroke = vi.fn();
+    const { container } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={onCommitStroke} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 0,
+      clientY: 0,
+      pressure: 0.5,
+    });
+    // jsdom의 PointerEvent는 getCoalescedEvents를 구현하지 않는다 — 폴백 경로를 그대로 검증한다.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 6,
+      clientY: 6,
+      pressure: 0.5,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: "pen", clientX: 6, clientY: 6 });
+
+    expect(onCommitStroke).toHaveBeenCalledTimes(1);
+    expect(onCommitStroke).toHaveBeenCalledWith({
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 6, y: 6, pressure: 0.5 },
+      ],
+    });
+  });
+});
+
+describe("HandwritingCanvas — 캐시 기반 렌더링 전환 이후에도 지우개가 정상 동작한다", () => {
+  it("커밋된 지우개 획은 오프스크린 캐시 경유로도 destination-out으로 그려지고, 화면 캔버스에는 drawImage로 복사된다", () => {
+    render(<HandwritingCanvas strokes={[ERASER_STROKE]} tool="pen" onCommitStroke={vi.fn()} />);
+
+    expect(mockCtx.fillCalls.length).toBeGreaterThan(0);
+    expect(mockCtx.fillCalls.every((call) => call.compositeOperation === "destination-out")).toBe(
+      true,
+    );
+    // render()가 오프스크린 캐시를 blit(drawImage)한다 — 매 렌더마다 committed strokes를
+    // 처음부터 다시 fill하지 않는다(P1~P2 캐시 기반 렌더링 전환).
+    expect(mockCtx.drawImageCalls).toBeGreaterThan(0);
+  });
+
+  it("펜 획 커밋 후 지우개 획을 그리는 도중(pointermove)에도 지우개가 destination-out으로 즉시 반영된다", () => {
+    const { container } = render(
+      <HandwritingCanvas strokes={[PEN_STROKE]} tool="eraser" onCommitStroke={vi.fn()} />,
+    );
+    const canvas = container.querySelector("canvas");
+    if (!canvas) throw new Error("canvas element not found");
+
+    mockCtx.fillCalls.length = 0;
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 1,
+      clientY: 1,
+      pressure: 0.5,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      pointerType: "pen",
+      clientX: 2,
+      clientY: 2,
+      pressure: 0.5,
+    });
+
+    // 활성 스트로크(지우개)는 render()가 오프스크린 blit 위에 직접 추가로 그린다.
+    expect(
+      mockCtx.fillCalls.some((call) => call.compositeOperation === "destination-out"),
+    ).toBe(true);
   });
 });

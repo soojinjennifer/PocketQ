@@ -365,3 +365,51 @@ describe("SolvePencilcanvasPage — 소프트 캡(하루 10회, 오너 확정) �
     expect(screen.queryByText("오늘 문제풀이 횟수 안내")).not.toBeInTheDocument();
   });
 });
+
+describe("SolvePencilcanvasPage — ProblemCard/EmptyStateHint 컨테이너 데드존 수정(P0, iPad 실기기 보고)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("problemCardData===null(안내 문구만 보이는 초기 상태)에서는 컨테이너가 pointer-events-none이라 뒤의 캔버스가 펜 입력을 받을 수 있다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const hint = screen.getByText("Apple Pencil이나 마우스로 문제를 써 보세요");
+    const containerEl = hint.closest("div[class*='top-[90px]']");
+    expect(containerEl).not.toBeNull();
+    expect(containerEl).toHaveClass("pointer-events-none");
+    expect(containerEl).not.toHaveClass("pointer-events-auto");
+  });
+
+  it("problemCardData!==null(사진 업로드 후 ProblemCard가 보이는 상태)에서는 컨테이너가 pointer-events-auto로 돌아와 카드 스크롤/탭이 정상 동작한다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            capturedImage: { blob: new Blob(), previewUrl: "blob:test-preview" },
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const image = screen.getByAltText("촬영한 문제");
+    const containerEl = image.closest("div[class*='top-[90px]']");
+    expect(containerEl).not.toBeNull();
+    expect(containerEl).toHaveClass("pointer-events-auto");
+    expect(containerEl).not.toHaveClass("pointer-events-none");
+  });
+});
