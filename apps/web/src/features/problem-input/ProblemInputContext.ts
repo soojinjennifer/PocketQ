@@ -32,7 +32,14 @@ export interface ProblemInputContextValue {
    *  `useDrawingStrokes` JSDoc 참고 — 필기 유실 버그 4단계 수정). */
   commitStroke: (stroke: Stroke) => void;
   undoStroke: () => void;
+  /** 오너 UX 확정: `undoStroke`로 되돌린 Stroke를 다시 복원한다. `Pen Rail`의 Redo 버튼이 호출한다. */
+  redoStroke: () => void;
   clearStrokes: () => void;
+  /** 되돌릴 Stroke가 있는지 — `Pen Rail`의 Undo 버튼 톤다운(opacity-40)/비활성화 판단에 쓴다. */
+  canUndoStroke: boolean;
+  /** 다시 실행할 Stroke가 있는지(전체 삭제 직후에는 항상 `false` — 오너 UX 확정, `clearStrokes` 호출
+   *  시 redo 히스토리도 함께 비워지기 때문이다) — `Pen Rail`의 Redo 버튼 톤다운/비활성화 판단에 쓴다. */
+  canRedoStroke: boolean;
 
   // WORK 단계(캔버스에 학생 풀이를 쓰는 중) 전용 두 번째 필기 획 인스턴스 — INPUT 단계의
   // `strokes`(문제 사진/필기)와 완전히 독립적이다(`ProblemInputProvider` JSDoc 참고). 페이지는
@@ -42,7 +49,13 @@ export interface ProblemInputContextValue {
   setWorkTool: (tool: DrawingTool) => void;
   commitWorkStroke: (stroke: Stroke) => void;
   undoWorkStroke: () => void;
+  /** `redoStroke`의 WORK 단계 버전. */
+  redoWorkStroke: () => void;
   clearWorkStrokes: () => void;
+  /** `canUndoStroke`의 WORK 단계 버전. */
+  canUndoWorkStroke: boolean;
+  /** `canRedoStroke`의 WORK 단계 버전. */
+  canRedoWorkStroke: boolean;
 
   /** 사진 또는 필기 획 중 하나라도 있으면 true. `/solve/*` "풀기" 버튼 활성화 조건에 사용한다. */
   hasProblemInput: boolean;
@@ -102,6 +115,11 @@ export interface ProblemInputContextValue {
    *  재사용된다, `resumeFromHistory`와 동일). */
   resumeToWork: (historyProblemId: string) => Promise<boolean>;
   resetSubmission: () => void;
+  /** 에러 팝업 "인식취소" 클릭 시 호출한다(오너 UX 확정: 확인 팝업 없이 즉시 초기화). INPUT 단계
+   *  (첫 인식 실패)와 WORK 단계(재인식/진단 실패) 양쪽에서 동일하게 재사용된다. `resetSubmission`
+   *  (재시도 — recognize/solve/chat만 초기화, 입력은 유지)과 달리 사진/필기 캔버스 입력과 WORK 단계
+   *  상태(학생 풀이 캔버스/인식 결과/진단)까지 전부 지워 완전히 빈 INPUT 단계로 되돌린다. */
+  cancelRecognition: () => void;
 
   // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해
   // 소유권을 옮긴 것(필기 획을 `useDrawingStrokes`로 옮긴 것과 동일한 패턴). 새 문제가 시작되면

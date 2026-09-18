@@ -18,32 +18,26 @@ interface SolveScrollProps {
 const MARKER_RATIOS = [0, 1 / 3, 2 / 3, 1] as const;
 
 /**
- * 컴포넌트(64×252) 기준 마커 중심 y좌표(px) — Figma `Solve Scroll (Step=First)`(fileKey
- * `ltyPrCk8UT8DsB3tFuw7Sr`, node `302:167`) MCP `get_metadata` 재조회로 확정한 값.
+ * 컴포넌트(64×222) 기준 마커 중심 y좌표(px) — Figma `Solve Scroll (Step=First)`(fileKey
+ * `ltyPrCk8UT8DsB3tFuw7Sr`, node `260-423`) 재실측으로 확정한 값(work-order 컨테이너 높이 축소
+ * 252→222px 반영, 오너/design-agent 확정, 2026-09).
  *
- * (design-agent 사후검수 수정, 2026-09) 이전 값(10 / 63.5 / 126.5 / 182.5)은 "스크롤 도트 트랙"
- * 하위 프레임(`302:168`, 컴포넌트 내부 y=15에서 시작) *내부* 상대좌표였고, 컴포넌트 전체(302:167)
- * 기준으로 변환하지 않은 채(즉 트랙 프레임 자신의 y=15 오프셋을 누락한 채) 그대로 top에 사용해
- * 전체 마커/트랙/힌트카드가 15px씩 위로 밀려 있었다. 아래 값은 트랙 프레임 오프셋을 반영해
- * 재계산한 컴포넌트-절대 좌표다: 도트(302:168 하위) 중심 = 트랙 프레임 y(15) + 각 도트의
- * (상대 y + 상대 height/2) → 15+(0+10)=25, 15+(58+5.5)=78.5, 15+(121+5.5)=141.5,
- * 15+(177+5.5)=197.5.
+ * (2026-09 재실측) 이전 값(25 / 78.5 / 141.5 / 197.5, node `302:167` 기준·컨테이너 252px)은
+ * 컨테이너가 222px로 축소되며 트랙/힌트카드 위치도 함께 재실측됐다 — 힌트 카드(`h-9 w-16`)와
+ * 마커 크기(선택 20×20 / 비선택 11×11)는 변경 없음.
  */
-const MARKER_Y_PX = [25, 78.5, 141.5, 197.5] as const;
+const MARKER_Y_PX = [20, 71.5, 118.5, 165.5] as const;
 
-/** 트랙 라인 두께(px)이자 상/하단 y좌표 — Figma 실측값(`302:169` "트랙 라인", 컴포넌트 기준 top=20, height=178). */
+/** 트랙 라인 두께(px)이자 상/하단 y좌표 — Figma 실측값(`260-423`, 컴포넌트 기준 top=15, height=151). */
 const TRACK_THICKNESS_PX = 2;
-const TRACK_TOP_PX = 20;
-const TRACK_HEIGHT_PX = 178;
+const TRACK_TOP_PX = 15;
+const TRACK_HEIGHT_PX = 151;
 
 /**
- * 힌트 카드 top(px), 컴포넌트(302:167) 기준 절대좌표 — Figma `302:177` "스크롤 힌트" 실측값
- * (x=0, y=213, w=64, h=36). 트랙 라인 하단(20+178=198)과의 gap은 213-198=15px.
- * (design-agent 수정) 기존엔 이 값을 "마지막 마커 *중심*(182.5, 그마저도 15px 밀린 값) + 10"으로
- * 유도해 실제보다 한참 위(192.5)에 그려지고 있었다 — 마커 중심이 아니라 트랙 라인 하단에서부터
- * gap을 재는 것이 Figma 구조와 맞으므로, 파생 계산 대신 실측 절대값을 그대로 상수화한다.
+ * 힌트 카드 top(px), 컴포넌트(node `260-423`) 기준 절대좌표 — 컨테이너 높이 축소(252→222px)에
+ * 맞춰 재실측한 값(2026-09). 힌트 카드 자체 크기(`h-9 w-16`)는 변경 없음.
  */
-const HINT_TOP_PX = 213;
+const HINT_TOP_PX = 186;
 
 /** 현재 비율과 가장 가까운 마커의 인덱스를 구한다(동률이면 먼저 나오는 인덱스). */
 function getNearestMarkerIndex(currentRatio: number): number {
@@ -78,7 +72,7 @@ function getNearestMarkerIndex(currentRatio: number): number {
  * `ActionBar` 세그먼트 버튼과 동일하게 탭 포커스에서도 제외한다) + `aria-disabled`를 함께 표시해
  * 마커 탭이 아무 동작도 하지 않게 한다.
  *
- * 위치(부모가 배치): 이 컴포넌트 자체는 크기(64×252, `relative`)만 가지며, 화면상 절대 위치
+ * 위치(부모가 배치): 이 컴포넌트 자체는 크기(64×222, `relative`)만 가지며, 화면상 절대 위치
  * (PenRail 바로 아래 16px, x축 중심 정렬)는 이 컴포넌트를 쓰는 페이지(`SolvePencilcanvasPage`/
  * `SolveLandscapePage`)가 각각 동일한 wrapper 클래스로 부여한다.
  */
@@ -97,7 +91,7 @@ export function SolveScroll({ canvasRef, currentRatio, disabled = false }: Solve
   };
 
   return (
-    <div className={`relative h-[252px] w-16 ${disabled ? "opacity-40" : ""}`}>
+    <div className={`relative h-[222px] w-16 ${disabled ? "opacity-40" : ""}`}>
       <div
         className="bg-brand absolute left-1/2 -translate-x-1/2"
         style={{

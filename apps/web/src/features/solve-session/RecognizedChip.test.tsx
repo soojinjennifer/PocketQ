@@ -9,6 +9,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded={false}
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -22,6 +24,8 @@ describe("RecognizedChip", () => {
         recognizedText="21. 수열 {a_n}의 모든 항은 자연수이고, 모든 자연수 n에 대하여 다음 조건을 만족시킨다."
         isExpanded={false}
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -36,6 +40,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded={false}
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -50,6 +56,8 @@ describe("RecognizedChip", () => {
         recognizedText="아주 긴 인식 결과 텍스트가 한 줄을 넘어가는 경우를 가정한 문장입니다"
         isExpanded={false}
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -83,6 +91,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded={false}
         onToggleExpand={onToggleExpand}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -96,6 +106,8 @@ describe("RecognizedChip", () => {
         recognizedText="긴 필기 인식 결과 텍스트"
         isExpanded
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -110,6 +122,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
         imageUrl="blob:mock-preview-url"
       />,
     );
@@ -124,6 +138,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -137,6 +153,8 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
@@ -150,11 +168,124 @@ describe("RecognizedChip", () => {
         recognizedText="1+1=?"
         isExpanded={false}
         onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
       />,
     );
 
     const button = screen.getByRole("button", { name: "인식된 문제 확대" });
-    // 18px 시각 슬롯 기준 상하좌우 13px씩 확장 = 44px(18 + 13*2)까지 탭 영역을 넓힌다.
-    expect(button).toHaveClass("-inset-[13px]");
+    // 18px 시각 슬롯 기준 세로는 상하 13px씩 확장 = 44px(18 + 13*2)까지 탭 영역을 넓힌다.
+    expect(button).toHaveClass("before:-inset-y-[13px]");
+  });
+
+  it("토글 버튼의 탭 영역은 '인식 취소' 버튼 쪽(왼쪽)으로는 gap(8px)을 넘어 침범하지 않고, 반대쪽(오른쪽)으로만 더 넓게 보상한다(design-agent 사후검수에서 발견한 클릭 겹침 버그 수정 — 이전에는 사방 동일한 13px 확장이 gap 8px를 넘어 '인식 취소' 버튼 우측 5px를 침범해 그 영역에서 chevron이 클릭을 가로챘다)", () => {
+    render(
+      <RecognizedChip
+        recognizedText="1+1=?"
+        isExpanded={false}
+        onToggleExpand={() => {}}
+        onCancelRecognition={() => {}}
+        isCancelDisabled={false}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "인식된 문제 확대" });
+    // 왼쪽(인식 취소 버튼 방향) 확장은 정확히 gap(8px)까지만 — 이보다 크면 gap을 넘어 인식 취소
+    // 버튼의 히트박스(가로 확장 없는 88px 폭)를 침범한다.
+    expect(button).toHaveClass("before:-left-[8px]");
+    // 오른쪽(침범 대상이 없는 바깥쪽)은 왼쪽이 줄어든 만큼 더 확장해 44px 최소 터치 타깃을
+    // 보상한다: 시각 슬롯 18px + 좌 8px + 우 19px = 45px ≥ 44px.
+    expect(button).toHaveClass("before:-right-[19px]");
+    // 실제 버튼 박스 자체는 여전히 시각 슬롯과 동일한 18×18을 유지해야 한다 — 버튼 자신을
+    // 비대칭으로 확장하면 내부 아이콘이 `items-center`에 의해 확장된 박스 중심으로 재정렬되어
+    // 시각적으로 오른쪽으로 밀려 보이는 회귀가 생긴다. 확장은 `::before`(`before:` 접두사가 붙은
+    // 클래스)로만 이뤄져야 한다.
+    expect(button).toHaveClass("size-[18px]");
+    expect(button).not.toHaveClass("-inset-[13px]");
+  });
+
+  describe("인식 취소 버튼(오너 UX 결정: 인식취소 상시 배치, Figma `310:1498` 실측)", () => {
+    it("'인식 취소' 버튼을 누르면 onCancelRecognition이 호출된다", () => {
+      const onCancelRecognition = vi.fn();
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={onCancelRecognition}
+          isCancelDisabled={false}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "인식 취소" }));
+      expect(onCancelRecognition).toHaveBeenCalledTimes(1);
+    });
+
+    it("isCancelDisabled가 true면 버튼이 비활성화되어 클릭해도 onCancelRecognition이 호출되지 않는다", () => {
+      const onCancelRecognition = vi.fn();
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={onCancelRecognition}
+          isCancelDisabled
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: "인식 취소" });
+      expect(button).toBeDisabled();
+
+      fireEvent.click(button);
+      expect(onCancelRecognition).not.toHaveBeenCalled();
+    });
+
+    it("확장 상태에서도 '인식 취소' 버튼이 동일하게 렌더링된다", () => {
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded
+          onToggleExpand={() => {}}
+          onCancelRecognition={() => {}}
+          isCancelDisabled={false}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "인식 취소" })).toBeInTheDocument();
+    });
+
+    it("고정 크기(88×30, Figma `310:1498` 실측)를 갖는다", () => {
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={() => {}}
+          isCancelDisabled={false}
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: "인식 취소" });
+      expect(button).toHaveClass("h-[30px]");
+      expect(button).toHaveClass("w-[88px]");
+    });
+
+    it("패딩을 0으로 없앨 때 important 수식자(`!`)를 쓴다(stage-qa-agent 실빌드 CSS+headless Chrome 재현 발견 회귀 테스트 — `px-0 py-0`만으로는 Tailwind v4가 유틸리티를 canonical 순서로 CSS에 배치해 빌드 산출물에서 `PILL_BASE_STYLE`의 `px-[26px] py-[11px]`가 동일 specificity에서 나중에 나와 실제로 이겨 텍스트가 2줄로 줄바꿈되며 30px 다크 필 배경 위아래로 흘러넘쳤다. jsdom은 이 캐스케이드 승패까지는 검증하지 못하므로, 여기서는 올바른 수정 방식(`!` important 수식자)이 클래스명에 반영됐는지만 검증한다 — 실제 승패는 `pnpm --filter web build` 산출물 CSS를 headless Chrome으로 재현해 확인해야 한다)", () => {
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={() => {}}
+          isCancelDisabled={false}
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: "인식 취소" });
+      expect(button).toHaveClass("!px-0");
+      expect(button).toHaveClass("!py-0");
+      expect(button).not.toHaveClass("px-0");
+      expect(button).not.toHaveClass("py-0");
+    });
   });
 });

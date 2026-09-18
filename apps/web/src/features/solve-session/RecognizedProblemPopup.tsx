@@ -3,6 +3,14 @@ import { Modal } from "../../shared/ui/modal/Modal";
 interface RecognizedProblemPopupProps {
   recognizedText: string | null;
   onContinue: () => void;
+  /**
+   * "인식취소" 버튼 클릭 핸들러(오너 UX 결정: 인식취소 상시 배치, 사진 인식 직후 확인 팝업에도
+   * 취소 옵션 추가). `useProblemInput()`의 `cancelRecognition`을 그대로 전달받아 INPUT 단계로
+   * 완전히 되돌린다 — "다시 찍기"라는 라벨은 실제로 카메라를 재호출하지 않고 인식 자체를 취소해
+   * 빈 INPUT으로 돌아가는 이 동작과 맞지 않을 수 있어(오너 판단 필요 항목이었음), 같은 화면의 다른
+   * 에러 팝업(`SolvePencilcanvasPage`)이 이미 쓰고 있는 "인식취소" 문구로 통일했다.
+   */
+  onCancelRecognition: () => void;
 }
 
 /**
@@ -22,6 +30,7 @@ interface RecognizedProblemPopupProps {
 export function RecognizedProblemPopup({
   recognizedText,
   onContinue,
+  onCancelRecognition,
 }: RecognizedProblemPopupProps) {
   return (
     <Modal
@@ -29,6 +38,8 @@ export function RecognizedProblemPopup({
       title="문제가 인식 되었습니다"
       actionLabel="계속하기"
       onAction={onContinue}
+      cancelLabel="인식취소"
+      onCancel={onCancelRecognition}
       content={
         <div className="bg-bg-elevated max-h-[50vh] w-[540px] max-w-full overflow-y-auto rounded-[6px] px-[30px] py-[26px] drop-shadow-[0px_3px_0px_rgba(35,43,56,0.16),0px_10px_20px_rgba(35,43,56,0.14),0px_22px_40px_rgba(35,43,56,0.09)]">
           <p className="text-label-tertiary text-[12px] leading-[16px]">촬영한 문제</p>

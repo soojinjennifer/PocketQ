@@ -18,13 +18,19 @@ function createContextValue(
     setTool: () => undefined,
     commitStroke: () => undefined,
     undoStroke: () => undefined,
+    redoStroke: () => undefined,
     clearStrokes: () => undefined,
+    canUndoStroke: false,
+    canRedoStroke: false,
     workStrokes: [],
     workTool: "pen",
     setWorkTool: () => undefined,
     commitWorkStroke: () => undefined,
     undoWorkStroke: () => undefined,
+    redoWorkStroke: () => undefined,
     clearWorkStrokes: () => undefined,
+    canUndoWorkStroke: false,
+    canRedoWorkStroke: false,
     hasProblemInput: false,
     lastInputType: null,
     isRequestingReinput: false,
@@ -46,6 +52,7 @@ function createContextValue(
     resumeFromHistory: () => Promise.resolve(false),
     resumeToWork: () => Promise.resolve(false),
     resetSubmission: () => undefined,
+    cancelRecognition: () => undefined,
     chatMessages: [],
     chatStatus: "idle",
     chatErrorMessage: null,
@@ -142,5 +149,29 @@ describe("RequireProblemInputGuard", () => {
     );
 
     expect(screen.getByText("LandscapePage")).toBeInTheDocument();
+  });
+
+  // `cancelRecognition()`("인식취소", plan-agent가 지목한 위험 포인트)은 사진/필기 입력, problemId,
+  // recognizeStatus를 모두 idle/빈 상태로 되돌린다 — 이 함수 자체는 `/solve/pencilcanvas`(가드 없음)
+  // 에서만 호출되지만, 혹시라도 `isRequestingReinput`을 잘못 건드려 `/solve/landscape` 가드의
+  // 예외 3(§27-30행)을 실수로 만족시키면 입력이 전혀 없는데도 WORK 화면(`/solve/landscape`)에
+  // 접근이 허용되는 회귀가 생긴다. `cancelRecognition()`이 만들어내는 정확한 상태 조합(입력 없음 +
+  // problemId 없음 + recognizeStatus idle + isRequestingReinput 그대로 false)에서는 다른 "입력
+  // 없음" 상황과 동일하게 여전히 `/camera`로 리다이렉트되어야 한다(=INPUT 단계 진입점으로 돌아가
+  // 빈 상태를 정상적으로 유지) — `isRequestingReinput`을 우회 트리거하지 않았음을 확인하는 것이
+  // 핵심이다.
+  it("cancelRecognition() 직후 상태(입력 없음, isRequestingReinput 미변경)에서도 /camera로 정상 리다이렉트되어(예외 우회 없음) INPUT 진입점을 유지한다", async () => {
+    renderGuard(
+      createContextValue({
+        hasProblemInput: false,
+        problemId: null,
+        recognizeStatus: "idle",
+        isRequestingReinput: false,
+      }),
+      "/solve/landscape",
+    );
+
+    await waitFor(() => expect(screen.getByText("CameraPage")).toBeInTheDocument());
+    expect(screen.queryByText("LandscapePage")).not.toBeInTheDocument();
   });
 });

@@ -64,6 +64,76 @@ describe("useDrawingStrokes", () => {
     expect(result.current.strokes).toHaveLength(0);
   });
 
+  it("undo 후 redo하면 되돌렸던 Stroke가 그대로 복원된다", () => {
+    const { result } = renderHook(() => useDrawingStrokes());
+
+    act(() => result.current.commitStroke(PEN_STROKE));
+    act(() => result.current.commitStroke(ERASER_STROKE));
+
+    act(() => result.current.undo());
+    expect(result.current.strokes).toHaveLength(1);
+
+    act(() => result.current.redo());
+    expect(result.current.strokes).toHaveLength(2);
+    expect(result.current.strokes[1]).toEqual(ERASER_STROKE);
+  });
+
+  it("redo 스택이 비어있으면 redo를 호출해도 아무 변화가 없다", () => {
+    const { result } = renderHook(() => useDrawingStrokes());
+
+    act(() => result.current.commitStroke(PEN_STROKE));
+    act(() => result.current.redo());
+
+    expect(result.current.strokes).toHaveLength(1);
+  });
+
+  it("undo 후 새 Stroke를 commit하면 redo 스택이 비워진다(표준 undo/redo 관례)", () => {
+    const { result } = renderHook(() => useDrawingStrokes());
+
+    act(() => result.current.commitStroke(PEN_STROKE));
+    act(() => result.current.commitStroke(ERASER_STROKE));
+    act(() => result.current.undo());
+    expect(result.current.canRedo).toBe(true);
+
+    act(() =>
+      result.current.commitStroke({ tool: "pen", points: [{ x: 5, y: 5, pressure: 0.5 }] }),
+    );
+
+    expect(result.current.canRedo).toBe(false);
+    act(() => result.current.redo());
+    expect(result.current.strokes).toHaveLength(2);
+  });
+
+  it("clear 이후에는 redo로 복원할 수 없다(오너 UX 결정: destructive action)", () => {
+    const { result } = renderHook(() => useDrawingStrokes());
+
+    act(() => result.current.commitStroke(PEN_STROKE));
+    act(() => result.current.commitStroke(ERASER_STROKE));
+    act(() => result.current.undo());
+    expect(result.current.canRedo).toBe(true);
+
+    act(() => result.current.clear());
+
+    expect(result.current.canRedo).toBe(false);
+    act(() => result.current.redo());
+    expect(result.current.strokes).toHaveLength(0);
+  });
+
+  it("canUndo/canRedo는 각 스택이 비어있는지 정확히 반영한다", () => {
+    const { result } = renderHook(() => useDrawingStrokes());
+
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.canRedo).toBe(false);
+
+    act(() => result.current.commitStroke(PEN_STROKE));
+    expect(result.current.canUndo).toBe(true);
+    expect(result.current.canRedo).toBe(false);
+
+    act(() => result.current.undo());
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.canRedo).toBe(true);
+  });
+
   it("setTool로 도구를 바꾸면 이후 새로 커밋되는 Stroke의 tool 값은 호출부가 결정한다(이 훅은 tool을 강제하지 않는다)", () => {
     const { result } = renderHook(() => useDrawingStrokes());
 

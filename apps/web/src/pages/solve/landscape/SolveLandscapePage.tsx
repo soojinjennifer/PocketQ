@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { CameraRailButton } from "../../../features/drawing-canvas/CameraRailButton";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -62,13 +63,19 @@ export function SolveLandscapePage() {
     setTool,
     commitStroke,
     undoStroke,
+    redoStroke,
     clearStrokes,
+    canUndoStroke,
+    canRedoStroke,
     workStrokes,
     workTool,
     setWorkTool,
     commitWorkStroke,
     undoWorkStroke,
+    redoWorkStroke,
     clearWorkStrokes,
+    canUndoWorkStroke,
+    canRedoWorkStroke,
     hasProblemInput,
     lastInputType,
     beginReinput,
@@ -265,14 +272,19 @@ export function SolveLandscapePage() {
           />
           {/* PenRail+SolveScroll 그룹(`/solve/pencilcanvas` WORK 단계와 동일 패턴, 위 그룹 state
               주석 참고) — Figma(`38:21`) 실측 결과 이 화면에도 동일 좌표(wrapper left-5, 화면 세로
-              중앙)로 같은 그룹이 있어야 한다. */}
-          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-4">
+              중앙)로 같은 그룹이 있어야 한다. `gap-[14px]`는 Figma 실측값(카메라 버튼/PenRail/
+              SolveScroll 간 간격, work-order PenRail 5버튼 재구성 반영). */}
+          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+            <CameraRailButton />
             <PenRail
               positioned={false}
               activeTool={workTool}
               onSelectTool={setWorkTool}
               onUndo={undoWorkStroke}
+              onRedo={redoWorkStroke}
               onClear={clearWorkStrokes}
+              canUndo={canUndoWorkStroke}
+              canRedo={canRedoWorkStroke}
             />
             <SolveScroll
               canvasRef={canvasScrollRef}
@@ -292,13 +304,17 @@ export function SolveLandscapePage() {
             onScrollableChange={setIsCanvasScrollable}
             scrollable
           />
-          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-4">
+          <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+            <CameraRailButton />
             <PenRail
               positioned={false}
               activeTool={tool}
               onSelectTool={setTool}
               onUndo={undoStroke}
+              onRedo={redoStroke}
               onClear={clearStrokes}
+              canUndo={canUndoStroke}
+              canRedo={canRedoStroke}
             />
             <SolveScroll
               canvasRef={canvasScrollRef}

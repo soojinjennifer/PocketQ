@@ -23,13 +23,19 @@ function createContextValue(
     setTool: () => undefined,
     commitStroke: () => undefined,
     undoStroke: () => undefined,
+    redoStroke: () => undefined,
     clearStrokes: () => undefined,
+    canUndoStroke: false,
+    canRedoStroke: false,
     workStrokes: [],
     workTool: "pen",
     setWorkTool: () => undefined,
     commitWorkStroke: () => undefined,
     undoWorkStroke: () => undefined,
+    redoWorkStroke: () => undefined,
     clearWorkStrokes: () => undefined,
+    canUndoWorkStroke: false,
+    canRedoWorkStroke: false,
     hasProblemInput: false,
     lastInputType: null,
     isRequestingReinput: false,
@@ -51,6 +57,7 @@ function createContextValue(
     resumeFromHistory: () => Promise.resolve(false),
     resumeToWork: () => Promise.resolve(false),
     resetSubmission: () => undefined,
+    cancelRecognition: () => undefined,
     chatMessages: [],
     chatStatus: "idle",
     chatErrorMessage: null,
@@ -363,6 +370,263 @@ describe("SolvePencilcanvasPage — 소프트 캡(하루 10회, 오너 확정) �
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.queryByText("오늘 문제풀이 횟수 안내")).not.toBeInTheDocument();
+  });
+});
+
+describe("SolvePencilcanvasPage — 에러 팝업 '인식취소' 버튼(오너 UX 확정: 확인 팝업 없이 즉시 초기화)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("INPUT 단계 인식 실패 모달에서 '인식취소'를 누르면 cancelRecognition이 호출되고 '확인'(재시도)은 그대로 유지된다", () => {
+    const cancelRecognition = vi.fn();
+    const resetSubmission = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            recognizeStatus: "error",
+            resetSubmission,
+            cancelRecognition,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "인식취소" }));
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
+    expect(resetSubmission).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(resetSubmission).toHaveBeenCalledTimes(1);
+  });
+
+  it("WORK 단계(재인식/진단) 실패 모달에서도 '인식취소'를 누르면 cancelRecognition이 호출되고 기존 '확인'(재시도) 동작은 그대로 유지된다", () => {
+    const cancelRecognition = vi.fn();
+    const resetRecognizeWork = vi.fn();
+    const resetDiagnose = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            recognizeWorkStatus: "error",
+            resetRecognizeWork,
+            resetDiagnose,
+            cancelRecognition,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("풀이를 인식하지 못했습니다")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "인식취소" }));
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
+    expect(resetRecognizeWork).not.toHaveBeenCalled();
+    expect(resetDiagnose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(resetRecognizeWork).toHaveBeenCalledTimes(1);
+    expect(resetDiagnose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SolvePencilcanvasPage — RecognizedChip '인식 취소' 배선(오너 UX 결정: 인식취소 상시 배치)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("'인식 취소' 버튼을 누르면 cancelRecognition이 호출된다", () => {
+    const cancelRecognition = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            cancelRecognition,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "인식 취소" }));
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
+  });
+
+  it("재인식(recognizeWork) 로딩 중이면 '인식 취소' 버튼이 비활성화된다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            recognizeWorkStatus: "loading",
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "인식 취소" })).toBeDisabled();
+  });
+
+  it("진단(diagnose) 로딩 중이면 '인식 취소' 버튼이 비활성화된다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            diagnoseStatus: "loading",
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "인식 취소" })).toBeDisabled();
+  });
+
+  it("재인식/진단이 모두 로딩 중이 아니면 '인식 취소' 버튼이 활성화되어 있다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            recognizeWorkStatus: "idle",
+            diagnoseStatus: "idle",
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "인식 취소" })).not.toBeDisabled();
+  });
+});
+
+describe("SolvePencilcanvasPage — RecognizedProblemPopup '인식취소' 배선(오너 UX 결정)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("사진 인식 직후 팝업에서 '인식취소'를 누르면 cancelRecognition이 호출된다", async () => {
+    const cancelRecognition = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            capturedImage: { blob: new Blob(), previewUrl: "blob:test-preview" },
+            recognizeOnly: () => Promise.resolve("problem-1"),
+            cancelRecognition,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "인식취소" }));
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 실기기 회귀 재현: 인식이 제대로 안 된 상태(예: 빈 텍스트로 인식됨)에서 이 팝업의 "인식취소"를
+   * 누르면 `cancelRecognition()`이 `capturedImage`/`recognizedText`/`problemId` 등 Provider
+   * state는 비우지만, 팝업의 열림/닫힘을 제어하는 이 페이지 전용 로컬 state
+   * (`isRecognizedPreviewOpen`)는 건드리지 않는다 — 이 state를 함께 닫지 않으면
+   * `recognizedText`가 빈 채로 팝업이 다시 렌더링되어, 사용자 눈에는 "인식취소"를 눌러도 멈춘
+   * 빈 팝업만 남는 것처럼 보인다. 이 하니스는 실제 `ProblemInputProvider`의 `cancelRecognition`과
+   * 동일하게 Provider state(`recognizedText`/`capturedImage`)를 초기화하는 최소 재현이다.
+   */
+  it("인식이 비정상(빈 텍스트)인 상태에서 '인식취소'를 누르면 팝업 자체가 화면에서 사라진다(실기기 회귀 재현)", async () => {
+    function CancelClosesPopupHarness() {
+      const [recognizedText, setRecognizedText] = useState<string | null>("");
+      const [capturedImage, setCapturedImage] = useState<{
+        blob: Blob;
+        previewUrl: string;
+      } | null>({ blob: new Blob(), previewUrl: "blob:test-preview" });
+
+      const value = createContextValue({
+        hasProblemInput: true,
+        capturedImage,
+        recognizedText,
+        recognizeOnly: () => Promise.resolve("problem-1"),
+        cancelRecognition: () => {
+          setRecognizedText(null);
+          setCapturedImage(null);
+        },
+      });
+
+      return (
+        <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+          <ProblemInputContext.Provider value={value}>
+            <Routes>
+              <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+            </Routes>
+          </ProblemInputContext.Provider>
+        </MemoryRouter>
+      );
+    }
+
+    render(<CancelClosesPopupHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+
+    expect(await screen.findByText("문제가 인식 되었습니다")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "인식취소" }));
+
+    // 팝업이 즉시 닫혀야 한다 — `recognizedText`가 비워진 채로 팝업이 다시 뜨는(빈 팝업) 회귀가
+    // 없어야 한다.
+    await waitFor(() => {
+      expect(screen.queryByText("문제가 인식 되었습니다")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "인식취소" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "계속하기" })).not.toBeInTheDocument();
   });
 });
 

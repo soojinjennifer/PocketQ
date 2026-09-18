@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { exportStrokesToJpegBlob } from "../../../shared/lib/canvas/exportStrokesToJpegBlob";
+import { CameraRailButton } from "../../../features/drawing-canvas/CameraRailButton";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -55,13 +56,19 @@ export function SolvePencilcanvasPage() {
     setTool,
     commitStroke,
     undoStroke,
+    redoStroke,
     clearStrokes,
+    canUndoStroke,
+    canRedoStroke,
     workStrokes,
     workTool,
     setWorkTool,
     commitWorkStroke,
     undoWorkStroke,
+    redoWorkStroke,
     clearWorkStrokes,
+    canUndoWorkStroke,
+    canRedoWorkStroke,
     hasProblemInput,
     recognizeOnly,
     giveUp,
@@ -81,6 +88,7 @@ export function SolvePencilcanvasPage() {
     diagnoseStatus,
     resetDiagnose,
     resetSubmission,
+    cancelRecognition,
   } = useProblemInput();
 
   const problemCardData: ProblemCardData = capturedImage
@@ -95,6 +103,11 @@ export function SolvePencilcanvasPage() {
   // 완료 시점에 사라지고 diagnose가 끝날 때까지는 아무 표시가 없어 멈춘 것처럼 보이는 버그였다
   // (오너 실기기 보고) — diagnose 로딩도 함께 표시해 결과가 나오기 직전까지 로딩이 끊기지 않게 한다.
   const isDiagnosing = isWorkStage && diagnoseStatus === "loading";
+  // "인식 취소" 버튼(오너 UX 결정: 인식취소 상시 배치) 비활성화 조건 — 재인식/진단이 진행 중일 때만
+  // 막는 최소 방어(오너 확정, `useRecognizeWork`/`useDiagnose`에 세대 가드를 추가하는 근본 리팩터는
+  // 이번 범위 밖).
+  const isCancelRecognitionDisabled =
+    recognizeWorkStatus === "loading" || diagnoseStatus === "loading";
 
   // 마이페이지 History Row "다시풀기" 버튼(마이페이지 개선 4번)으로 진입한 경우
   // (`location.state.resumeToWorkProblemId`), 사진/필기 재입력 없이 저장된 인식 결과를 재수화해
@@ -239,6 +252,14 @@ export function SolvePencilcanvasPage() {
         <RecognizedProblemPopup
           recognizedText={recognizedText}
           onContinue={() => setIsRecognizedPreviewOpen(false)}
+          onCancelRecognition={() => {
+            // `cancelRecognition()`은 이 팝업 자체의 열림/닫힘을 제어하는 페이지 로컬 state인
+            // `isRecognizedPreviewOpen`을 건드리지 않는다(사진/필기/인식 결과 state만 초기화한다) —
+            // 이 state를 여기서 함께 닫지 않으면 팝업이 `recognizedText`가 빈 채로 다시 렌더링되어
+            // "인식취소"를 눌러도 빈 팝업이 멈춘 것처럼 남아 있는 버그가 있었다(실기기 보고).
+            setIsRecognizedPreviewOpen(false);
+            cancelRecognition();
+          }}
         />
       ) : (
         <>
@@ -256,14 +277,19 @@ export function SolvePencilcanvasPage() {
               {/* PenRail+SolveScroll 그룹 컨테이너(오너 iPad 실기기 보고 수정) — PenRail을
               `positioned={false}`로 위치 클래스 없이 렌더링하고, 이 컨테이너가 대신
               `absolute top-1/2 left-5 z-10 -translate-y-1/2`로 화면 세로 중앙에 위치한다.
-              `gap-4`(16px)가 PenRail과 SolveScroll 사이 간격(기존과 동일한 16px)이다. */}
-              <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-4">
+              `gap-[14px]`는 Figma 실측값(카메라 버튼/PenRail/SolveScroll 간 간격, work-order
+              PenRail 5버튼 재구성 반영). */}
+              <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+                <CameraRailButton />
                 <PenRail
                   positioned={false}
                   activeTool={workTool}
                   onSelectTool={setWorkTool}
                   onUndo={undoWorkStroke}
+                  onRedo={redoWorkStroke}
                   onClear={clearWorkStrokes}
+                  canUndo={canUndoWorkStroke}
+                  canRedo={canRedoWorkStroke}
                 />
                 <SolveScroll
                   canvasRef={workCanvasRef}
@@ -283,12 +309,21 @@ export function SolvePencilcanvasPage() {
           ) : (
             <>
               <HandwritingCanvas strokes={strokes} tool={tool} onCommitStroke={commitStroke} />
-              <PenRail
-                activeTool={tool}
-                onSelectTool={setTool}
-                onUndo={undoStroke}
-                onClear={clearStrokes}
-              />
+              {/* INPUT 단계도 WORK 단계와 동일하게 카메라 버튼+PenRail을 한 그룹으로 묶는다 —
+              `gap-[14px]`는 Figma 실측값(위 WORK 단계 그룹 컨테이너 주석 참고). */}
+              <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+                <CameraRailButton />
+                <PenRail
+                  positioned={false}
+                  activeTool={tool}
+                  onSelectTool={setTool}
+                  onUndo={undoStroke}
+                  onRedo={redoStroke}
+                  onClear={clearStrokes}
+                  canUndo={canUndoStroke}
+                  canRedo={canRedoStroke}
+                />
+              </div>
             </>
           )}
 
@@ -352,6 +387,8 @@ export function SolvePencilcanvasPage() {
                 recognizedText={recognizedText}
                 isExpanded={isRecognizedChipExpanded}
                 onToggleExpand={() => setIsRecognizedChipExpanded((prev) => !prev)}
+                onCancelRecognition={cancelRecognition}
+                isCancelDisabled={isCancelRecognitionDisabled}
                 imageUrl={lastInputType === "photo" ? (capturedImage?.previewUrl ?? null) : null}
               />
             </div>
@@ -388,6 +425,8 @@ export function SolvePencilcanvasPage() {
               description="사진이나 손글씨가 선명하게 보이는지 확인하고 다시 시도해 주세요."
               actionLabel="확인"
               onAction={resetSubmission}
+              cancelLabel="인식취소"
+              onCancel={cancelRecognition}
             />
           ) : isWorkError ? (
             <Modal
@@ -400,6 +439,8 @@ export function SolvePencilcanvasPage() {
               description="잠시 후 다시 시도해 주세요."
               actionLabel="확인"
               onAction={handleDismissWorkError}
+              cancelLabel="인식취소"
+              onCancel={cancelRecognition}
             />
           ) : isDailyUsageWarningOpen ? (
             <Modal

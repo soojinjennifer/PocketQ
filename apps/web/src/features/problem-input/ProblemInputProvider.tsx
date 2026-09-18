@@ -128,7 +128,10 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     setTool,
     commitStroke,
     undo: undoStroke,
+    redo: redoStroke,
     clear: clearStrokes,
+    canUndo: canUndoStroke,
+    canRedo: canRedoStroke,
   } = useDrawingStrokes();
 
   // WORK 단계(캔버스에 학생 풀이를 쓰는 중) 전용 필기 획 — INPUT 단계의 `strokes`(문제 사진/필기)와
@@ -140,7 +143,10 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     setTool: setWorkTool,
     commitStroke: commitWorkStroke,
     undo: undoWorkStroke,
+    redo: redoWorkStroke,
     clear: clearWorkStrokes,
+    canUndo: canUndoWorkStroke,
+    canRedo: canRedoWorkStroke,
   } = useDrawingStrokes();
 
   const hasCaptureData = capturedImage !== null;
@@ -433,6 +439,47 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   }, [resetRecognize, resetSolve, resetChat]);
 
   /**
+   * 에러 팝업의 "인식취소" 클릭 시 호출한다(오너 UX 확정: 확인 팝업 없이 즉시 초기화). INPUT
+   * 단계(첫 인식 실패, `isRecognizeError`)와 WORK 단계(재인식/진단 실패, `isWorkError`) 양쪽 모두
+   * 동일한 이 함수를 재사용한다 — 어느 단계에서 호출됐든 항상 완전히 빈 INPUT 단계 상태로 되돌아간다.
+   *
+   * 다른 초기화 함수와의 책임 차이:
+   * - `resetSubmission`("확인"/재시도): recognize/solve/chat 상태만 지우고 입력(사진/필기)은 그대로
+   *   남겨 같은 입력으로 다시 시도할 수 있게 한다.
+   * - `cancelRecognition`(이 함수, "인식취소"): 위 재시도 대상에 더해 INPUT 캔버스 입력(사진/필기
+   *   획)과 WORK 단계 상태(학생 풀이 캔버스/인식 결과/진단)까지 전부 지워, 입력 자체를 처음부터 다시
+   *   받아야 하는 완전 초기화다. 이미 `/solve/pencilcanvas`에 머무르는 중이므로 라우트 이동이나
+   *   `startNewProblem()`의 `isRequestingReinput` 가드 우회는 필요 없다.
+   * - `startNewProblem`("새 문제 풀기"): 초기화 대상은 이 함수와 거의 동일하지만, RESULT 단계에서
+   *   `/solve/landscape`를 벗어나는 라우트 전환이 함께 일어나므로 `isRequestingReinput` 가드
+   *   우회가 추가로 필요하다.
+   */
+  const cancelRecognition = useCallback(() => {
+    clearCapturedImage();
+    clearStrokes();
+    resetRecognize();
+    resetSolve();
+    setLastInputType(null);
+    setSuggestedQuestions(null);
+    // WORK 단계 실패(`isWorkError`)에도 이 함수를 그대로 재사용하므로(오너 확정) WORK 관련 상태도
+    // 함께 초기화한다 — INPUT 단계 실패 시에는 이 상태들이 애초에 비어 있으므로 호출해도 안전하다.
+    resetRecognizeWork();
+    resetDiagnose();
+    resetResume();
+    clearWorkStrokes();
+  }, [
+    clearCapturedImage,
+    clearStrokes,
+    resetRecognize,
+    resetSolve,
+    setSuggestedQuestions,
+    resetRecognizeWork,
+    resetDiagnose,
+    resetResume,
+    clearWorkStrokes,
+  ]);
+
+  /**
    * `useDiagnose().diagnose`를 그대로 노출하지 않고 감싼다 — 진단이 성공하면(DIAG 화면 진입 직전)
    * 오너 확정(§5)에 따라 더 이상 필요 없는 사진 Blob 참조를 정리한다. 단, 사진으로 입력한 경우
    * (`lastInputType === "photo"`)에는 결과 화면(`ProblemCard`)에 원본 사진을 계속 보여줘야 하므로
@@ -480,13 +527,19 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       setTool,
       commitStroke,
       undoStroke,
+      redoStroke,
       clearStrokes,
+      canUndoStroke,
+      canRedoStroke,
       workStrokes,
       workTool,
       setWorkTool,
       commitWorkStroke,
       undoWorkStroke,
+      redoWorkStroke,
       clearWorkStrokes,
+      canUndoWorkStroke,
+      canRedoWorkStroke,
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
@@ -508,6 +561,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeFromHistory,
       resumeToWork,
       resetSubmission,
+      cancelRecognition,
       chatMessages,
       chatStatus,
       chatErrorMessage,
@@ -541,13 +595,19 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       setTool,
       commitStroke,
       undoStroke,
+      redoStroke,
       clearStrokes,
+      canUndoStroke,
+      canRedoStroke,
       workStrokes,
       workTool,
       setWorkTool,
       commitWorkStroke,
       undoWorkStroke,
+      redoWorkStroke,
       clearWorkStrokes,
+      canUndoWorkStroke,
+      canRedoWorkStroke,
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
@@ -569,6 +629,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeFromHistory,
       resumeToWork,
       resetSubmission,
+      cancelRecognition,
       chatMessages,
       chatStatus,
       chatErrorMessage,

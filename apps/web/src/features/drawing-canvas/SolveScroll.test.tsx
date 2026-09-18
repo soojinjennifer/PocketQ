@@ -55,6 +55,14 @@ describe("SolveScroll", () => {
     expect(() => fireEvent.click(getByLabelText("풀이 0% 지점으로 스크롤 이동"))).not.toThrow();
   });
 
+  it("컨테이너 높이는 222px(work-order 축소 반영, Figma node 260-423 재실측)이다", () => {
+    const { ref } = createMockHandle(false);
+    const { getByLabelText } = render(<SolveScroll canvasRef={ref} currentRatio={0} />);
+
+    const container = getByLabelText("풀이 0% 지점으로 스크롤 이동").closest("div.relative");
+    expect(container).toHaveClass("h-[222px]");
+  });
+
   it("disabled=true면 마커를 탭해도 scrollToRatio를 호출하지 않고 aria-disabled를 표시한다", () => {
     const { ref, scrollToRatio } = createMockHandle(false);
     const { getByLabelText } = render(

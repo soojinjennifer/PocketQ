@@ -1,4 +1,5 @@
 import { Badge } from "../../shared/ui/badge/Badge";
+import { Button } from "../../shared/ui/button/Button";
 
 interface RecognizedChipProps {
   recognizedText: string;
@@ -6,6 +7,13 @@ interface RecognizedChipProps {
   isExpanded: boolean;
   /** 칩 옆 확장/축소 토글 아이콘 클릭 핸들러(오너 확정: 칩 자체 탭이 아니라 별도 버튼). */
   onToggleExpand: () => void;
+  /**
+   * "인식 취소" 버튼 클릭 핸들러(오너 UX 결정: 인식취소 상시 배치, `RecognizedChip` 안에 위치).
+   * `useProblemInput()`의 `cancelRecognition`을 그대로 전달받는다 — INPUT 단계로 완전히 되돌린다.
+   */
+  onCancelRecognition: () => void;
+  /** 재인식/진단이 로딩 중일 때 "인식 취소" 버튼을 비활성화한다(오너 확정: 최소 방어). */
+  isCancelDisabled: boolean;
   /**
    * 사진 입력일 때만 전달되는 원본 이미지 URL. 값이 있으면 확장 상태에서 이미지를 확대해서
    * 보여주고, 없으면(필기 입력) `recognizedText` 전체를 보여준다.
@@ -79,6 +87,8 @@ export function RecognizedChip({
   recognizedText,
   isExpanded,
   onToggleExpand,
+  onCancelRecognition,
+  isCancelDisabled,
   imageUrl,
 }: RecognizedChipProps) {
   // `max-w-[calc(100vw-32px)]`는 Figma 실측값이 아니라 방어적 안전장치다(design-agent 사후검수
@@ -86,8 +96,10 @@ export function RecognizedChip({
   // 스크롤을 유발하지 않도록 화면 폭을 넘지 않는 선에서만 축소시킨다. 접힘 상태에도 동일하게
   // 적용한다 — 폭 제약이 전혀 없으면 `truncate`가 걸릴 대상 자체가 없어 1줄 말줄임이 동작하지
   // 않는다(design-agent 사후검수 발견·수정: 이전에는 접힘 상태에 폭 지정이 없었다).
+  // 펼침 상태 세로 패딩(design-agent Figma 재실측, `310:1498`): `px-[14px] py-[7px]`가 실측값이다
+  // (이전에는 상하좌우 동일한 `p-[14px]`를 썼다 — 좌우는 우연히 일치했지만 세로는 7px 초과였다).
   const containerClassName = isExpanded
-    ? `${CONTAINER_BASE_CLASS_NAME} w-[400px] max-w-[calc(100vw-32px)] flex-col gap-[8px] p-[14px]`
+    ? `${CONTAINER_BASE_CLASS_NAME} w-[400px] max-w-[calc(100vw-32px)] flex-col gap-[8px] px-[14px] py-[7px]`
     : `${CONTAINER_BASE_CLASS_NAME} w-[400px] max-w-[calc(100vw-32px)] items-center gap-[8px] px-[14px] py-[7px]`;
 
   return (
@@ -116,18 +128,56 @@ export function RecognizedChip({
             {recognizedText}
           </p>
         )}
+        {/* "인식 취소" 버튼(오너 UX 결정, Figma `310:1498` 실측: Badge → (접힘 시) 텍스트 → 이
+        버튼 → chevron 순서, 88×30 고정 박스). `Button`의 `pill-dark` variant(`bg-label-primary
+        text-bg-elevated rounded-full`)를 재사용하고 `className`으로 88×30 고정 크기를 강제한다 —
+        기본 `PILL_BASE_STYLE`의 `px-[26px] py-[11px]`는 88×30 안에서 텍스트가 넘치므로 `!px-0
+        !py-0`으로 함께 덮어써서 `items-center justify-center`(기존 pill 스타일 그대로) 중앙 정렬에
+        기댄다(stage-qa-agent 실빌드 CSS+headless Chrome 재현 발견·수정 — `px-0 py-0`만으로는 Tailwind
+        v4가 유틸리티를 className 작성 순서가 아니라 canonical 순서로 CSS에 배치해 빌드 산출물에서
+        `px-[26px]/py-[11px]`가 동일 specificity에서 나중에 나와 이겼다. `!` important 수식자로
+        specificity를 올려 반드시 이기도록 고정한다). 44px 최소 터치 타깃(PRD 접근성 요구)은 시각
+        크기(88×30)를 그대로 유지한 채 확보해야
+        하므로, 아래 chevron처럼 "보이지 않는 별도 버튼으로 감싸기"가 아니라 이 버튼 자신에
+        `relative` + `::before` 가상요소로 상하 7px씩(30+7+7=44) 투명 히트 슬롭을 추가하는 방식을
+        쓴다 — `::before`는 배경이 없어 시각적으로 보이지 않지만 클릭 판정 영역에는 포함되고, 실제
+        보이는 pill 배경(`bg-label-primary`)은 여전히 88×30 그대로다(로딩 중 비활성화 시각은 `Button`
+        pill 계열의 기존 `Style=Disable` 처리를 그대로 재사용). 크기(88×30)만 Figma `310:1498`의
+        `Button/Pill` 인스턴스 실측값이고, 그 인스턴스의 실제 텍스트 오버라이드는 "다시 풀기"였다 —
+        여기 쓰인 "인식 취소" 문구는 Figma 문구가 아니라 오너 UX 결정이다(크기만 실측, 문구는
+        오너 결정). */}
+        <Button
+          variant="pill-dark"
+          onClick={onCancelRecognition}
+          disabled={isCancelDisabled}
+          className="relative h-[30px] w-[88px] shrink-0 !px-0 !py-0 before:absolute before:-inset-y-[7px] before:inset-x-0 before:content-['']"
+        >
+          인식 취소
+        </Button>
         {/* 시각적 아이콘 슬롯은 Figma 칩 리듬에 맞춰 18px로 유지하되, 실제 탭 가능 영역은
-        `-inset-[13px]`로 44px까지 넓힌다(PRD `docs/PRD_WHYMATH.md` §"접근성" 최소 터치 타깃 44px
-        요구사항, design-agent 사후검수 발견·수정 — 기존 18px는 이 요구사항 미달이었다). 바깥
-        `relative` 래퍼가 레이아웃 공간을 그대로 18px로 유지하므로 칩의 기존 폭/정렬에는 영향이
-        없다. */}
+        `::before` 가상요소로 44px 이상까지 넓힌다(PRD `docs/PRD_WHYMATH.md` §"접근성" 최소 터치
+        타깃 44px 요구사항, design-agent 사후검수 발견·수정 — 기존 18px는 이 요구사항 미달이었다).
+        바깥 `relative` 래퍼가 레이아웃 공간을 그대로 18px로 유지하므로 칩의 기존 폭/정렬에는
+        영향이 없다.
+        좌우는 대칭이 아니다(design-agent 사후검수에서 실제 클릭 겹침 버그로 발견·수정) — 왼쪽(인식
+        취소 버튼 쪽)은 `gap-[8px]`를 그대로 유지해 인식 취소 버튼의 히트박스(88px 폭, 가로 확장
+        없음)를 침범하지 않도록 `-left-[8px]`로 제한하고, 오른쪽(바깥쪽, 침범 대상이 없는 방향)을
+        `-right-[19px]`로 더 넓혀 보상한다 — 시각 슬롯 18px + 좌 8px + 우 19px = 45px로 44px 최소
+        터치 타깃을 여전히 만족한다(세로는 `-inset-y-[13px]`로 기존과 동일하게 18+13+13=44px 유지,
+        문제 없었으므로 그대로 둔다). 이전에는 사방 동일한 `-inset-[13px]`를 썼는데, 왼쪽으로도
+        13px 확장되면서 `gap-[8px]`를 5px 초과해 인식 취소 버튼 오른쪽 끝 폭 5px가 실제로는 눌러도
+        chevron이 반응하는 죽은 영역이 되는 버그가 있었다(DOM 순서상 chevron이 나중에 렌더링돼
+        겹치는 영역에서 클릭을 가로챔). 확장 영역은 실제 `<button>` 자체가 아니라 `::before`
+        가상요소로 만든다 — 실제 버튼 박스는 여전히 시각 슬롯과 동일한 18×18을 유지해 내부 아이콘의
+        중앙 정렬(시각적 위치)이 좌우 비대칭 확장 때문에 틀어지지 않게 한다(버튼 자체를 비대칭으로
+        확장하면 `items-center`가 확장된 박스 기준으로 재중앙정렬되어 아이콘이 오른쪽으로 밀린다). */}
         <div className="relative mt-[1px] flex size-[18px] shrink-0 items-center justify-center">
           <button
             type="button"
             onClick={onToggleExpand}
             aria-label={isExpanded ? "인식된 문제 축소" : "인식된 문제 확대"}
             aria-expanded={isExpanded}
-            className="text-label-primary absolute -inset-[13px] flex items-center justify-center"
+            className="text-label-primary relative flex size-[18px] items-center justify-center before:absolute before:-inset-y-[13px] before:-left-[8px] before:-right-[19px] before:content-['']"
           >
             <ChevronGlyph direction={isExpanded ? "up" : "down"} />
           </button>
