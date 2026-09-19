@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { exportStrokesToJpegBlob } from "../../../shared/lib/canvas/exportStrokesToJpegBlob";
-import { CameraRailButton } from "../../../features/drawing-canvas/CameraRailButton";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -11,6 +10,7 @@ import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { EmptyStateHint } from "../../../features/solve-session/EmptyStateHint";
+import { InputModeToggle, type InputMode } from "../../../features/solve-session/InputModeToggle";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { RecognizedChip } from "../../../features/solve-session/RecognizedChip";
 import { RecognizedProblemPopup } from "../../../features/solve-session/RecognizedProblemPopup";
@@ -39,6 +39,26 @@ import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
  * WORK 단계까지 재수화한다(아래 effect 참고, `SolveLandscapePage`의 `resumeProblemId` 처리와 동일한
  * 패턴). solve()는 호출하지 않으므로 "봐 주세요"/"아직 못 풀겠어요"를 눌러야 다음 단계로 넘어간다.
  */
+
+/**
+ * INPUT 단계 `EmptyStateHint` 문구 — `InputModeToggle`(사진/필기) 선택에 따라 분기한다(Figma 원문
+ * 그대로, 오너 확정). 공백/구두점을 임의로 정리하지 않는다: `photo.subtitle`은 "찍고"와 "하단에"
+ * 사이 공백 2칸, `handwriting.title`은 끝에 공백 2칸, `handwriting.subtitle`은 "후" 다음 붙여쓰기를
+ * Figma 원문 그대로 유지한다.
+ */
+const INPUT_EMPTY_STATE_HINT: Record<InputMode, { title: string; subtitle: string }> = {
+  photo: {
+    title: "문제집을 사진으로 찍어서 올리세요",
+    subtitle:
+      "한문제씩 사진 안에 문제 내용이 모두 들어오게 찍고  하단에 \"문제인식하기\" 버튼을 눌러 주세요",
+  },
+  handwriting: {
+    title: "문제를 펜으로 쓰면 인식 할 수 있습니다.  ",
+    subtitle:
+      "한문제씩 또박또박 써주시면 인식이 더 잘 될 수 있어요. 다 쓴 후 \"문제 인식하기\"버튼을 눌러 주세요",
+  },
+};
+
 export function SolvePencilcanvasPage() {
   // 이 화면 자체엔 현재 텍스트 입력창이 없지만, `/solve/landscape`와 동일하게 PenRail/SolveScroll을
   // absolute로 배치한다 — 이 그룹이 iOS 키보드/받아쓰기 툴바로 인한 body의 scroll-into-view에
@@ -89,12 +109,35 @@ export function SolvePencilcanvasPage() {
     resetDiagnose,
     resetSubmission,
     cancelRecognition,
+    beginRecognitionEdit,
   } = useProblemInput();
 
   const problemCardData: ProblemCardData = capturedImage
     ? { imageUrl: capturedImage.previewUrl }
     : null;
   const isWorkStage = problemId !== null;
+
+  // 사진/필기 입력 토글(`InputModeToggle`, Figma `342-833`, 오너 UX 결정) — INPUT 단계 전용. "사진"
+  // 탭을 누르면 기존 `CameraRailButton`이 하던 것과 동일하게 `/camera`로 이동한다(카메라는 자동
+  // 호출되지 않는다, 사용자가 명시적으로 탭을 눌러야 한다). "필기" 탭을 누르면 라우팅 없이
+  // `EmptyStateHint`의 안내 문구만 필기 전용으로 바뀐다.
+  const [inputMode, setInputMode] = useState<InputMode>("photo");
+  const handleSelectInputMode = (mode: InputMode) => {
+    setInputMode(mode);
+    if (mode === "photo") {
+      void navigate("/camera");
+    }
+  };
+  // INPUT 캔버스도 WORK 캔버스와 동일하게 `scrollable`로 전환한다(오너 결정, 2026-09 — "항상
+  // disabled 상시 표시"가 아니라 "실제 스크롤 가능 여부 기반"으로 통일). `inputCanvasRef`는 WORK
+  // 단계의 `workCanvasRef`와 동일한 역할로 실제 `<HandwritingCanvas>`에 연결되고, `SolveScroll`의
+  // 마커 탭 스크롤(`scrollToRatio`)이 이 ref를 통해 동작한다.
+  const inputCanvasRef = useRef<HandwritingCanvasHandle>(null);
+  const [inputScrollRatio, setInputScrollRatio] = useState(0);
+  // 문제 입력이 짧아 스크롤할 필요가 없을 때 `SolveScroll`을 없애지 않고 비활성화만 하기 위한 상태
+  // (WORK 단계 `isWorkScrollable`과 동일한 목적) — `HandwritingCanvas`의 `onScrollableChange`로
+  // 콘텐츠 성장/축소 시마다 갱신된다.
+  const [isInputScrollable, setIsInputScrollable] = useState(false);
   const hasWorkInput = workStrokes.length > 0 || workLines !== null;
   const isRecognizing = !isWorkStage && recognizeStatus === "loading";
   const isRecognizingWork = isWorkStage && recognizeWorkStatus === "loading";
@@ -248,6 +291,14 @@ export function SolvePencilcanvasPage() {
     <div className="bg-canvas-texture solve-no-callout relative h-dvh">
       <SolveHeader />
 
+      {/* 사진/필기 입력 토글(INPUT 단계 전용) — NavTabBar(top-6=24px + 실측 높이 42px) 바로 아래
+      12px 간격(Figma 실측)에 화면 상단 중앙으로 배치한다: 24+42+12=78px. */}
+      {!isWorkStage ? (
+        <div className="absolute inset-x-0 top-[78px] z-10 mx-auto w-fit">
+          <InputModeToggle mode={inputMode} onSelectMode={handleSelectInputMode} />
+        </div>
+      ) : null}
+
       {isRecognizedPreviewOpen ? (
         <RecognizedProblemPopup
           recognizedText={recognizedText}
@@ -277,10 +328,10 @@ export function SolvePencilcanvasPage() {
               {/* PenRail+SolveScroll 그룹 컨테이너(오너 iPad 실기기 보고 수정) — PenRail을
               `positioned={false}`로 위치 클래스 없이 렌더링하고, 이 컨테이너가 대신
               `absolute top-1/2 left-5 z-10 -translate-y-1/2`로 화면 세로 중앙에 위치한다.
-              `gap-[14px]`는 Figma 실측값(카메라 버튼/PenRail/SolveScroll 간 간격, work-order
-              PenRail 5버튼 재구성 반영). */}
+              `gap-[14px]`는 Figma 실측값(PenRail/SolveScroll 간 간격, work-order PenRail 5버튼
+              재구성 반영). 카메라 진입은 더 이상 `CameraRailButton`이 아니라 상단 `InputModeToggle`
+              "사진" 탭이 담당한다(2026-09, 사진/필기 토글로 대체). */}
               <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
-                <CameraRailButton />
                 <PenRail
                   positioned={false}
                   activeTool={workTool}
@@ -308,11 +359,26 @@ export function SolvePencilcanvasPage() {
             </>
           ) : (
             <>
-              <HandwritingCanvas strokes={strokes} tool={tool} onCommitStroke={commitStroke} />
-              {/* INPUT 단계도 WORK 단계와 동일하게 카메라 버튼+PenRail을 한 그룹으로 묶는다 —
-              `gap-[14px]`는 Figma 실측값(위 WORK 단계 그룹 컨테이너 주석 참고). */}
+              <HandwritingCanvas
+                ref={inputCanvasRef}
+                strokes={strokes}
+                tool={tool}
+                onCommitStroke={commitStroke}
+                onScrollRatioChange={setInputScrollRatio}
+                onScrollableChange={setIsInputScrollable}
+                scrollable
+                // INPUT 단계는 문제 하나만 짧게 입력해 WORK 단계 기본값(85%)까지 거의 도달하지 못하고
+                // `SolveScroll`이 계속 비활성으로 남는 오너 실기기 피드백(2026-09)이 있어, 화면 높이
+                // 45% 지점에 필기가 닿으면 곧바로 한 뷰포트 늘어나며 스크롤 가능 상태가 되도록 낮췄다.
+                // WORK 단계 호출부는 이 prop을 주지 않아 기존 85% 동작을 그대로 유지한다.
+                growthThresholdRatio={0.45}
+              />
+              {/* INPUT 단계도 WORK 단계와 동일하게 PenRail+SolveScroll을 한 그룹으로 묶는다 —
+              `gap-[14px]`는 Figma 실측값(위 WORK 단계 그룹 컨테이너 주석 참고). INPUT 캔버스도
+              WORK 캔버스와 동일한 `scrollable` 코드 경로를 타므로(오너 결정, 2026-09) `SolveScroll`은
+              항상 `disabled`가 아니라 WORK 단계와 동일하게 실제 스크롤 가능 여부(`isInputScrollable`)를
+              반영한다. */}
               <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
-                <CameraRailButton />
                 <PenRail
                   positioned={false}
                   activeTool={tool}
@@ -322,6 +388,11 @@ export function SolvePencilcanvasPage() {
                   onClear={clearStrokes}
                   canUndo={canUndoStroke}
                   canRedo={canRedoStroke}
+                />
+                <SolveScroll
+                  canvasRef={inputCanvasRef}
+                  currentRatio={inputScrollRatio}
+                  disabled={!isInputScrollable}
                 />
               </div>
             </>
@@ -343,34 +414,44 @@ export function SolvePencilcanvasPage() {
           ) : null}
 
           {/* ProblemCard/ActionBar는 캔버스와 같은 레벨에서 개별 absolute 요소로 배치한다(PenRail/
-          SolveHeader와 동일 패턴). top-[90px]는 SolveNavTabs(top-6=24px) + NavTabBar 실측 높이
-          (42px) + 24px 여백(24+42+24=90) 유도값이다 — 화면 중앙의 넓은 영역을 필기 가능하게
-          비워두기 위해 더 이상 <main>으로 전체를 묶어 pointer-events-none 트릭을 쓰지 않는다.
-          가로 제약은 Figma "Left and Right"(constraints.horizontal=STRETCH)를 반영해 좌우 고정폭
-          트랜스폼(-translate-x-1/2) 대신 inset-x-0 + mx-auto로 구현한다. max-h-[70vh]는 Figma
-          실측값이 아니라 유도값 — top-[90px] + ActionBar 하단 예약 공간을 고려해 안전 마진으로
-          선택한 값이다. `problemCardData === null`(안내 문구만 보이는 상태 — 학생이 손글씨로 문제를
-          쓰기 시작하는 바로 그 상태)일 때는 274-281행 WORK 단계와 동일하게 이 컨테이너를
-          `pointer-events-none`으로 둔다 — `EmptyStateHint` 자신은 이미 `pointer-events-none`이지만
-          부모가 `pointer-events-auto`인 채로 448px 폭 x 안내 문구 높이 영역을 캔버스보다 위에서
-          가로채, 학생이 그 영역에서 펜으로 문제를 쓰기 시작하면 입력이 캔버스에 전혀 닿지 않는 P0
-          데드존 버그였다(iPad 실기기 보고). `ProblemCard`가 실제로 보일 때(`problemCardData !==
-          null`, 사진 업로드 후 스크롤 가능한 카드)만 `pointer-events-auto`로 되돌려 카드 스크롤/탭이
-          정상 동작하게 한다. */}
-          <div
-            className={`absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto ${
-              !isWorkStage && problemCardData === null ? "pointer-events-none" : "pointer-events-auto"
-            }`}
-          >
-            {!isWorkStage && problemCardData === null ? (
+          SolveHeader와 동일 패턴). EmptyStateHint와 ProblemCard는 오너 실기기 피드백(2026-09)으로
+          서로 다른 세로 위치를 갖게 되어 래퍼 자체를 두 갈래로 나눈다 — 하나의 공용 `top-[90px]`
+          래퍼로 감싸면 `InputModeToggle`(top-[78px])과 겹쳐 보이는 회귀가 있었다.
+
+          EmptyStateHint(`problemCardData === null`, 학생이 아직 문제를 입력하지 않은 초기 상태)
+          전용 래퍼: Figma(`260-423`) 재실측 결과 화면 프레임 전체 기준 `top: 50%;
+          transform: translateY(-50%)`(세로 정중앙)에 위치해야 한다 — `top-1/2 -translate-y-1/2`로
+          구현한다. `pointer-events-none`을 유지한다(`EmptyStateHint` 자신도 이미
+          `pointer-events-none`이지만, 부모가 `pointer-events-auto`인 채로 안내 문구 영역을
+          캔버스보다 위에서 가로채면 학생이 그 영역에서 펜으로 문제를 쓰기 시작할 때 입력이 캔버스에
+          전혀 닿지 않는 P0 데드존 버그가 재현된다, iPad 실기기 보고).
+
+          `strokes.length === 0` 조건 추가(오너 실기기 피드백, 2026-09): 필기 입력을 시작하면(획이
+          하나라도 생기면) 이 안내문이 화면 중앙에서 필기를 가리지 않도록 사라져야 한다 — 학생이
+          이미 쓰기 시작했다면 "문제를 사진으로 찍거나 손으로 써보세요" 안내는 더 이상 필요 없고
+          오히려 방해가 된다. */}
+          {!isWorkStage && problemCardData === null && strokes.length === 0 ? (
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mx-auto w-fit -translate-y-1/2">
               <EmptyStateHint
-                title="Apple Pencil이나 마우스로 문제를 써 보세요"
-                subtitle="문제집을 찍어서 올리려면 왼쪽 도구의 '사진'을 눌러 주세요"
+                title={INPUT_EMPTY_STATE_HINT[inputMode].title}
+                subtitle={INPUT_EMPTY_STATE_HINT[inputMode].subtitle}
               />
-            ) : !isWorkStage && problemCardData !== null ? (
+            </div>
+          ) : null}
+
+          {/* ProblemCard(`problemCardData !== null`, 사진 업로드 후 스크롤 가능한 카드) 전용 래퍼 —
+          이번 오너 피드백은 EmptyStateHint 위치에 대한 것이지 ProblemCard 위치는 언급되지 않아
+          기존 `top-[90px]` 위치를 그대로 유지한다. top-[90px]는 SolveNavTabs(top-6=24px) +
+          NavTabBar 실측 높이(42px) + 24px 여백(24+42+24=90) 유도값이다. 가로 제약은 Figma
+          "Left and Right"(constraints.horizontal=STRETCH)를 반영해 좌우 고정폭 트랜스폼
+          (-translate-x-1/2) 대신 inset-x-0 + mx-auto로 구현한다. max-h-[70vh]는 Figma 실측값이
+          아니라 유도값 — top-[90px] + ActionBar 하단 예약 공간을 고려해 안전 마진으로 선택한
+          값이다. `pointer-events-auto`로 카드 스크롤/탭이 정상 동작하게 한다. */}
+          {!isWorkStage && problemCardData !== null ? (
+            <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
               <ProblemCard data={problemCardData} />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           {/* RecognizedChip(design-agent Figma 재조회로 확정 — `267:607`/`38:21` 두 프레임 모두
           동일 좌표 x=400 y=98, 1194×834 프레임 기준): 화면 상단 중앙에 고정한다 — 오너가 iPad
@@ -387,9 +468,12 @@ export function SolvePencilcanvasPage() {
                 recognizedText={recognizedText}
                 isExpanded={isRecognizedChipExpanded}
                 onToggleExpand={() => setIsRecognizedChipExpanded((prev) => !prev)}
-                onCancelRecognition={cancelRecognition}
+                onCancelRecognition={
+                  lastInputType === "handwriting" ? beginRecognitionEdit : cancelRecognition
+                }
                 isCancelDisabled={isCancelRecognitionDisabled}
                 imageUrl={lastInputType === "photo" ? (capturedImage?.previewUrl ?? null) : null}
+                inputMode={lastInputType === "handwriting" ? "handwriting" : "photo"}
               />
             </div>
           ) : null}

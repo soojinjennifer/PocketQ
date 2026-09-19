@@ -28,6 +28,11 @@
 | `accent/red` | `#c97b6e` | `--color-accent-red` | 2026-09-05 `Solve/Work Line`(`248:53`) Figma 실측, `docs/COMPONENT_MAP.md` §1 참고 |
 | `accent/steel` | `#6c8693` | `--color-accent-steel` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(`Button/Pill` 인스턴스 `279:1202`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 "풀이 내역 지우기" 버튼 활성 배경) — 이전엔 `--color-brand-deep`으로 근사했으나 확연히 다른 톤이라 별도 등록 |
 | `accent/cyan` | `#9fc6cc` | `--color-accent-cyan` | 신규. 2026-09 design-agent 실측, Figma MCP `get_design_context`(Logo 컴포넌트 `223:311`/`223:312`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — 로고 보더 색상 |
+| `accent/teal` | `#4f8285` | `--color-accent-teal` | 신규. 2026-09 재실측, Figma MCP `get_variable_defs`(`260:101` Solve/Action Bar, `Stage=Work` 배경, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — `docs/DESIGN_SYSTEM.md` 1절에서 "Figma에 없다"고 기술했던 참고 ZIP 대체 브랜드값 `#4F8285`가 실제로는 이 노드에 바인딩되어 있음을 확인, ActionBar "봐 주세요" 배경으로 사용 |
+| `surface/well` | `#e4e1d8` | `--color-surface-well` | 신규. 2026-09 재실측, Figma MCP(`260:101` Solve/Action Bar, "문제 인식하기(비활성)" 배경, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) |
+| `Problem_disable_font` | `#8f9d99` | `--color-action-disabled-fg` | 신규. 2026-09 오너 실기기 피드백 + Figma 재실측(`260:101` Solve/Action Bar, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — "문제 인식하기(비활성)" 라벨/아이콘 색. 기존 `--color-bg-scrim`으로 근사했던 것을 이 실측값으로 교체 |
+| `Problem_notsolve_button_color` | `#b0d4ca` | `--color-action-notyet-bg` | 신규. 2026-09 오너 실기기 피드백 + Figma 재실측(`260:101` Solve/Action Bar, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — "아직 못 풀겠어요" 배경. 기존 `--color-bg-scrim`으로 근사했던 것을 이 실측값으로 교체 |
+| `Problem_nosolve_font` | `#6f7b75` | `--color-action-notyet-fg` | 신규. 2026-09 오너 실기기 피드백 + Figma 재실측(`260:101` Solve/Action Bar, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) — "아직 못 풀겠어요" 라벨/아이콘 색. 기존 `--color-icon-default`로 근사했던 것을 이 실측값으로 교체 |
 | `color-brand-rest` | `#3e4c5f` | `--color-brand-rest` | 신규. 2026-09 design-agent 사후검수, Figma MCP `get_design_context`(체크박스 인스턴스 `I279:1204;279:839`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`, 마이페이지 체크박스 checked 배경/보더) — `--color-brand-deep`(`#46536a`)과는 다른 별도 톤 |
 | `separator` | `#3c3c431f` | `--color-separator` | — |
 | `fill/quaternary` | `#7676801f` | `--color-fill-quaternary` | — |

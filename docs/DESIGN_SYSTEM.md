@@ -6,7 +6,7 @@
 
 `references/claude-design` 참고 자료에는 두 가지 화면 세트가 있었다 — plain iOS 시스템 컬러(파랑 `#007AFF`) 버전과 "Math Bold-3D"(인디고 `#5E6E82`, pill 형태, 클레이 그림자) 버전. **Figma 실측 결과 6개 화면 전부 "Math Bold-3D" 테마로 확정되어 있다** (`brand/indigo: #5e6e82`, elevation 토큰들이 모든 화면에서 확인됨). Plain iOS 버전은 채택하지 않는다.
 
-`components/math/*.jsx`(참고 ZIP)에 있던 대체 브랜드값 `#4F8285`(teal)도 Figma에는 없다 — 사용하지 않는다.
+Figma `260:101`(Solve/Action Bar) `Stage=Work` 배경에 `accent/teal #4f8285`가 실제 바인딩되어 있음을 2026-09 재실측으로 확인, `--color-accent-teal`로 신규 등록함.
 
 ## 2. 색상 (Figma Variables, 실측)
 
@@ -39,6 +39,8 @@
 | `accent/orange` | `#d9a05b` |
 | `accent/yellow` | `#dcc08a` |
 | `brand/tint`(불투명, 신규) | `#c3ccd9` — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너). 기존 `fill/tint-blue`(반투명 `#5e6e8229`)와 다른 별도 색상 |
+| `accent/teal`(신규) | `#4f8285` — 2026-09 재실측, Figma `260:101`(Solve/Action Bar) `Stage=Work` 배경 실바인딩 확인. 참고 ZIP의 대체 브랜드값과 동일 값이었으나 이번에 Figma 실측으로 정식 채택 |
+| `surface/well`(신규) | `#e4e1d8` — 2026-09 재실측, Figma `260:101` "문제 인식하기(비활성)" 배경 |
 
 ### 2.4 Fill / Separator / Glass
 | 토큰 | 값 |
@@ -91,6 +93,9 @@
 | `Elevation/Floating Bar` | drop-shadow 3겹(`#232B3836`/`#232B3824`/`#232B3814`) + inner-shadow(0,2,0) `#FFFFFFE5` + inner-shadow(0,-2,0) `#232B3812` |
 | `Elevation/Glass Panel` | drop-shadow 3겹(`#232B3836`/`#232B382E`/`#232B381A`) + inner-shadow 2겹 (위와 동일 패턴) |
 | `Math/Shadow Rest`(신규) | drop-shadow 3겹(`#232B3836`/`#232B3824`/`#232B3814`) + inner-shadow 2겹(`#FFFFFFE5`/`#232B3812`) — 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너, `AnswerBox` `tone="resume"` 전용). **레이어 색상 수치가 위 `Elevation/Floating Bar`와 정확히 동일하다**(우연히 같은 그림자 스타일을 Figma가 다른 이름으로 재정의한 것으로 보인다) — 별도 CSS로 새로 만들지 않고 `Elevation/Floating Bar`와 같은 Tailwind 임의값 문법(`drop-shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_16px_rgba(35,43,56,0.14),0px_20px_34px_rgba(35,43,56,0.08)] shadow-[inset_0px_2px_0px_rgba(255,255,255,0.9),inset_0px_-2px_0px_rgba(35,43,56,0.07)]`)을 그대로 재사용한다. |
+| `Elevation/Well Inset`(신규) | inner-shadow(0,-1,0) `#FFFFFFB2`(`rgba(255,255,255,0.7)`) + inner-shadow(0,2,4) `#232B3824`(`rgba(35,43,56,0.14)`) — 2026-09 design-agent Figma 실측(`342-833` `Input Mode Toggle` 컨테이너). 안쪽으로 눌린 "홈(well)" 느낌을 주는 순수 inset 2겹 조합(drop-shadow 없음). Tailwind: `shadow-[inset_0px_-1px_0px_rgba(255,255,255,0.7),inset_0px_2px_4px_rgba(35,43,56,0.14)]`. 사용처: `InputModeToggle` 컨테이너. |
+| `Elevation/Chip Raised`(신규) | drop-shadow(0,20,17) `#232B3814`(`rgba(35,43,56,0.08)`) + drop-shadow(0,8,8) `#232B3824`(`rgba(35,43,56,0.14)`) — 2026-09 design-agent Figma 실측(`342-833` `Input Mode Toggle` 선택된 세그먼트). Tailwind: `drop-shadow-[0px_20px_17px_rgba(35,43,56,0.08),0px_8px_8px_rgba(35,43,56,0.14)]`. 사용처: `InputModeToggle` 선택 세그먼트(`bg-bg-canvas`). |
+| `Elevation/Action Segment`(신규) | drop-shadow(0,20,34) `#232B3814`(`rgba(35,43,56,0.08)`) + drop-shadow(0,8,16) `#232B3824`(`rgba(35,43,56,0.14)`) + inner-shadow(0,-2,0) `#232B3812`(`rgba(35,43,56,0.07)`) — 2026-09 design-agent Figma 재실측(`260-101` `Solve/Action Bar`). 기존 `Elevation/Floating Bar` 5레이어를 세그먼트 자체에 적용하는 대신, 컨테이너 보더를 제거하고 각 세그먼트가 독립적으로 갖는 3레이어 축약판. Tailwind: `shadow-[0px_20px_34px_rgba(35,43,56,0.08),0px_8px_16px_rgba(35,43,56,0.14),inset_0px_-2px_0px_rgba(35,43,56,0.07)]`. 사용처: `ActionBar`(v3.0, 2026-09 전면 재설계 이후 단일 CTA 버튼에 5개 상태 모두 공통 적용). |
 
 이 값은 참고 ZIP의 `math-material.css`(`--math-shadow-ink: 35,43,56` = `#232B38`)와 일치한다 — 해당 파일의 elevation 로직을 참고해도 되지만, 정확한 레이어 수치는 위 Figma 실측값을 기준으로 한다.
 

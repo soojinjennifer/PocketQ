@@ -80,6 +80,28 @@ const DISABLED_STATE: ActionBarButtonState = {
 /** 단계별 버튼 활성 상태 상태표. INPUT/WORK-풀이전/WORK-풀이후/RESULT 각 단계에서 어떤 버튼이
  *  활성화 "대상"인지만 결정하고, 로딩 중 여부에 따른 최종 활성화 판단은 `getActionBarState` 본문에서
  *  처리한다. */
+/** (2026-09, ActionBar v3.0 전면 재설계 — 오너 승인) "3버튼 세그먼트 컨트롤"에서 "항상 버튼 1개(라벨/
+ *  배경/보더/아이콘/캡션이 단계마다 통째로 바뀌는 단일 CTA)"로 구조가 바뀌면서, `SolveStage`(4-way:
+ *  input/work-notyet/work-done/result)만으로는 INPUT 단계의 "비어있음(비활성)"과 "입력있음(활성)"을
+ *  구분할 수 없다(둘 다 `stage === "input"`이지만 시각 스펙이 다른 버튼). 이 5-way
+ *  `ActionBarVisualState`는 `ActionBar` 컴포넌트가 "어느 버튼 스펙(라벨/색/캡션)을 렌더할지"를
+ *  결정하는 데만 쓰이고, 활성/비활성(`disabled`) 판단은 여전히 `getActionBarState`의 상태표를 그대로
+ *  따른다 — 이 함수는 그 결과(`recognize.enabled`)와 `deriveSolveStage`를 조합하는 얇은 어댑터다. */
+export type ActionBarVisualState =
+  | "input-empty"
+  | "input-filled"
+  | "work-notyet"
+  | "work-done"
+  | "result";
+
+export function getActionBarVisualState(input: ActionBarStateInput): ActionBarVisualState {
+  const stage = deriveSolveStage(input);
+  if (stage === "input") {
+    return getActionBarState(input).recognize.enabled ? "input-filled" : "input-empty";
+  }
+  return stage;
+}
+
 export function getActionBarState(input: ActionBarStateInput): ActionBarButtonState {
   const stage = deriveSolveStage(input);
   const isRecognizing = input.recognizeStatus === "loading";

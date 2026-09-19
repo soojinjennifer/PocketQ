@@ -53,6 +53,7 @@ function createContextValue(
     resumeToWork: () => Promise.resolve(false),
     resetSubmission: () => undefined,
     cancelRecognition: () => undefined,
+    beginRecognitionEdit: () => undefined,
     chatMessages: [],
     chatStatus: "idle",
     chatErrorMessage: null,

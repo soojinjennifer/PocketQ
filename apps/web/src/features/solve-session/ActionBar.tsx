@@ -1,6 +1,10 @@
+import type { ComponentType } from "react";
 import {
   getActionBarState,
+  getActionBarVisualState,
+  type ActionBarButtonState,
   type ActionBarStateInput,
+  type ActionBarVisualState,
 } from "../../shared/lib/solve/actionBarState";
 
 interface ActionBarProps {
@@ -25,133 +29,223 @@ interface ActionBarProps {
   onGiveUp?: () => void;
   /** "봐 주세요"(WORK 단계, SOLVE-2) 클릭 시 호출된다. */
   onDiagnose?: () => void;
-  /** "새 문제 풀기"(RESULT 단계, [1] 세그먼트의 라벨/행동이 전환된 상태) 클릭 시 호출된다. */
+  /** "새 문제 풀기"(RESULT 단계) 클릭 시 호출된다. */
   onNewProblem?: () => void;
 }
 
-type SolveStage = "input" | "work-notyet" | "work-done" | "result";
-
-/** `shared/lib/solve/actionBarState`의 `deriveSolveStage`(비공개)와 동일한 4-way 기준을 이
- *  컴포넌트의 렌더링(어느 세그먼트를 강조할지) 판단에도 그대로 쓴다 — enabled/disabled 상태표는
- *  건드리지 않고, "지금 단계의 주 행동이 무엇인지"만 별도로 계산한다. */
-function deriveStage(
-  problemId: string | null,
-  hasWorkInput: boolean,
-  solveStatus: ActionBarStateInput["solveStatus"],
-  diagnoseStatus: ActionBarStateInput["diagnoseStatus"],
-): SolveStage {
-  if (problemId === null) {
-    return "input";
-  }
-  if (solveStatus === "success" || diagnoseStatus === "success") {
-    return "result";
-  }
-  return hasWorkInput ? "work-done" : "work-notyet";
+/** Figma `Icon/PlayCircle`(action-bar 아이콘 자산 `play_circle.svg`, `viewBox 0 0 18 18`) 실제
+ *  벡터 경로를 인라인한 것 — 색상은 하드코딩하지 않고 `currentColor`로 상속한다(`PenRail.tsx`의
+ *  `PenGlyph`/`EraseGlyph`와 동일한 기존 관례). "문제 인식하기(비활성)" 상태도 별도 파일 없이 이
+ *  글리프를 그대로 재사용하고 색만 다르게 적용한다. */
+function PlayCircleGlyph() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" className="size-[18px]">
+      <g transform="translate(1.5,1.5)">
+        <path
+          fill="currentColor"
+          d="M7.5 0C3.36 0 0 3.36 0 7.5C0 11.64 3.36 15 7.5 15C11.64 15 15 11.64 15 7.5C15 3.36 11.64 0 7.5 0ZM6 10.875V4.125L10.5 7.5L6 10.875Z"
+        />
+      </g>
+    </svg>
+  );
 }
 
-/** Figma `Solve/Action Bar`(마스터 `260:101`) 세그먼트 공통 베이스. `Stage=Problem`(`260:92`)/
- *  `Stage=Work`(`249:69`) variant 실측 — `px-[20px] py-[10px]`, 완전 라운드. 텍스트는 Figma
- *  `260:101`/`260:92`/`249:69` 실측 `font-size: 14px`, `line-height: 100%`(≈14px) —
- *  `docs/DESIGN_SYSTEM.md`에 별도 14px 스케일 항목 없어 arbitrary value 직접 사용. */
-const SEGMENT_BASE_STYLE =
-  "rounded-full px-[20px] py-[10px] text-[14px] font-[590] leading-[normal] transition-[background-color,filter] " +
-  "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 " +
-  "disabled:cursor-not-allowed";
-
-/** 강조(그 단계의 주 행동) 세그먼트 — `bg-brand-deep` + `text-label-on-dark` + `Elevation/Floating Bar`
- *  (`docs/DESIGN_SYSTEM.md` §4) 그림자를 세그먼트 자체에 적용한다. 비활성 시 옅어지고(`disabled:opacity-40`),
- *  누르는 동안(`active:enabled:brightness-90`) 기존 배경색을 어둡게 해 눌림 피드백을 준다 —
- *  새 색상을 만들지 않고 CSS 필터만 적용한다. */
-const EMPHASIZED_SEGMENT_STYLE =
-  "bg-brand-deep text-label-on-dark disabled:opacity-40 active:enabled:brightness-90 " +
-  "drop-shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_16px_rgba(35,43,56,0.14),0px_20px_34px_rgba(35,43,56,0.08)] " +
-  "shadow-[inset_0px_2px_0px_rgba(255,255,255,0.9),inset_0px_-2px_0px_rgba(35,43,56,0.07)]";
-
-/** 그 단계의 주 행동이 아니지만 여전히 활성(클릭 가능)인 세그먼트 — 배경 없이 텍스트만.
- *  누르는 동안(`active:enabled:bg-fill-quaternary`) 옅은 배경이 잠깐 나타나 눌림 피드백을 준다. */
-const PLAIN_ACTIVE_SEGMENT_STYLE =
-  "bg-transparent text-label-secondary disabled:opacity-40 active:enabled:bg-fill-quaternary";
-
-/** 그 단계와 무관한(비활성) 세그먼트 — 배경 없이 텍스트만, 항상 옅게. */
-const PLAIN_INACTIVE_SEGMENT_STYLE = "bg-transparent text-label-secondary opacity-40";
-
-/** "아직 못 풀겠어요" 세그먼트 전용 "고스트 필" 스타일 — Figma 재실측(`Stage=Problem`/`Stage=Work`)
- *  결과, 이 세그먼트는 강조가 아닐 때도 다른 두 세그먼트와 달리 옅은 회색 필(pill) 모양 +
- *  `EMPHASIZED_SEGMENT_STYLE`과 동일한 5-레이어 그림자를 갖는다. `Stage=Work`(`work-done`)에서는
- *  버튼이 실제로는 활성(클릭 가능)인데도 이 옅은 스타일을 유지해야 하므로, `opacity-40`을
- *  `disabled:` modifier가 아니라 리터럴 클래스로 직접 적용한다 — 실제 `disabled` 여부는
- *  `buttonState.giveUp.enabled`가 그대로 결정한다(시각 스타일과 무관). */
-const GHOST_PILL_SEGMENT_STYLE =
-  "bg-bg-scrim text-label-primary opacity-40 " +
-  "drop-shadow-[0px_3px_0px_rgba(35,43,56,0.21),0px_8px_16px_rgba(35,43,56,0.14),0px_20px_34px_rgba(35,43,56,0.08)] " +
-  "shadow-[inset_0px_2px_0px_rgba(255,255,255,0.9),inset_0px_-2px_0px_rgba(35,43,56,0.07)]";
-
-function segmentClassName(isEmphasized: boolean, isActiveForStage: boolean): string {
-  if (isEmphasized) {
-    return `${SEGMENT_BASE_STYLE} ${EMPHASIZED_SEGMENT_STYLE}`;
-  }
-  return `${SEGMENT_BASE_STYLE} ${isActiveForStage ? PLAIN_ACTIVE_SEGMENT_STYLE : PLAIN_INACTIVE_SEGMENT_STYLE}`;
+/** Figma `Icon/Dissatisfied`(`dissatisfied.svg`, `viewBox 0 0 18 18`) 실제 벡터 경로 인라인. */
+function DissatisfiedGlyph() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" className="size-[18px]">
+      <g transform="translate(1.5,1.5)">
+        <path
+          fill="currentColor"
+          d="M7.5 8.625C5.7525 8.625 4.2675 9.72 3.6675 11.25H11.3325C10.7325 9.72 9.2475 8.625 7.5 8.625ZM4.365 7.5L5.16 6.705L5.955 7.5L6.75 6.705L5.955 5.91L6.75 5.115L5.955 4.32L5.16 5.115L4.365 4.32L3.57 5.115L4.365 5.91L3.57 6.705L4.365 7.5ZM7.4925 0C3.3525 0 0 3.3525 0 7.5C0 11.6475 3.3525 15 7.4925 15C11.6325 15 15 11.6475 15 7.5C15 3.3525 11.64 0 7.4925 0ZM7.5 13.5C4.185 13.5 1.5 10.815 1.5 7.5C1.5 4.185 4.185 1.5 7.5 1.5C10.815 1.5 13.5 4.185 13.5 7.5C13.5 10.815 10.815 13.5 7.5 13.5ZM10.635 4.32L9.84 5.115L9.045 4.32L8.25 5.115L9.045 5.91L8.25 6.705L9.045 7.5L9.84 6.705L10.635 7.5L11.43 6.705L10.635 5.91L11.43 5.115L10.635 4.32Z"
+        />
+      </g>
+    </svg>
+  );
 }
 
-/** "아직 못 풀겠어요" 세그먼트 전용 className 계산 — 다른 두 세그먼트("문제 인식하기"/"봐 주세요")는
- *  기존 공용 `segmentClassName`을 그대로 쓰지만, 이 세그먼트만 Figma 재실측으로 예외적인 시각 규칙이
- *  생겨 별도 함수로 분리한다:
- *  - `work-notyet`(이 세그먼트가 그 단계의 주 행동): 기존과 동일하게 강조.
- *  - `input`/`work-done`(강조는 아니지만 각각 disabled/enabled): 신규 고스트 필.
- *  - `result`(RESULT 단계, Figma `Stage=NewProblem`에서 변경 없음 확인): 기존 plain 비활성 그대로. */
-function giveUpSegmentClassName(stage: SolveStage): string {
-  if (stage === "work-notyet") {
-    return `${SEGMENT_BASE_STYLE} ${EMPHASIZED_SEGMENT_STYLE}`;
-  }
-  if (stage === "input" || stage === "work-done") {
-    return `${SEGMENT_BASE_STYLE} ${GHOST_PILL_SEGMENT_STYLE}`;
-  }
-  return `${SEGMENT_BASE_STYLE} ${PLAIN_INACTIVE_SEGMENT_STYLE}`;
+/** Figma `Icon/Satisfied`(`satisfied.svg`, `viewBox 0 0 18 18`) 실제 벡터 경로 인라인. */
+function SatisfiedGlyph() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" className="size-[18px]">
+      <g transform="translate(1.5,1.5)">
+        <path
+          fill="currentColor"
+          d="M7.4925 0C3.3525 0 0 3.36 0 7.5C0 11.64 3.3525 15 7.4925 15C11.64 15 15 11.64 15 7.5C15 3.36 11.64 0 7.4925 0ZM7.5 13.5C4.185 13.5 1.5 10.815 1.5 7.5C1.5 4.185 4.185 1.5 7.5 1.5C10.815 1.5 13.5 4.185 13.5 7.5C13.5 10.815 10.815 13.5 7.5 13.5ZM7.5 10.5C6.39 10.5 5.4375 9.8925 4.9125 9H3.66C4.26 10.5375 5.7525 11.625 7.5 11.625C9.2475 11.625 10.74 10.5375 11.34 9H10.0875C9.5625 9.8925 8.61 10.5 7.5 10.5Z"
+        />
+      </g>
+      <g transform="translate(10.5,6)">
+        <path
+          fill="currentColor"
+          d="M1.125 2.25C1.74632 2.25 2.25 1.74632 2.25 1.125C2.25 0.50368 1.74632 0 1.125 0C0.50368 0 0 0.50368 0 1.125C0 1.74632 0.50368 2.25 1.125 2.25Z"
+        />
+      </g>
+      <g transform="translate(5.25,6)">
+        <path
+          fill="currentColor"
+          d="M1.125 2.25C1.74632 2.25 2.25 1.74632 2.25 1.125C2.25 0.50368 1.74632 0 1.125 0C0.50368 0 0 0.50368 0 1.125C0 1.74632 0.50368 2.25 1.125 2.25Z"
+        />
+      </g>
+    </svg>
+  );
 }
 
-/** 세그먼트 사이 구분선. Figma 실측: `w-px h-[22px] bg-separator`. */
-function ActionBarDivider() {
-  return <div aria-hidden="true" className="bg-separator h-[22px] w-px" />;
+interface ActionBarButtonSpec {
+  label: string;
+  caption: string;
+  bgClassName: string;
+  borderClassName: string;
+  /** 라벨과 아이콘이 같은 색을 공유한다(버튼에 적용, `currentColor`로 아이콘에 상속) — 5개 상태
+   *  전부 Figma 실측상 라벨/아이콘 색이 동일해 하나의 클래스로 통일한다. */
+  colorClassName: string;
+  /** 폰트 크기 + 줄 높이(`leading-*`)를 함께 묶는다 — design-agent가 Figma raw Variable
+   *  (`get_variable_defs`, node `267:462`)로 재실측(2026-09)한 결과 5개 상태 전부 동일한
+   *  `text-[17px] leading-[22px]`다. `result`만 14px라는 별도 변수는 Figma 어디에도 없었다 —
+   *  이전 구현(`text-[14px] leading-[normal]`)은 오측이었다. */
+  fontSizeClassName: string;
+  captionColorClassName: string;
+  /** design-agent 사후검수(2026-09) Figma `get_metadata` 좌표 재실측 반영 — 버튼(pill) 자체의 폭이며
+   *  hug-content가 아니라 상태별 고정폭이다(`Problem`/`Problem_disable` 271px, `Notyet`/`Work`/
+   *  `NewProblem` 263px). 이전 라운드에서 283px로 썼던 값은 버튼을 감싼 바깥 프레임 폭(상하좌우 6px
+   *  패딩 포함)과 버튼 자체 폭을 혼동한 것이었다. */
+  widthClassName: string;
+  Icon: ComponentType | null;
 }
 
 /**
- * Figma `Solve/Action Bar`(마스터 `260:101`, variant `Stage=Problem`=`260:92`/`Stage=Work`=`249:69`,
- * 인스턴스는 `3-1 · Solve/Pencilcanvas`(`127:445`) 안의 `256:405`) v2.0 — "문제 인식하기(또는
- * "새 문제 풀기") / 아직 못 풀겠어요 / 봐 주세요" 세그먼트 컨트롤. 기존 개념설명/풀이 체크박스 2개 +
- * "풀기" 단일 버튼 구조(`~~SOLVE-1~~`, DEPRECATED)는 완전히 폐기됐다.
+ * Figma `Solve/Action Bar`(마스터 `260:101`) v3.0 — 오너 승인으로 기존 "문제 인식하기(또는 새 문제
+ * 풀기) / 아직 못 풀겠어요 / 봐 주세요" 3세그먼트 구조(`~~SEGMENT_BASE_STYLE~~` 등, DEPRECATED)를
+ * 완전히 폐기하고, "항상 버튼 1개(라벨/배경/보더/아이콘/캡션이 단계마다 통째로 바뀌는 단일 CTA) + 그
+ * 아래 보조 캡션 텍스트" 구조로 교체했다(2026-09).
  *
- * "3개의 독립 버튼"이 아니라 "1개의 세그먼트 컨트롤"이다 — 컨테이너(`gap-[2px] p-[6px]
- * rounded-full border-brand`, `border-[0.5px]`) 안에 세그먼트 3개와 구분선(divider) 2개가 함께
- * 들어간다. 컨테이너 자체는 Figma 4개 variant(`260:92`/`249:69`/`267:682`/`267:454`) 최상위 노드
- * 재실측으로 배경(fill)이 전혀 없고(완전 투명), 그림자도 없으며, 보더는 `border-brand` 색상 +
- * `0.5px` 두께(Tailwind 기본 `border`는 1px라 표현 불가해 arbitrary value 사용)로 확정됐다 —
- * 이전에 있던 `bg-glass-fill`과 `Elevation/Floating Bar` 그림자는 컨테이너가 아니라 세그먼트 자체의
- * 스타일(`EMPHASIZED_SEGMENT_STYLE`/`GHOST_PILL_SEGMENT_STYLE`)과 혼동한 오기였다. 그래서
- * `shared/ui/button`의 `Button`/`pill-*` variant를 재사용하지 않고 `<button>`을 이 컴포넌트
- * 전용으로 직접 스타일링한다(`docs/COMPONENT_MAP.md` §2가 Action Bar를 `Button/Pill`과 별개의
- * 화면 전용 요소로 명시).
+ * 5개 상태(`ActionBarVisualState`, `shared/lib/solve/actionBarState`) 각각에서 정확히 1개의 버튼과
+ * 1개의 캡션만 렌더된다 — 자리 교체가 있던 기존 3세그먼트와 달리 "이 단계의 유일한 행동"만 보여준다:
+ * - `input-empty`: INPUT 단계, 아직 인식시킬 입력이 없어 "문제 인식하기"가 비활성.
+ * - `input-filled`: INPUT 단계, 입력이 있어 "문제 인식하기"가 활성/강조.
+ * - `work-notyet`: WORK 단계, 아직 풀이가 없어 "아직 못 풀겠어요"만 노출.
+ * - `work-done`: WORK 단계, 풀이가 생겨 "봐 주세요"만 노출("아직 못 풀겠어요"는 이 단계에서 더 이상
+ *   보이지 않는다 — 3세그먼트 시절과 다른 부분).
+ * - `result`: 결과 표시 중, "새 문제 풀기"만 노출.
  *
- * 세그먼트 자리는 고정 3개, 자리 교체 없이 라벨/강조/활성 여부만 단계별로 바뀐다(Figma 문제 인식
- * 스토리보드 `267:778`, `Stage=Notyet`=`267:682`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr` 실측). "고정
- * 3색"이 아니라 "그 단계의 주 행동 1개만 강조, 나머지는 배경 없는 텍스트"다 — 단, "아직 못
- * 풀겠어요"는 강조가 아닌 두 단계(`input`/`work-done`)에서도 예외적으로 옅은 회색 "고스트 필"(배경
- * 있음)로 격상된다(`giveUpSegmentClassName` 참고):
- * - `Stage=Problem`(INPUT, `problemId === null`): "문제 인식하기"만 강조(`bg-brand-deep`),
- *   "아직 못 풀겠어요"는 고스트 필(비활성), "봐 주세요"는 배경 없이 옅게.
- * - WORK-풀이전(`problemId !== null`, 결과 없음, `hasWorkInput === false`): "아직 못 풀겠어요"만
- *   강조, "봐 주세요"는 배경 없이 옅게.
- * - `Stage=Work`(WORK-풀이후, `problemId !== null`, 결과 없음, `hasWorkInput === true`): "봐
- *   주세요"만 강조, "아직 못 풀겠어요"는 고스트 필(활성 — 클릭 가능하지만 배경은 옅게 유지),
- *   "문제 인식하기"는 배경 없이 옅게.
- * - RESULT(`solveStatus === "success"` 또는 `diagnoseStatus === "success"`): [1] 세그먼트의
- *   라벨이 "새 문제 풀기"로 바뀌며 다시 강조되고, "아직 못 풀겠어요"는 Figma `Stage=NewProblem`
- *   실측대로 다시 배경 없는 plain 비활성으로 돌아간다(고스트 필 아님).
+ * 라벨/아이콘 색이 "?"였던 3곳(오너 지시, `docs/DESIGN_TOKEN_MAP.md`에 없는 판단 사항)은 최초엔 기존
+ * 코드의 전례를 따라 근사값(`input-empty`: `text-bg-scrim`, `work-notyet`: `text-icon-default`,
+ * 배경도 둘 다 `bg-bg-scrim`)으로 정했으나, 2026-09 오너 실기기 피드백 + Figma 재실측(`260:101`
+ * Solve/Action Bar, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`)으로 다음 실측 토큰으로 교체했다
+ * (`docs/DESIGN_TOKEN_MAP.md` 참고):
+ * - `input-empty`: 라벨/아이콘 색을 `Problem_disable_font`(`--color-action-disabled-fg`,
+ *   `#8f9d99`)로 교체. 배경(`bg-surface-well`)/보더(`border-bg-scrim`)는 재실측으로 변경 없음이
+ *   확인되어 그대로 유지한다.
+ * - `work-notyet`: 배경을 `Problem_notsolve_button_color`(`--color-action-notyet-bg`,
+ *   `#b0d4ca`)로, 라벨/아이콘 색을 `Problem_nosolve_font`(`--color-action-notyet-fg`, `#6f7b75`)로
+ *   교체. 보더(`border-brand-deep`)는 재실측으로 변경 없음이 확인되어 그대로 유지한다.
+ * - `result`: 배경이 진한 `bg-accent-red`라 다른 두 강조 상태(`input-filled`의 `bg-accent-green`,
+ *   `work-done`의 `bg-accent-teal`)와 동일하게 `text-label-on-dark`를 썼다 — "진한 배경엔 흰
+ *   텍스트"라는 이 컴포넌트의 나머지 4곳과 일관된 규칙이다(이 상태는 2026-09 재실측 대상이 아니었다).
  *
- * 어느 세그먼트가 활성/비활성인지(`disabled` 여부)는 이 컴포넌트가 직접 판단하지 않고
- * `shared/lib/solve/actionBarState`의 순수함수 `getActionBarState`(상태표 기반, 수정하지 않음)에
- * 위임한다. 이 컴포넌트가 새로 계산하는 것은 "어느 세그먼트가 그 단계의 주 행동인지"(강조 여부)와
- * "[1] 세그먼트의 라벨/클릭 핸들러가 무엇인지"(RESULT 단계의 "새 문제 풀기" 전환)뿐이다.
+ * Corner Radius(2026-09 오너 실기기 피드백 + Figma 재실측): 5개 상태 전부 예외 없이 top-right만
+ * 0px(각짐)이고 나머지 3개 코너(top-left/bottom-right/bottom-left)는 완전 라운드(999px, pill)다 —
+ * 버튼 공통 클래스에 `rounded-full` 대신 `rounded-tl-full rounded-bl-full rounded-br-full`(top-right
+ * 라운드 클래스 없음 = 0)을 적용한다. 상태별 분기가 필요 없다.
+ *
+ * 버튼 폭은 hug-content가 아니라 design-agent 사후검수(2026-09) Figma `get_metadata` 좌표 재실측으로
+ * 확정된 상태별 고정폭이다 — `input-empty`/`input-filled`(Problem/Problem_disable)는 271px,
+ * `work-notyet`(Notyet)/`work-done`(Work)/`result`(NewProblem)는 263px(`widthClassName`). 라벨과
+ * 아이콘은 5개 상태 전부 버튼 폭 안에서 그룹 전체가 가운데 정렬된다(`justify-center`, 버튼 공통 클래스
+ * 에 적용) — 아이콘이 있는 4개 상태도 Figma 좌표 실측상 `justify-between`이 아니라 중앙 정렬이었다.
+ * 캡션은 `max-w-[220px]`로 제한해 좁은 화면(세로 모드/Split View)에서 2줄까지 자연스럽게 줄바꿈되되
+ * (`whitespace-nowrap`/`truncate` 없음) 항상 `text-center`를 유지한다. 220px는 Figma에 별도
+ * 실측값이 없어(색상/그림자와 달리 캡션 컨테이너 폭은 토큰화 대상이 아님) 가장 긴 캡션("버튼을
+ * 선택하여 AI가 문제를 분석하게 해주세요")과 버튼 고정폭을 참고해 "버튼보다 약간 넓은 정도"로 정한
+ * 값이다(오너 지시 — 임의로 크게 잡지 말 것).
+ *
+ * 그림자는 5개 상태 모두 기존 `Elevation/Action Segment`(`docs/DESIGN_SYSTEM.md` §4)를 그대로
+ * 적용한다 — 비활성(`input-empty`)도 예외 없이 동일 그림자를 유지한다(오너 지시, 별도 실측 근거
+ * 없으면 일관 적용).
  */
+const BUTTON_VISUAL_SPEC: Record<ActionBarVisualState, ActionBarButtonSpec> = {
+  "input-empty": {
+    label: "문제 인식하기",
+    caption: "먼저 사진이나 필기로 문제를 인식 시켜 주세요",
+    bgClassName: "bg-surface-well",
+    borderClassName: "border-bg-scrim",
+    colorClassName: "text-action-disabled-fg",
+    fontSizeClassName: "text-[17px] leading-[22px]",
+    captionColorClassName: "text-accent-steel",
+    widthClassName: "w-[271px]",
+    Icon: PlayCircleGlyph,
+  },
+  "input-filled": {
+    label: "문제 인식하기",
+    caption: "버튼을 선택하여 AI가 문제를 분석하게 해주세요",
+    bgClassName: "bg-accent-green",
+    borderClassName: "border-brand-deep",
+    colorClassName: "text-label-on-dark",
+    fontSizeClassName: "text-[17px] leading-[22px]",
+    captionColorClassName: "text-accent-steel",
+    widthClassName: "w-[271px]",
+    Icon: PlayCircleGlyph,
+  },
+  "work-notyet": {
+    label: "아직 못 풀겠어요",
+    caption: "문제 풀기가 어려우세요?  AI가 도와 드릴게요",
+    bgClassName: "bg-action-notyet-bg",
+    borderClassName: "border-brand-deep",
+    colorClassName: "text-action-notyet-fg",
+    fontSizeClassName: "text-[17px] leading-[22px]",
+    captionColorClassName: "text-accent-steel",
+    widthClassName: "w-[263px]",
+    Icon: DissatisfiedGlyph,
+  },
+  "work-done": {
+    label: "봐 주세요",
+    caption: "와우, 훌륭해요! 풀이가 맞는지 한번 볼까요?",
+    bgClassName: "bg-accent-teal",
+    borderClassName: "border-brand-deep",
+    colorClassName: "text-label-on-dark",
+    fontSizeClassName: "text-[17px] leading-[22px]",
+    captionColorClassName: "text-icon-default",
+    widthClassName: "w-[263px]",
+    Icon: SatisfiedGlyph,
+  },
+  result: {
+    label: "새 문제 풀기",
+    caption: "계속 열심히 다음 문제를 풀어 볼까요?",
+    bgClassName: "bg-accent-red",
+    borderClassName: "border-brand-deep",
+    colorClassName: "text-label-on-dark",
+    fontSizeClassName: "text-[17px] leading-[22px]",
+    captionColorClassName: "text-icon-default",
+    widthClassName: "w-[263px]",
+    Icon: null,
+  },
+};
+
+/** 상태별 클릭 핸들러/`disabled` 매핑 — 기능(클릭 시 동작)은 기존과 전혀 바뀌지 않는다. */
+function resolveButtonAction(
+  visualState: ActionBarVisualState,
+  buttonState: ActionBarButtonState,
+  handlers: {
+    onRecognize?: () => void;
+    onGiveUp?: () => void;
+    onDiagnose?: () => void;
+    onNewProblem?: () => void;
+  },
+): { onClick?: () => void; disabled: boolean } {
+  switch (visualState) {
+    case "input-empty":
+    case "input-filled":
+      return { onClick: handlers.onRecognize, disabled: !buttonState.recognize.enabled };
+    case "work-notyet":
+      return { onClick: handlers.onGiveUp, disabled: !buttonState.giveUp.enabled };
+    case "work-done":
+      return { onClick: handlers.onDiagnose, disabled: !buttonState.diagnose.enabled };
+    case "result":
+      return { onClick: handlers.onNewProblem, disabled: !buttonState.recognize.enabled };
+    default:
+      return { disabled: true };
+  }
+}
+
 export function ActionBar({
   problemId,
   hasProblemInput,
@@ -165,7 +259,7 @@ export function ActionBar({
   onDiagnose,
   onNewProblem,
 }: ActionBarProps) {
-  const buttonState = getActionBarState({
+  const stateInput: ActionBarStateInput = {
     problemId,
     hasProblemInput,
     hasWorkInput,
@@ -173,38 +267,41 @@ export function ActionBar({
     solveStatus,
     recognizeWorkStatus,
     diagnoseStatus,
+  };
+  const buttonState = getActionBarState(stateInput);
+  const visualState = getActionBarVisualState(stateInput);
+  const spec = BUTTON_VISUAL_SPEC[visualState];
+  const { onClick, disabled } = resolveButtonAction(visualState, buttonState, {
+    onRecognize,
+    onGiveUp,
+    onDiagnose,
+    onNewProblem,
   });
-  const stage = deriveStage(problemId, hasWorkInput, solveStatus, diagnoseStatus);
-  const isResultStage = stage === "result";
+  const Icon = spec.Icon;
 
   return (
-    <div className="border-brand flex w-fit items-center gap-[2px] rounded-full border-[0.5px] p-[6px]">
+    <div className="flex flex-col items-center gap-[4px]">
       <button
         type="button"
-        className={segmentClassName(stage === "input" || isResultStage, false)}
-        disabled={!buttonState.recognize.enabled}
-        onClick={isResultStage ? onNewProblem : onRecognize}
+        disabled={disabled}
+        onClick={onClick}
+        className={
+          "flex h-[46px] items-center justify-center gap-[8px] rounded-tl-full rounded-bl-full rounded-br-full border-[0.5px] px-[20px] py-[10px] " +
+          "font-[590] outline-none transition-[background-color,filter] " +
+          "focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed " +
+          "shadow-[0px_20px_34px_rgba(35,43,56,0.08),0px_8px_16px_rgba(35,43,56,0.14),inset_0px_-2px_0px_rgba(35,43,56,0.07)] " +
+          `${spec.bgClassName} ${spec.borderClassName} ${spec.colorClassName} ${spec.fontSizeClassName} ` +
+          spec.widthClassName
+        }
       >
-        {isResultStage ? "새 문제 풀기" : "문제 인식하기"}
+        {spec.label}
+        {Icon ? <Icon /> : null}
       </button>
-      <ActionBarDivider />
-      <button
-        type="button"
-        className={giveUpSegmentClassName(stage)}
-        disabled={!buttonState.giveUp.enabled}
-        onClick={onGiveUp}
+      <p
+        className={`max-w-[220px] text-center text-[11px] leading-[13px] font-normal tracking-[0.06px] italic ${spec.captionColorClassName}`}
       >
-        아직 못 풀겠어요
-      </button>
-      <ActionBarDivider />
-      <button
-        type="button"
-        className={segmentClassName(stage === "work-done", false)}
-        disabled={!buttonState.diagnose.enabled}
-        onClick={onDiagnose}
-      >
-        봐 주세요
-      </button>
+        {spec.caption}
+      </p>
     </div>
   );
 }

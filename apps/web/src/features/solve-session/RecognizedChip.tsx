@@ -8,17 +8,26 @@ interface RecognizedChipProps {
   /** 칩 옆 확장/축소 토글 아이콘 클릭 핸들러(오너 확정: 칩 자체 탭이 아니라 별도 버튼). */
   onToggleExpand: () => void;
   /**
-   * "인식 취소" 버튼 클릭 핸들러(오너 UX 결정: 인식취소 상시 배치, `RecognizedChip` 안에 위치).
-   * `useProblemInput()`의 `cancelRecognition`을 그대로 전달받는다 — INPUT 단계로 완전히 되돌린다.
+   * 이 칩의 유일한 액션 버튼 클릭 핸들러(오너 UX 결정: 상시 배치, `RecognizedChip` 안에 위치).
+   * 입력 모달리티에 따라 의미가 다르다 — 사진 입력이면 "인식 취소"(`useProblemInput()`의
+   * `cancelRecognition`, 사진/필기 입력을 포함해 완전히 초기화), 필기 입력이면 "인식 수정"
+   * (`beginRecognitionEdit`, 필기 획은 보존한 채 INPUT 단계로 되돌림) — 부모가 `inputMode`에 맞춰
+   * 알맞은 함수를 전달한다.
    */
   onCancelRecognition: () => void;
-  /** 재인식/진단이 로딩 중일 때 "인식 취소" 버튼을 비활성화한다(오너 확정: 최소 방어). */
+  /** 재인식/진단이 로딩 중일 때 버튼을 비활성화한다(오너 확정: 최소 방어). */
   isCancelDisabled: boolean;
   /**
    * 사진 입력일 때만 전달되는 원본 이미지 URL. 값이 있으면 확장 상태에서 이미지를 확대해서
    * 보여주고, 없으면(필기 입력) `recognizedText` 전체를 보여준다.
    */
   imageUrl?: string | null;
+  /**
+   * 인식 버튼의 라벨/동작 분기용 — 사진이면 "인식 취소", 필기면 "인식 수정"(Figma 플로우 조사,
+   * design-agent 2단계 handback). 버튼 크기/스타일/hit-slop은 두 모드 모두 동일하다(라벨 모두
+   * 4자, 레이아웃 영향 없음).
+   */
+  inputMode: "photo" | "handwriting";
 }
 
 /**
@@ -90,6 +99,7 @@ export function RecognizedChip({
   onCancelRecognition,
   isCancelDisabled,
   imageUrl,
+  inputMode,
 }: RecognizedChipProps) {
   // `max-w-[calc(100vw-32px)]`는 Figma 실측값이 아니라 방어적 안전장치다(design-agent 사후검수
   // 추가) — 좁은 iPad 세로 모드/Split View에서 400px 고정폭이 뷰포트 밖으로 밀려나거나 가로
@@ -128,8 +138,10 @@ export function RecognizedChip({
             {recognizedText}
           </p>
         )}
-        {/* "인식 취소" 버튼(오너 UX 결정, Figma `310:1498` 실측: Badge → (접힘 시) 텍스트 → 이
-        버튼 → chevron 순서, 88×30 고정 박스). `Button`의 `pill-dark` variant(`bg-label-primary
+        {/* "인식 취소"/"인식 수정" 버튼(오너 UX 결정, Figma `310:1498` 실측: Badge → (접힘 시)
+        텍스트 → 이 버튼 → chevron 순서, 88×30 고정 박스). 라벨은 `inputMode`에 따라 분기한다 —
+        사진 입력은 "인식 취소"(완전 초기화), 필기 입력은 "인식 수정"(필기 획 보존, Figma 플로우
+        조사 완료). `Button`의 `pill-dark` variant(`bg-label-primary
         text-bg-elevated rounded-full`)를 재사용하고 `className`으로 88×30 고정 크기를 강제한다 —
         기본 `PILL_BASE_STYLE`의 `px-[26px] py-[11px]`는 88×30 안에서 텍스트가 넘치므로 `!px-0
         !py-0`으로 함께 덮어써서 `items-center justify-center`(기존 pill 스타일 그대로) 중앙 정렬에
@@ -152,7 +164,7 @@ export function RecognizedChip({
           disabled={isCancelDisabled}
           className="relative h-[30px] w-[88px] shrink-0 !px-0 !py-0 before:absolute before:-inset-y-[7px] before:inset-x-0 before:content-['']"
         >
-          인식 취소
+          {inputMode === "handwriting" ? "인식 수정" : "인식 취소"}
         </Button>
         {/* 시각적 아이콘 슬롯은 Figma 칩 리듬에 맞춰 18px로 유지하되, 실제 탭 가능 영역은
         `::before` 가상요소로 44px 이상까지 넓힌다(PRD `docs/PRD_WHYMATH.md` §"접근성" 최소 터치

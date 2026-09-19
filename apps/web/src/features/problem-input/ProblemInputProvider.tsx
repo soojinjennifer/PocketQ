@@ -480,6 +480,34 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   ]);
 
   /**
+   * `RecognizedChip`의 "인식 수정"(필기 입력 전용) 클릭 시 호출한다. `cancelRecognition`("인식
+   * 취소", 사진 입력 전용)과 초기화 대상이 거의 같지만 `clearCapturedImage()`/`clearStrokes()`/
+   * `setLastInputType(null)`는 호출하지 않는다 — 학생이 이미 써 놓은 필기 획(`strokes`)이 그대로
+   * 남아 있어야 INPUT 단계로 돌아가 이어서 고쳐 쓸 수 있다(오너 확정, Figma 프로토타입 목적지
+   * "Pencil_afterwrite"). WORK 단계 이어풀기 결과(`resumeSolution` 등)도 함께 폐기한다(오너 결정)
+   * — `resetResume()`을 포함한다.
+   */
+  const beginRecognitionEdit = useCallback(() => {
+    resetRecognize();
+    resetSolve();
+    resetChat();
+    setSuggestedQuestions(null);
+    resetRecognizeWork();
+    resetDiagnose();
+    resetResume();
+    clearWorkStrokes();
+  }, [
+    resetRecognize,
+    resetSolve,
+    resetChat,
+    setSuggestedQuestions,
+    resetRecognizeWork,
+    resetDiagnose,
+    resetResume,
+    clearWorkStrokes,
+  ]);
+
+  /**
    * `useDiagnose().diagnose`를 그대로 노출하지 않고 감싼다 — 진단이 성공하면(DIAG 화면 진입 직전)
    * 오너 확정(§5)에 따라 더 이상 필요 없는 사진 Blob 참조를 정리한다. 단, 사진으로 입력한 경우
    * (`lastInputType === "photo"`)에는 결과 화면(`ProblemCard`)에 원본 사진을 계속 보여줘야 하므로
@@ -562,6 +590,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeToWork,
       resetSubmission,
       cancelRecognition,
+      beginRecognitionEdit,
       chatMessages,
       chatStatus,
       chatErrorMessage,
@@ -630,6 +659,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeToWork,
       resetSubmission,
       cancelRecognition,
+      beginRecognitionEdit,
       chatMessages,
       chatStatus,
       chatErrorMessage,

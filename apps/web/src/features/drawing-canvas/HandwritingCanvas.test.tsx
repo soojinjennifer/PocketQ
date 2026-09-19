@@ -717,6 +717,98 @@ describe("HandwritingCanvas scrollable=true 손가락 스크롤", () => {
     // 확장 시점까지도 아직 커밋되지 않았다(제스처가 끝나지 않았으므로).
     expect(onCommitStroke).not.toHaveBeenCalled();
   });
+
+  it("(g) growthThresholdRatio를 낮게 주면 더 적은 필기만으로도 content가 확장되고 onScrollableChange(true)가 호출된다", () => {
+    // (e)/(f)와 동일하게 outer/content 실측 높이를 100px로 고정한다.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 300,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const onScrollableChange = vi.fn();
+    const { container, rerender } = render(
+      <HandwritingCanvas
+        strokes={[]}
+        tool="pen"
+        onCommitStroke={vi.fn()}
+        scrollable
+        growthThresholdRatio={0.45}
+        onScrollableChange={onScrollableChange}
+      />,
+    );
+    const content = container.querySelector("canvas")?.parentElement as HTMLDivElement;
+    expect(content.style.height).toBe("100px");
+
+    // jsdom은 scrollHeight/clientHeight를 실제 레이아웃으로 계산하지 않으므로, 확장 이후 상태를
+    // 흉내 내도록 미리 주입한다(다른 `isScrollable`/`onScrollableChange` 테스트와 동일한 패턴).
+    const outer = container.firstElementChild as HTMLDivElement;
+    Object.defineProperty(outer, "scrollHeight", { value: 200, configurable: true });
+    Object.defineProperty(outer, "clientHeight", { value: 100, configurable: true });
+
+    // 최대 y=50 → 기본 85% 임계값(85px)은 넘지 못하지만 낮춘 45% 임계값(45px)은 넘는다.
+    const shortStroke: Stroke = {
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 0, y: 50, pressure: 0.5 },
+      ],
+    };
+    rerender(
+      <HandwritingCanvas
+        strokes={[shortStroke]}
+        tool="pen"
+        onCommitStroke={vi.fn()}
+        scrollable
+        growthThresholdRatio={0.45}
+        onScrollableChange={onScrollableChange}
+      />,
+    );
+
+    expect(content.style.height).toBe("200px");
+    expect(onScrollableChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("(h) growthThresholdRatio를 생략하면 기존 0.85 동작이 그대로 유지된다(같은 필기량이 낮은 임계값에서는 확장되지만 기본값에서는 확장되지 않음)", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 300,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const { container, rerender } = render(
+      <HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
+    );
+    const content = container.querySelector("canvas")?.parentElement as HTMLDivElement;
+    expect(content.style.height).toBe("100px");
+
+    // 최대 y=50 — (g)에서는 낮춘 45% 임계값을 넘어 확장됐지만, 기본값(0.85 = 85px)에서는
+    // 넘지 못해 확장되지 않아야 한다(기존 WORK 단계/`/solve/landscape` 동작 회귀 방지).
+    const shortStroke: Stroke = {
+      tool: "pen",
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 0, y: 50, pressure: 0.5 },
+      ],
+    };
+    rerender(
+      <HandwritingCanvas strokes={[shortStroke]} tool="pen" onCommitStroke={vi.fn()} scrollable />,
+    );
+
+    expect(content.style.height).toBe("100px");
+  });
 });
 
 describe("HandwritingCanvas isScrollable()", () => {

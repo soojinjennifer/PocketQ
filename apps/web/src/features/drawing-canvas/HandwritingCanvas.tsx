@@ -56,6 +56,15 @@ interface HandwritingCanvasProps {
    * `scrollable`이 아니면 절대 호출되지 않는다.
    */
   onScrollableChange?: (isScrollable: boolean) => void;
+  /**
+   * 콘텐츠 성장(threshold) 판단 비율 — `outerHeightRef.current`(뷰포트 높이) 대비 필기가 이 비율에
+   * 닿으면 한 뷰포트 높이만큼 콘텐츠를 확장한다. 생략하면 기존 동작 그대로
+   * `SCROLL_GROWTH_THRESHOLD_RATIO`(0.85)를 쓴다 — WORK 단계(다단계 풀이, 보통 길다)와
+   * `/solve/landscape` 등 기존 모든 호출부는 이 prop을 생략해 한 줄도 동작이 바뀌지 않는다.
+   * INPUT 단계(문제 하나만 짧게 입력)는 85%까지 거의 도달하지 못해 `SolveScroll`이 계속 비활성
+   * 상태로 남는 오너 실기기 피드백(2026-09)이 있어, 이 단계 호출부에서만 더 낮은 값을 주입한다.
+   */
+  growthThresholdRatio?: number;
 }
 
 /**
@@ -207,7 +216,15 @@ function hasPointerCaptureSafe(
  */
 export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, HandwritingCanvasProps>(
   function HandwritingCanvas(
-    { strokes, tool, onCommitStroke, scrollable = false, onScrollRatioChange, onScrollableChange },
+    {
+      strokes,
+      tool,
+      onCommitStroke,
+      scrollable = false,
+      onScrollRatioChange,
+      onScrollableChange,
+      growthThresholdRatio = SCROLL_GROWTH_THRESHOLD_RATIO,
+    },
     ref,
   ) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -365,12 +382,12 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
           return prev;
         }
         const maxY = Math.max(committedMaxYRef.current, activeMaxYRef.current);
-        if (maxY >= prev * SCROLL_GROWTH_THRESHOLD_RATIO) {
+        if (maxY >= prev * growthThresholdRatio) {
           return prev + outerHeightRef.current;
         }
         return prev;
       });
-    }, [scrollable]);
+    }, [scrollable, growthThresholdRatio]);
 
     // 상위(Provider)의 `strokes`가 실제로 갱신되어 내려올 때(=커밋 완료 후)만 로컬 오버레이(진행
     // 중이던 stroke)를 지우고 다시 그린다 — 커밋 직후 깜빡임 없이 자연스럽게 이어진다(위 컴포넌트

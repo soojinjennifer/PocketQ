@@ -689,10 +689,12 @@ describe("마이페이지 개선 4번 '다시풀기' — 사진/필기 없이 �
     await waitFor(() => expect(reopenProblemHistory).toHaveBeenCalledWith("problem-history-1"));
 
     // WORK 단계로 곧바로 전환된다("문제 인식하기"가 아니라 "아직 못 풀겠어요"가 활성화된다).
+    // ActionBar v3.0(2026-09, 오너 승인)부터는 "3버튼 중 비활성화된 것"이 아니라 "단계별로 버튼 1개만
+    // 렌더"되는 구조라 "문제 인식하기"는 이 단계에서 아예 렌더되지 않는다.
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
     );
-    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "문제 인식하기" })).not.toBeInTheDocument();
     expect(screen.getByText("저장돼 있던 문제 원문")).toBeInTheDocument();
 
     // solve()는 호출되지 않는다 — 개념설명/풀이 결과 화면으로 자동 이동하지 않아야 한다.

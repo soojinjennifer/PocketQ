@@ -58,6 +58,7 @@ function createContextValue(
     resumeToWork: () => Promise.resolve(false),
     resetSubmission: () => undefined,
     cancelRecognition: () => undefined,
+    beginRecognitionEdit: () => undefined,
     chatMessages: [],
     chatStatus: "idle",
     chatErrorMessage: null,
@@ -541,6 +542,84 @@ describe("SolvePencilcanvasPage — RecognizedChip '인식 취소' 배선(오너
   });
 });
 
+describe("SolvePencilcanvasPage — RecognizedChip '인식 수정'/'인식 취소' 입력 모달리티 분기(Figma 플로우 조사, design-agent 2단계 handback)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("필기로 인식된 상태(lastInputType='handwriting')에서는 '인식 수정' 버튼이 렌더링되고, 클릭 시 beginRecognitionEdit만 호출되며 strokes/capturedImage는 그대로 유지된다(cancelRecognition은 호출되지 않는다)", () => {
+    const cancelRecognition = vi.fn();
+    const beginRecognitionEdit = vi.fn();
+    const strokes: ProblemInputContextValue["strokes"] = [
+      { tool: "pen", points: [{ x: 0, y: 0, pressure: 0.5 }] },
+    ];
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            lastInputType: "handwriting",
+            strokes,
+            cancelRecognition,
+            beginRecognitionEdit,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "인식 수정" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "인식 취소" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "인식 수정" }));
+
+    expect(beginRecognitionEdit).toHaveBeenCalledTimes(1);
+    expect(cancelRecognition).not.toHaveBeenCalled();
+    // beginRecognitionEdit 자체는 strokes/capturedImage를 지우지 않는다(Provider 책임) — 여기서는
+    // 페이지가 잘못된 초기화 함수(clearStrokes/clearCapturedImage 등)를 별도로 호출하지 않는지,
+    // Provider가 넘겨준 strokes 배열 참조가 그대로인지로 간접 확인한다.
+    expect(strokes).toHaveLength(1);
+  });
+
+  it("사진으로 인식된 상태(lastInputType='photo')에서는 기존처럼 '인식 취소' 버튼이 렌더링되고, 클릭 시 cancelRecognition만 호출된다(beginRecognitionEdit은 호출되지 않는다)", () => {
+    const cancelRecognition = vi.fn();
+    const beginRecognitionEdit = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            hasProblemInput: true,
+            problemId: "problem-1",
+            recognizedText: "1+1=?",
+            lastInputType: "photo",
+            cancelRecognition,
+            beginRecognitionEdit,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "인식 취소" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "인식 수정" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "인식 취소" }));
+
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
+    expect(beginRecognitionEdit).not.toHaveBeenCalled();
+  });
+});
+
 describe("SolvePencilcanvasPage — RecognizedProblemPopup '인식취소' 배선(오너 UX 결정)", () => {
   beforeEach(() => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
@@ -648,11 +727,15 @@ describe("SolvePencilcanvasPage — ProblemCard/EmptyStateHint 컨테이너 데�
       </MemoryRouter>,
     );
 
-    const hint = screen.getByText("Apple Pencil이나 마우스로 문제를 써 보세요");
-    const containerEl = hint.closest("div[class*='top-[90px]']");
+    // EmptyStateHint 전용 래퍼는 더 이상 `top-[90px]`가 아니라 세로 중앙(`top-1/2`)이다(오너
+    // 실기기 피드백 + Figma 재실측, 2026-09 — `InputModeToggle`과 겹쳐 보이던 회귀 수정).
+    const hint = screen.getByText("문제집을 사진으로 찍어서 올리세요");
+    const containerEl = hint.closest("div[class*='top-1/2']");
     expect(containerEl).not.toBeNull();
     expect(containerEl).toHaveClass("pointer-events-none");
     expect(containerEl).not.toHaveClass("pointer-events-auto");
+    expect(containerEl).toHaveClass("-translate-y-1/2");
+    expect(containerEl?.className).not.toContain("top-[90px]");
   });
 
   it("problemCardData!==null(사진 업로드 후 ProblemCard가 보이는 상태)에서는 컨테이너가 pointer-events-auto로 돌아와 카드 스크롤/탭이 정상 동작한다", () => {
@@ -675,5 +758,198 @@ describe("SolvePencilcanvasPage — ProblemCard/EmptyStateHint 컨테이너 데�
     expect(containerEl).not.toBeNull();
     expect(containerEl).toHaveClass("pointer-events-auto");
     expect(containerEl).not.toHaveClass("pointer-events-none");
+  });
+});
+
+describe("SolvePencilcanvasPage — 필기 시작 시 EmptyStateHint 숨김(오너 실기기 피드백: 필기를 방해하지 않도록)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("strokes가 비어 있으면(필기 전) EmptyStateHint가 보인다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue({ strokes: [] })}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("문제집을 사진으로 찍어서 올리세요")).toBeInTheDocument();
+  });
+
+  it("strokes가 채워지면(필기 시작) EmptyStateHint가 사라져 캔버스를 가리지 않는다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            strokes: [{ tool: "pen", points: [{ x: 0, y: 0, pressure: 0.5 }] }],
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText("문제집을 사진으로 찍어서 올리세요")).not.toBeInTheDocument();
+  });
+});
+
+/** `screen.getByText`의 기본 normalizer는 연속 공백을 하나로 합치고 앞뒤 공백을 trim한다 — Figma
+ *  원문의 의도적인 이중 공백/trailing 공백을 정확히 검증하려면 normalizer를 끄고 element의
+ *  `textContent`를 원문 그대로 비교해야 한다. */
+function getByExactText(text: string) {
+  return screen.getByText((_content, element) => element?.textContent === text);
+}
+
+describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle, Figma 342-833, 오너 UX 결정)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("INPUT 단계 기본값은 '사진으로 문제 인식'이 선택되어 있고 사진 전용 안내 문구를 보여준다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(getByExactText("문제집을 사진으로 찍어서 올리세요")).toBeInTheDocument();
+    expect(
+      getByExactText(
+        '한문제씩 사진 안에 문제 내용이 모두 들어오게 찍고  하단에 "문제인식하기" 버튼을 눌러 주세요',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("'사진으로 문제 인식' 탭을 클릭하면 /camera로 이동한다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+            <Route path="/camera" element={<div>CameraPage</div>} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+
+    expect(screen.getByText("CameraPage")).toBeInTheDocument();
+  });
+
+  it("'필기로 문제 인식' 탭을 클릭하면 /camera로 이동하지 않고 EmptyStateHint 문구가 필기 전용으로 바뀐다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+            <Route path="/camera" element={<div>CameraPage</div>} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(getByExactText("문제를 펜으로 쓰면 인식 할 수 있습니다.  ")).toBeInTheDocument();
+    expect(
+      getByExactText(
+        '한문제씩 또박또박 써주시면 인식이 더 잘 될 수 있어요. 다 쓴 후 "문제 인식하기"버튼을 눌러 주세요',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("WORK 단계(problemId 있음)에서는 InputModeToggle이 렌더링되지 않는다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({ hasProblemInput: true, problemId: "problem-1" })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "사진으로 문제 인식" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("SolvePencilcanvasPage — INPUT 단계 SolveScroll(WORK 단계와 동일한 실제 스크롤 가능 여부 기반, 오너 결정 2026-09)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  it("INPUT 단계 진입 직후(콘텐츠가 없어 스크롤이 불필요한 초기 상태)에는 SolveScroll이 disabled 상태다(마커 탭이 무효화된다)", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const marker = screen.getByLabelText("풀이 100% 지점으로 스크롤 이동");
+    expect(marker).toHaveAttribute("aria-disabled", "true");
+    expect(marker).toBeDisabled();
+  });
+
+  it("INPUT 캔버스가 마운트 시점부터 실제로 스크롤 가능하면(WORK 단계와 동일한 scrollable 코드 경로) SolveScroll의 disabled가 하드코딩된 true가 아니라 그 상태를 반영해 활성화된다", () => {
+    // jsdom은 scrollHeight/clientHeight를 항상 0으로 보고하므로, `HandwritingCanvas`가 마운트
+    // 시점에 직접 호출하는 `measureOuterHeight`/`resizeCanvasToContent`(`notifyScrollable` 트리거)가
+    // "콘텐츠가 뷰포트보다 큼"을 관찰하도록 `Element.prototype` 접근자를 렌더 전에 미리 스텁한다
+    // (`HandwritingCanvas.test.tsx`가 인스턴스에 직접 `Object.defineProperty`하는 것과 동일한
+    // 취지이며, 렌더 전에 걸어야 마운트 시점 첫 호출에도 반영된다).
+    vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(400);
+    vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(100);
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    // INPUT 캔버스가 `scrollable` prop을 받으면 `HandwritingCanvas`가 outer 뷰포트에
+    // `overflow-y-auto` 클래스를 붙인다(`scrollable=false`였다면 이 클래스 자체가 없다) — WORK
+    // 단계와 동일한 코드 경로를 타는지 확인하는 근거다.
+    expect(container.querySelector(".overflow-y-auto")).not.toBeNull();
+
+    const marker = screen.getByLabelText("풀이 100% 지점으로 스크롤 이동");
+    expect(marker).toHaveAttribute("aria-disabled", "false");
+    expect(marker).not.toBeDisabled();
   });
 });

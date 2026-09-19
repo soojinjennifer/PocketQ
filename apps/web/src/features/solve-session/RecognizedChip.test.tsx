@@ -11,6 +11,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -26,6 +27,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -42,6 +44,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -58,6 +61,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -93,6 +97,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={onToggleExpand}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -108,6 +113,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -124,6 +130,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
         imageUrl="blob:mock-preview-url"
       />,
     );
@@ -140,6 +147,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -155,6 +163,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -170,6 +179,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -186,6 +196,7 @@ describe("RecognizedChip", () => {
         onToggleExpand={() => {}}
         onCancelRecognition={() => {}}
         isCancelDisabled={false}
+        inputMode="photo"
       />,
     );
 
@@ -214,6 +225,7 @@ describe("RecognizedChip", () => {
           onToggleExpand={() => {}}
           onCancelRecognition={onCancelRecognition}
           isCancelDisabled={false}
+          inputMode="photo"
         />,
       );
 
@@ -230,6 +242,7 @@ describe("RecognizedChip", () => {
           onToggleExpand={() => {}}
           onCancelRecognition={onCancelRecognition}
           isCancelDisabled
+          inputMode="photo"
         />,
       );
 
@@ -248,6 +261,7 @@ describe("RecognizedChip", () => {
           onToggleExpand={() => {}}
           onCancelRecognition={() => {}}
           isCancelDisabled={false}
+          inputMode="photo"
         />,
       );
 
@@ -262,6 +276,7 @@ describe("RecognizedChip", () => {
           onToggleExpand={() => {}}
           onCancelRecognition={() => {}}
           isCancelDisabled={false}
+          inputMode="photo"
         />,
       );
 
@@ -278,6 +293,7 @@ describe("RecognizedChip", () => {
           onToggleExpand={() => {}}
           onCancelRecognition={() => {}}
           isCancelDisabled={false}
+          inputMode="photo"
         />,
       );
 
@@ -286,6 +302,40 @@ describe("RecognizedChip", () => {
       expect(button).toHaveClass("!py-0");
       expect(button).not.toHaveClass("px-0");
       expect(button).not.toHaveClass("py-0");
+    });
+  });
+
+  describe("inputMode에 따른 버튼 라벨 분기(Figma 플로우 조사, design-agent 2단계 handback)", () => {
+    it("inputMode='handwriting'이면 버튼 라벨이 '인식 수정'이다", () => {
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={() => {}}
+          isCancelDisabled={false}
+          inputMode="handwriting"
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "인식 수정" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "인식 취소" })).not.toBeInTheDocument();
+    });
+
+    it("inputMode='photo'(기존 케이스)면 버튼 라벨이 '인식 취소'로 유지된다", () => {
+      render(
+        <RecognizedChip
+          recognizedText="1+1=?"
+          isExpanded={false}
+          onToggleExpand={() => {}}
+          onCancelRecognition={() => {}}
+          isCancelDisabled={false}
+          inputMode="photo"
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "인식 취소" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "인식 수정" })).not.toBeInTheDocument();
     });
   });
 });

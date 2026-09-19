@@ -77,4 +77,22 @@
      `ltyPrCk8UT8DsB3tFuw7Sr`)의 `var(--bg/scrim)` 값 — 앱 공용 pill 비활성 패턴
      (`--color-icon-default`)으로 근사했던 이전 구현을 이 화면 실측값으로 교체한다. */
   --color-bg-scrim: #d9d7d2;
+
+  /* (2026-09, ActionBar v3.0 전면 재설계) `accent/teal` — Figma `260:101`(Solve/Action Bar)
+     `Stage=Work` 배경에 실제 바인딩된 값을 `get_variable_defs`로 재실측해 확인, 신규 등록한다.
+     `docs/DESIGN_SYSTEM.md` 1절의 "Figma에는 없다" 서술은 이 재실측으로 정정됐다. */
+  --color-accent-teal: #4f8285;
+  /* (2026-09, ActionBar v3.0 전면 재설계) `surface/well` — "문제 인식하기(비활성)" 배경, Figma
+     `260:101` 재실측. */
+  --color-surface-well: #e4e1d8;
+
+  /* (2026-09, 오너 실기기 피드백 + Figma 재실측, `260:101` Solve/Action Bar) `Problem_disable_font`
+     — "문제 인식하기(비활성)" 라벨/아이콘 색. */
+  --color-action-disabled-fg: #8f9d99;
+  /* (2026-09, 오너 실기기 피드백 + Figma 재실측, `260:101` Solve/Action Bar) `Problem_notsolve_button_color`
+     — "아직 못 풀겠어요" 배경. */
+  --color-action-notyet-bg: #b0d4ca;
+  /* (2026-09, 오너 실기기 피드백 + Figma 재실측, `260:101` Solve/Action Bar) `Problem_nosolve_font`
+     — "아직 못 풀겠어요" 라벨/아이콘 색. */
+  --color-action-notyet-fg: #6f7b75;
 }

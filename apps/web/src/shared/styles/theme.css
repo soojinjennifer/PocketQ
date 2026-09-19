@@ -29,6 +29,11 @@
   --color-accent-red: var(--color-accent-red);
   --color-accent-steel: var(--color-accent-steel);
   --color-accent-cyan: var(--color-accent-cyan);
+  --color-accent-teal: var(--color-accent-teal);
+  --color-surface-well: var(--color-surface-well);
+  --color-action-disabled-fg: var(--color-action-disabled-fg);
+  --color-action-notyet-bg: var(--color-action-notyet-bg);
+  --color-action-notyet-fg: var(--color-action-notyet-fg);
 
   --color-separator: var(--color-separator);
   --color-fill-quaternary: var(--color-fill-quaternary);

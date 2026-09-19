@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CameraRailButton } from "../../../features/drawing-canvas/CameraRailButton";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -272,10 +271,11 @@ export function SolveLandscapePage() {
           />
           {/* PenRail+SolveScroll 그룹(`/solve/pencilcanvas` WORK 단계와 동일 패턴, 위 그룹 state
               주석 참고) — Figma(`38:21`) 실측 결과 이 화면에도 동일 좌표(wrapper left-5, 화면 세로
-              중앙)로 같은 그룹이 있어야 한다. `gap-[14px]`는 Figma 실측값(카메라 버튼/PenRail/
-              SolveScroll 간 간격, work-order PenRail 5버튼 재구성 반영). */}
+              중앙)로 같은 그룹이 있어야 한다. `gap-[14px]`는 Figma 실측값(PenRail/SolveScroll 간
+              간격, work-order PenRail 5버튼 재구성 반영). 카메라 진입은 더 이상 `CameraRailButton`이
+              아니라 `/solve/pencilcanvas` 상단 `InputModeToggle` "사진" 탭이 담당한다(2026-09,
+              사진/필기 토글로 대체). */}
           <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
-            <CameraRailButton />
             <PenRail
               positioned={false}
               activeTool={workTool}
@@ -305,7 +305,6 @@ export function SolveLandscapePage() {
             scrollable
           />
           <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
-            <CameraRailButton />
             <PenRail
               positioned={false}
               activeTool={tool}

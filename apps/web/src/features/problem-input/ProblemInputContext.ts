@@ -120,6 +120,13 @@ export interface ProblemInputContextValue {
    *  (재시도 — recognize/solve/chat만 초기화, 입력은 유지)과 달리 사진/필기 캔버스 입력과 WORK 단계
    *  상태(학생 풀이 캔버스/인식 결과/진단)까지 전부 지워 완전히 빈 INPUT 단계로 되돌린다. */
   cancelRecognition: () => void;
+  /** 필기 입력 인식 결과의 "인식 수정" 클릭 시 호출한다. `cancelRecognition`과 달리 원본 필기 획
+   *  (`strokes`)과 `capturedImage`/`lastInputType`은 보존한 채 recognize/solve/chat/WORK 단계
+   *  (recognizeWork/diagnose/workStrokes) 상태만 초기화해 INPUT 단계로 되돌린다 — 학생이 썼던
+   *  필기가 그대로 남아 있어야 다시 고쳐 쓸 수 있다(오너 확정, Figma 프로토타입 목적지
+   *  'Pencil_afterwrite'). 사진 입력의 "인식 취소"(`cancelRecognition`, 완전 초기화)와는 별도의
+   *  함수다. */
+  beginRecognitionEdit: () => void;
 
   // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해
   // 소유권을 옮긴 것(필기 획을 `useDrawingStrokes`로 옮긴 것과 동일한 패턴). 새 문제가 시작되면
