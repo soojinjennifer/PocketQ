@@ -26,7 +26,9 @@ export type PointerDebugEventType =
   | "resize"
   | "mount"
   | "unmount"
-  | "longtask-fallback";
+  | "longtask-fallback"
+  | "offscreen-cache-rebuild"
+  | "render";
 
 export interface PointerDebugEntry {
   timestamp: number;
@@ -48,6 +50,38 @@ export interface PointerDebugEntry {
   strokeCount?: number;
   /** pointerdown부터 그 pointerId의 첫 실제 draw(pointermove 좌표 반영)까지 걸린 시간(ms). */
   firstDrawLatencyMs?: number;
+  /** pointerId 재사용과 무관하게 "몇 번째 획인지"를 구분하는 단조증가 세션 식별자
+   *  (iPad 두 번째 획 유실 P0 4차 재조사). */
+  sessionId?: number;
+  /** `setPointerCapture` 시도 결과. `"skipped"`는 진단 플래그로 명시적 캡처 자체를 껐을 때. */
+  captureAttemptResult?: "success" | "failed" | "skipped";
+  /** 캡처 시도가 실패했을 때 실제 `DOMException.name`. */
+  captureErrorName?: string;
+  /** 캡처 시도가 실패했을 때 실제 `DOMException.message`. */
+  captureErrorMessage?: string;
+  /** `setPointerCapture` 시도 직후 실제로 캡처된 상태인지(암묵적 캡처 포함,
+   *  `hasPointerCapture`로 확인한 값) — 명시적 호출이 실패했어도 브라우저가 암묵적으로
+   *  캡처했을 가능성을 이 필드로 구분한다. */
+  hasCaptureAfterAttempt?: boolean | null;
+  /** `pointerdown` 시점에 첫 점이 실제로 `activeStrokeRef`에 push되어 그려졌는지(항상 true여야
+   *  정상 — false로 로깅되면 회귀 신호). */
+  firstPointDrawn?: boolean;
+  /** 이 이벤트가 canvas의 React 합성 이벤트로 도착했는지, document fallback 리스너로
+   *  도착했는지. */
+  eventSource?: "canvas" | "document";
+  /** `pointerup`/`pointercancel`/`lostpointercapture`(또는 document fallback 종료) 시점에
+   *  `onCommitStroke`가 실제로 호출됐는지. */
+  strokeConfirmed?: boolean;
+  /** `"resize"` 이벤트 전용 — `ResizeObserver` 발화 시점에 캔버스 backing store 크기가 실제로
+   *  바뀌었는지(`canvas.width`/`canvas.height` 재할당 여부). `false`면 스퓨리어스(크기 변화 없는)
+   *  발화였다는 뜻이다(iPad 두 번째 획 유실 P0 재조사, canvas.width/height 무조건 재할당 버그 수정). */
+  sizeChanged?: boolean;
+  /** 오프스크린 캐시 재계산 시점의 커밋된 stroke 개수와 총 좌표 개수(데이터가 실제로 온전한지
+   *  확인용, iPad 렌더링 파이프라인 P0 재조사). */
+  offscreenStrokeCount?: number;
+  offscreenTotalPointCount?: number;
+  /** `render()` 호출 시점에 오프스크린 캐시 자체가 존재하는지(`offscreenCanvasRef.current !== null`). */
+  offscreenCacheExists?: boolean;
 }
 
 function readEnabledFromStorage(): boolean {

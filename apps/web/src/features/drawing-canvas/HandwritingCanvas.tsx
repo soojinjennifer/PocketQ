@@ -15,6 +15,8 @@ import {
   type PointerDebugEntry,
   type PointerDebugEventType,
 } from "../../shared/lib/canvas/pointerDebugLog";
+import { isExplicitPointerCaptureEnabled } from "../../shared/lib/canvas/pointerCaptureMode";
+import { isDirectRenderModeEnabled } from "../../shared/lib/canvas/renderMode";
 
 interface HandwritingCanvasProps {
   strokes: Stroke[];
@@ -144,14 +146,19 @@ function toStrokePoint(event: React.PointerEvent<HTMLCanvasElement>): StrokePoin
   return toStrokePointFromRect(event.clientX, event.clientY, event.pressure, rect);
 }
 
-/** `hasPointerCapture`가 없거나 던지는 환경(jsdom 등)에서도 안전하게 캡처 여부를 조회한다. */
-function safeHasPointerCapture(event: React.PointerEvent<HTMLCanvasElement>): boolean | null {
-  const target = event.currentTarget;
+/** `hasPointerCapture`가 없거나 던지는 환경에서도 안전하게 특정 pointerId의 캡처 여부를 조회한다.
+ * canvas 이벤트(`event.currentTarget`)와 document fallback 이벤트(별도 `canvas` 참조) 양쪽에서
+ * 공통으로 쓴다 — document fallback 경로는 React 합성 이벤트가 없어 `event.currentTarget`을 쓸 수
+ * 없으므로, 항상 canvas 엘리먼트 자체를 인자로 받는 이 함수로 통일한다. */
+function hasPointerCaptureSafe(
+  target: (Pick<HTMLElement, "hasPointerCapture"> & EventTarget) | null,
+  pointerId: number,
+): boolean | null {
   if (!target || typeof target.hasPointerCapture !== "function") {
     return null;
   }
   try {
-    return target.hasPointerCapture(event.pointerId);
+    return target.hasPointerCapture(pointerId);
   } catch {
     return null;
   }
@@ -190,6 +197,13 @@ function safeHasPointerCapture(event: React.PointerEvent<HTMLCanvasElement>): bo
  * `ref`로 `HandwritingCanvasHandle`을 노출한다(`scrollable`이 아니면 완전히 no-op) — 상위(SolveScroll)가
  * 펜 탭으로 특정 지점을 스크롤 이동시키거나 펜이 그리는 중인지 확인할 수 있게 한다. 이 handle은 순수
  * 추가이며, `scrollable=false`(기존 사용부)의 렌더링/이벤트 로직은 한 줄도 바뀌지 않는다.
+ *
+ * (iPad 두 번째 획 유실 P0 4차 재조사, pointer capture 아키텍처 재설계) pointerId만으로 세션(획)을
+ * 구분하지 않는다. `sessionId`를 별도로 발급해 `lostpointercapture`처럼 비동기로 지연될 수 있는
+ * 신호만 세션 단위로 검증한다. `setPointerCapture` 시도는 stroke 생성 이후에만 이뤄지며 실패해도
+ * stroke에 영향이 없다. 캡처가 확인되지 않으면 document 레벨 fallback 리스너로 pointermove/up/cancel을
+ * 계속 받는다. WebKit이 애플펜슬 pointerId를 재사용한다는 것은 아직 실기기 로그로 확인되지 않은
+ * 가설이며, 이 설계는 그 가설의 참/거짓과 무관하게 안전하다.
  */
 export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, HandwritingCanvasProps>(
   function HandwritingCanvas(
@@ -220,13 +234,45 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
     // 디버그 로깅용 — pointerId별 `pointerdown` 타임스탬프. 그 pointerId의 첫 `pointermove`가 실제
     // 좌표를 push하는 시점에 경과시간(`firstDrawLatencyMs`)을 계산하고 즉시 제거한다.
     const pointerDownTimestampsRef = useRef<Map<number, number>>(new Map());
-    // pointerId별 "아직 대응하는 `lostpointercapture`가 도착하지 않은 `setPointerCapture` 호출
-    // 횟수"(debt). iOS Safari가 애플펜슬의 pointerId를 연속된 획 사이에서 재사용할 때, 획1의
-    // `pointerup`이 `activePointerIdRef`를 이미 비우고 획2의 `pointerdown`이 같은 pointerId로
-    // 새 활성 스트로크를 시작한 뒤에야 획1의 지연된 `lostpointercapture`가 뒤늦게 도착해 진행 중인
-    // 획2를 조기 종료시키는 경쟁 상태를 막기 위한 카운터다 — `setPointerCapture` 호출 1회당
-    // `lostpointercapture`가 정확히 1번 언젠가 발생한다는 스펙을 이용한다(P0 후속 수정).
-    const pointerCaptureDebtRef = useRef<Map<number, number>>(new Map());
+    // 세션 식별자 — pointerId가 재사용되어도 "몇 번째 획인지"를 명확히 구분하기 위한
+    // 단조증가 카운터. pointerId만으로는 이전 세션과 다음 세션을 구분할 수 없다는 게 이번
+    // 조사의 핵심 전제다(WebKit의 pointerId 재사용은 아직 실기기 로그로 확인되지 않은
+    // 가설이지만, pointerId 하나만으로 세션을 구분하는 설계 자체가 근본적으로 취약하므로
+    // 재사용 여부와 무관하게 방어한다).
+    const sessionCounterRef = useRef(0);
+    // 현재 진행 중인 제스처의 (sessionId, pointerId) 쌍. activePointerIdRef는 기존 라이브
+    // 이벤트(pointermove/up/cancel/leave) 라우팅에 그대로 쓰고, sessionId는
+    // lostpointercapture처럼 비동기로 지연될 수 있는 신호가 "지금 이 세션"에 속하는지
+    // 판별하는 데만 쓴다.
+    const activeSessionRef = useRef<{ sessionId: number; pointerId: number } | null>(null);
+    // pointerId별로 "아직 도착하지 않은 lostpointercapture를 기다리고 있는 sessionId들"의
+    // FIFO 큐. 캡처가 실제로 성공(암묵적 캡처 포함, `hasPointerCaptureSafe`로 확인)한
+    // 세션만 여기 들어간다 — 캡처가 확인되지 않은 세션(document fallback 사용)은 절대
+    // 여기 들어가지 않는다. lostpointercapture는 "캡처가 실제로 걸렸던 세션"에 대해서만
+    // 기대할 수 있는 신호이기 때문에, 캡처를 못 건 세션에 대해 이 신호를 기다리는 것 자체가
+    // 틀린 가정이다(구 `pointerCaptureDebtRef`의 raw count 방식을 대체 — 그 방식은
+    // pointerId 재사용 시 "몇 번째 세션"인지 구분하지 못했다).
+    const captureExpectationQueueRef = useRef<Map<number, number[]>>(new Map());
+    // pointerId별 document-level fallback 리스너(캡처 실패/미확인 시에만 부착). 펜 제스처는
+    // 항상 최대 1개만 동시에 진행되므로 한 번에 최대 1개만 존재한다.
+    const documentFallbackRef = useRef<{
+      sessionId: number;
+      pointerId: number;
+      handleMove: (event: PointerEvent) => void;
+      handleUp: (event: PointerEvent) => void;
+      handleCancel: (event: PointerEvent) => void;
+    } | null>(null);
+    // 같은 네이티브 PointerEvent 객체가 canvas 리스너(React 합성 이벤트)와 document
+    // fallback 리스너 양쪽에서 중복 처리되는 것을 막는다 — canvas 리스너가 먼저 실행되며
+    // (버블링상 document보다 DOM 트리 아래) 이 WeakSet에 자신을 등록하고, document
+    // 리스너는 이미 등록된 이벤트를 건너뛴다.
+    const processedNativeEventsRef = useRef<WeakSet<Event>>(new WeakSet());
+    // 항상 최신 `reconcileCaptureAfterResize`(아래 정의)를 가리키는 ref — 리사이즈 effect(`scrollable`/
+    // `notifyScrollable`이 바뀔 때만 재생성됨, 위 JSDoc 참고)가 이 함수를 직접 의존성으로 넣으면 매
+    // 렌더마다 `ResizeObserver`를 재연결하는 성능 회귀가 재발하므로, 안정적인 ref 경유로 호출해 매
+    // 렌더 최신 클로저(최신 `onCommitStroke` prop 등 포함)를 항상 쓰면서도 effect 재실행 빈도는
+    // 그대로 유지한다(P0 재조사 수정 3).
+    const reconcileCaptureAfterResizeRef = useRef<() => void>(() => {});
     const [contentHeight, setContentHeight] = useState<number | null>(null);
 
     // zero-dependency: `strokesRef`만 읽어 오프스크린 캐시(커밋된 스트로크만)를 전체 재계산한다.
@@ -243,6 +289,16 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       ctx.clearRect(0, 0, offscreen.width, offscreen.height);
       drawStrokeList(ctx, strokesRef.current);
       ctx.globalCompositeOperation = "source-over";
+
+      if (isPointerDebugEnabled()) {
+        const totalPoints = strokesRef.current.reduce((sum, s) => sum + s.points.length, 0);
+        logPointerEvent(
+          buildLifecycleDebugEntry("offscreen-cache-rebuild", activePointerIdRef, activeStrokeRef, strokesRef, {
+            offscreenStrokeCount: strokesRef.current.length,
+            offscreenTotalPointCount: totalPoints,
+          }),
+        );
+      }
     }, []);
 
     // zero-dependency: `activeStrokeRef`와 오프스크린 캐시(`offscreenCanvasRef`)만 읽는다(위 컴포넌트
@@ -258,7 +314,31 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       }
 
       const ratio = window.devicePixelRatio || 1;
+      const activeStroke = activeStrokeRef.current;
+
+      if (isDirectRenderModeEnabled()) {
+        // 진단용 A/B 모드 — 오프스크린 캐시를 전혀 쓰지 않고 매번 전체를 직접 다시 그린다(느리지만
+        // 캐시-blit 경로를 완전히 우회해서 "번갈아 획이 안 보이는" 증상이 캐시 blit 자체의 문제인지
+        // 확인하기 위함, iPad 렌더링 파이프라인 P0 재조사).
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawStrokeList(ctx, strokesRef.current);
+        if (activeStroke) {
+          drawStrokeList(ctx, [activeStroke]);
+        }
+        ctx.globalCompositeOperation = "source-over";
+        return;
+      }
+
       const offscreen = offscreenCanvasRef.current;
+      if (!offscreen && isPointerDebugEnabled()) {
+        logPointerEvent(
+          buildLifecycleDebugEntry("render", activePointerIdRef, activeStrokeRef, strokesRef, {
+            offscreenCacheExists: false,
+          }),
+        );
+      }
 
       // identity transform으로 잠깐 리셋해서 오프스크린을 픽셀 단위로 정확히 복사한다(오프스크린과
       // 화면 캔버스의 backing store 크기는 리사이즈 effect가 항상 동일하게 유지한다).
@@ -269,7 +349,6 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       }
 
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      const activeStroke = activeStrokeRef.current;
       if (activeStroke) {
         drawStrokeList(ctx, [activeStroke]);
       }
@@ -356,23 +435,30 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
           const newWidth = Math.round(rect.width * ratio);
           const newHeight = Math.round(rect.height * ratio);
           const sizeChanged = canvas.width !== newWidth || canvas.height !== newHeight;
-          canvas.width = newWidth;
-          canvas.height = newHeight;
           canvas.style.width = `${rect.width}px`;
           canvas.style.height = `${rect.height}px`;
           if (sizeChanged) {
+            // canvas.width/height 대입은 (같은 값을 다시 대입해도) 캔버스 backing store와 2D 컨텍스트
+            // 상태를 항상 리셋시킨다 — ResizeObserver의 스퓨리어스(크기 변화 없는) 발화마다 이 대입을
+            // 반복하면 불필요한 리셋이 누적되므로 실제로 크기가 바뀔 때만 대입한다(P0 재조사 수정 1).
+            canvas.width = newWidth;
+            canvas.height = newHeight;
             const offscreen = ensureOffscreenCanvas(offscreenCanvasRef);
             offscreen.width = newWidth;
             offscreen.height = newHeight;
             renderOffscreenCache();
-            if (isPointerDebugEnabled()) {
-              logPointerEvent(
-                buildLifecycleDebugEntry("resize", activePointerIdRef, activeStrokeRef, strokesRef, {
-                  canvasWidth: newWidth,
-                  canvasHeight: newHeight,
-                }),
-              );
-            }
+            reconcileCaptureAfterResizeRef.current();
+          }
+          if (isPointerDebugEnabled()) {
+            // sizeChanged 여부와 무관하게 매 발화마다 로그를 남긴다 — 스퓨리어스 발화 자체가 진행 중인
+            // 제스처와 타이밍이 겹치는지를 실기기 로그로 확인하기 위함이다(P0 재조사 수정 2).
+            logPointerEvent(
+              buildLifecycleDebugEntry("resize", activePointerIdRef, activeStrokeRef, strokesRef, {
+                canvasWidth: newWidth,
+                canvasHeight: newHeight,
+                sizeChanged,
+              }),
+            );
           }
           render();
         };
@@ -396,23 +482,30 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         const newWidth = Math.round(outerRect.width * ratio);
         const newHeight = Math.round(contentRect.height * ratio);
         const sizeChanged = canvas.width !== newWidth || canvas.height !== newHeight;
-        canvas.width = newWidth;
-        canvas.height = newHeight;
         canvas.style.width = `${outerRect.width}px`;
         canvas.style.height = `${contentRect.height}px`;
         if (sizeChanged) {
+          // canvas.width/height 대입은 (같은 값을 다시 대입해도) 캔버스 backing store와 2D 컨텍스트
+          // 상태를 항상 리셋시킨다 — ResizeObserver의 스퓨리어스(크기 변화 없는) 발화마다 이 대입을
+          // 반복하면 불필요한 리셋이 누적되므로 실제로 크기가 바뀔 때만 대입한다(P0 재조사 수정 1).
+          canvas.width = newWidth;
+          canvas.height = newHeight;
           const offscreen = ensureOffscreenCanvas(offscreenCanvasRef);
           offscreen.width = newWidth;
           offscreen.height = newHeight;
           renderOffscreenCache();
-          if (isPointerDebugEnabled()) {
-            logPointerEvent(
-              buildLifecycleDebugEntry("resize", activePointerIdRef, activeStrokeRef, strokesRef, {
-                canvasWidth: newWidth,
-                canvasHeight: newHeight,
-              }),
-            );
-          }
+          reconcileCaptureAfterResizeRef.current();
+        }
+        if (isPointerDebugEnabled()) {
+          // sizeChanged 여부와 무관하게 매 발화마다 로그를 남긴다 — 스퓨리어스 발화 자체가 진행 중인
+          // 제스처와 타이밍이 겹치는지를 실기기 로그로 확인하기 위함이다(P0 재조사 수정 2).
+          logPointerEvent(
+            buildLifecycleDebugEntry("resize", activePointerIdRef, activeStrokeRef, strokesRef, {
+              canvasWidth: newWidth,
+              canvasHeight: newHeight,
+              sizeChanged,
+            }),
+          );
         }
         render();
         notifyScrollable();
@@ -531,7 +624,7 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         activePointerIdAfter: activePointerIdRef.current,
         drawing: activeStrokeRef.current !== null,
         coalescedCount: null,
-        hasCapture: safeHasPointerCapture(event),
+        hasCapture: hasPointerCaptureSafe(event.currentTarget, event.pointerId),
         strokeCount: strokesRef.current.length,
         ...extra,
       };
@@ -549,6 +642,267 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         return;
       }
       logPointerEvent(buildGestureDebugEntry(eventType, event, activePointerIdBefore, extra));
+    }
+
+    /** pointermove의 좌표 적용 로직 — canvas(React 합성 이벤트)와 document fallback(네이티브
+     * 이벤트) 양쪽에서 동일하게 재사용한다. `nativeEvent`는 어느 경로로 왔든 항상 네이티브
+     * `PointerEvent`다. */
+    function applyPointerMovePoints(
+      nativeEvent: PointerEvent,
+      activeStroke: Stroke,
+      rect: DOMRect,
+    ): { coalescedCount: number | null; firstDrawLatencyMs: number | undefined } {
+      const coalescedEvents =
+        typeof nativeEvent.getCoalescedEvents === "function" ? nativeEvent.getCoalescedEvents() : null;
+      const pointsToApply =
+        coalescedEvents && coalescedEvents.length > 0 ? coalescedEvents : [nativeEvent];
+      const coalescedCount = coalescedEvents ? coalescedEvents.length : null;
+
+      const downTimestamp = pointerDownTimestampsRef.current.get(nativeEvent.pointerId);
+      let firstDrawLatencyMs: number | undefined;
+      let recordedFirstDraw = false;
+
+      for (const rawPoint of pointsToApply) {
+        const point = toStrokePointFromRect(rawPoint.clientX, rawPoint.clientY, rawPoint.pressure, rect);
+        activeStroke.points.push(point);
+        if (point.y > activeMaxYRef.current) {
+          activeMaxYRef.current = point.y;
+        }
+        if (!recordedFirstDraw && downTimestamp !== undefined) {
+          firstDrawLatencyMs = performance.now() - downTimestamp;
+          recordedFirstDraw = true;
+        }
+      }
+      if (recordedFirstDraw) {
+        pointerDownTimestampsRef.current.delete(nativeEvent.pointerId);
+      }
+
+      return { coalescedCount, firstDrawLatencyMs };
+    }
+
+    /** `pointerup`/`pointercancel` 공통 종료 로직(canvas/document 양쪽에서 재사용). `sessionId`가
+     * 주어지면(document fallback 경로) 현재 활성 세션과 정확히 일치할 때만 처리한다 — pointerId만
+     * 으로 세션을 구분했다고 가정하지 않는다(오너 지시). canvas 경로는 `sessionId=null`로 호출해
+     * 기존과 동일하게 pointerId만으로 판단한다(라이브 이벤트 스트림이라 안전 — lostpointercapture처럼
+     * 비동기로 지연될 수 있는 신호가 아니다). */
+    function finishSession(
+      pointerId: number,
+      sessionId: number | null,
+      via: "canvas" | "document",
+    ): { strokeConfirmed: boolean } {
+      void via;
+      if (scrollable) {
+        touchScrollPointersRef.current.delete(pointerId);
+      }
+      const current = activeSessionRef.current;
+      const matchesCurrent =
+        current !== null &&
+        current.pointerId === pointerId &&
+        (sessionId === null || current.sessionId === sessionId);
+      if (!matchesCurrent) {
+        return { strokeConfirmed: false };
+      }
+
+      activePointerIdRef.current = null;
+      activeSessionRef.current = null;
+      pointerDownTimestampsRef.current.delete(pointerId);
+      detachDocumentFallback();
+
+      const activeStroke = activeStrokeRef.current;
+      let strokeConfirmed = false;
+      if (activeStroke) {
+        onCommitStroke(activeStroke);
+        strokeConfirmed = true;
+      }
+      // 여기서 `activeStrokeRef.current`를 바로 비우지 않는다 — `strokes` prop 동기화 effect가
+      // 새 값을 받아서 지울 때까지 유지해야 커밋 직후 화면이 끊기지 않는다(컴포넌트 JSDoc 참고).
+      return { strokeConfirmed };
+    }
+
+    /** 캡처 실패/미확인 시, 이 pointerId의 pointermove/pointerup/pointercancel을 canvas가 아니라
+     * `document`에서 직접 수신하는 대체 경로를 부착한다. canvas가 캡처를 못 걸었으면 포인터가
+     * 캔버스 경계 밖으로 나가는 순간 이후 이벤트가 canvas에 전혀 안 올 수 있다 — document는
+     * 포인터 위치와 무관하게 항상 모든 pointermove/up/cancel을 받으므로 안전망이 된다. */
+    function attachDocumentFallback(sessionId: number, pointerId: number) {
+      detachDocumentFallback();
+
+      const handleMove = (nativeEvent: PointerEvent) => {
+        if (nativeEvent.pointerId !== pointerId) {
+          return;
+        }
+        if (activeSessionRef.current?.sessionId !== sessionId) {
+          // 세션이 이미 종료되거나 새 세션으로 교체됐는데 리스너가 남아있는 방어적 상황 —
+          // 스스로 정리하고 조용히 무시한다.
+          detachDocumentFallback();
+          return;
+        }
+        if (processedNativeEventsRef.current.has(nativeEvent)) {
+          return;
+        }
+        processedNativeEventsRef.current.add(nativeEvent);
+        const activeStroke = activeStrokeRef.current;
+        if (!activeStroke) {
+          return;
+        }
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const { coalescedCount, firstDrawLatencyMs } = applyPointerMovePoints(
+          nativeEvent,
+          activeStroke,
+          rect,
+        );
+        render();
+        maybeGrowContent();
+        if (isPointerDebugEnabled()) {
+          logPointerEvent(
+            buildNativeDebugEntry("pointermove", nativeEvent, activePointerIdRef.current, {
+              coalescedCount,
+              firstDrawLatencyMs,
+              sessionId,
+              eventSource: "document",
+            }),
+          );
+        }
+      };
+
+      const handleUp = (nativeEvent: PointerEvent) => {
+        if (nativeEvent.pointerId !== pointerId) {
+          return;
+        }
+        if (processedNativeEventsRef.current.has(nativeEvent)) {
+          detachDocumentFallback();
+          return;
+        }
+        processedNativeEventsRef.current.add(nativeEvent);
+        const activePointerIdBefore = activePointerIdRef.current;
+        const { strokeConfirmed } = finishSession(pointerId, sessionId, "document");
+        if (isPointerDebugEnabled()) {
+          logPointerEvent(
+            buildNativeDebugEntry("pointerup", nativeEvent, activePointerIdBefore, {
+              sessionId,
+              strokeConfirmed,
+              eventSource: "document",
+            }),
+          );
+        }
+      };
+
+      const handleCancel = (nativeEvent: PointerEvent) => {
+        if (nativeEvent.pointerId !== pointerId) {
+          return;
+        }
+        if (processedNativeEventsRef.current.has(nativeEvent)) {
+          detachDocumentFallback();
+          return;
+        }
+        processedNativeEventsRef.current.add(nativeEvent);
+        const activePointerIdBefore = activePointerIdRef.current;
+        const { strokeConfirmed } = finishSession(pointerId, sessionId, "document");
+        if (isPointerDebugEnabled()) {
+          logPointerEvent(
+            buildNativeDebugEntry("pointercancel", nativeEvent, activePointerIdBefore, {
+              sessionId,
+              strokeConfirmed,
+              eventSource: "document",
+            }),
+          );
+        }
+      };
+
+      document.addEventListener("pointermove", handleMove);
+      document.addEventListener("pointerup", handleUp);
+      document.addEventListener("pointercancel", handleCancel);
+      documentFallbackRef.current = { sessionId, pointerId, handleMove, handleUp, handleCancel };
+    }
+
+    /** 부착된 document fallback 리스너를 반드시 해제한다(중복 부착 방지, 언마운트 시 누수 방지). */
+    function detachDocumentFallback() {
+      const current = documentFallbackRef.current;
+      if (!current) {
+        return;
+      }
+      document.removeEventListener("pointermove", current.handleMove);
+      document.removeEventListener("pointerup", current.handleUp);
+      document.removeEventListener("pointercancel", current.handleCancel);
+      documentFallbackRef.current = null;
+    }
+
+    /** 진행 중인 제스처 도중 캔버스 backing store가 실제로 리사이즈되면(sizeChanged=true), pointer
+     * capture가 그 과정에서 영향을 받았을 가능성(미확인 가설, 실기기 로그로 검증 필요)에 대비해
+     * 캡처 상태를 방어적으로 재확인한다. 캡처가 확인되면(암묵적 캡처 포함) 아무것도 하지 않는다.
+     * 캡처가 확인되지 않고 아직 document fallback도 안 붙어있으면(즉 이전에는 캡처가 있었는데
+     * 리사이즈로 사라진 것으로 의심되는 상황), 명시적 재시도 후 그래도 안 되면 document fallback을
+     * 새로 부착한다(P0 재조사 수정 3, 방어적 보강 — 큐 정합성 완벽화는 이번 범위 밖이다). */
+    function reconcileCaptureAfterResize() {
+      const current = activeSessionRef.current;
+      const canvas = canvasRef.current;
+      if (!current || !canvas) {
+        return;
+      }
+      const alreadyHasCapture = hasPointerCaptureSafe(canvas, current.pointerId);
+      if (alreadyHasCapture === true) {
+        return;
+      }
+      const alreadyUsingFallback = documentFallbackRef.current?.sessionId === current.sessionId;
+      if (alreadyUsingFallback) {
+        return;
+      }
+      // 캡처가 있었을 것으로 기대됐는데(캡처 큐에 이 세션이 등록돼 있었는데) 리사이즈 이후 사라진
+      // 것으로 의심되는 상황 — 재시도한다.
+      if (isExplicitPointerCaptureEnabled()) {
+        try {
+          canvas.setPointerCapture?.(current.pointerId);
+        } catch {
+          // 재시도도 실패하면 아래 fallback으로 넘어간다.
+        }
+      }
+      const hasCaptureNow = hasPointerCaptureSafe(canvas, current.pointerId);
+      if (hasCaptureNow !== true) {
+        attachDocumentFallback(current.sessionId, current.pointerId);
+      }
+      if (isPointerDebugEnabled()) {
+        logPointerEvent(
+          buildLifecycleDebugEntry("resize", activePointerIdRef, activeStrokeRef, strokesRef, {
+            sessionId: current.sessionId,
+            hasCaptureAfterAttempt: hasCaptureNow,
+          }),
+        );
+      }
+    }
+    // 매 렌더마다 최신 클로저(최신 `onCommitStroke` prop 등을 포함한 `attachDocumentFallback`/
+    // `finishSession` 체인)를 가리키도록 갱신한다 — 위 `reconcileCaptureAfterResizeRef` 선언부
+    // JSDoc 참고.
+    reconcileCaptureAfterResizeRef.current = reconcileCaptureAfterResize;
+
+    /** document fallback 전용 디버그 로그 엔트리 빌더 — React 합성 이벤트가 아니라 네이티브
+     * `PointerEvent`를 받는다(`buildGestureDebugEntry`는 React 이벤트 전용이라 재사용 불가). */
+    function buildNativeDebugEntry(
+      eventType: PointerDebugEventType,
+      nativeEvent: PointerEvent,
+      activePointerIdBefore: number | null,
+      extra?: Partial<PointerDebugEntry>,
+    ): PointerDebugEntry {
+      return {
+        timestamp: performance.now(),
+        eventType,
+        pointerId: nativeEvent.pointerId,
+        pointerType: nativeEvent.pointerType,
+        isPrimary: nativeEvent.isPrimary,
+        buttons: nativeEvent.buttons,
+        pressure: nativeEvent.pressure,
+        clientX: nativeEvent.clientX,
+        clientY: nativeEvent.clientY,
+        activePointerIdBefore,
+        activePointerIdAfter: activePointerIdRef.current,
+        drawing: activeStrokeRef.current !== null,
+        coalescedCount: null,
+        hasCapture: hasPointerCaptureSafe(canvasRef.current, nativeEvent.pointerId),
+        strokeCount: strokesRef.current.length,
+        ...extra,
+      };
     }
 
     // 등록된 터치 포인터(들)의 이동으로 outer.scrollTop을 직접 구동한다. 손가락이 여러 개 동시에
@@ -585,6 +939,10 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
 
     function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
       const activePointerIdBefore = activePointerIdRef.current;
+      let captureAttemptResult: "success" | "failed" | "skipped" = "skipped";
+      let captureErrorName: string | undefined;
+      let captureErrorMessage: string | undefined;
+      let hasCaptureAfterAttempt: boolean | null = null;
       try {
         if (event.pointerType === "touch") {
           // 펜으로 그리는 중이 아닐 때 시작된 터치만 스크롤 후보로 등록한다 — 펜이 그리는 도중 닿는
@@ -594,24 +952,13 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
           }
           return;
         }
+
+        // 1) 새 세션을 동기적으로 발급하고, stroke와 첫 점을 즉시 생성·표시한다 — 캡처 시도보다
+        //    먼저다(오너 지시: 캡처 성공/실패와 stroke 존재 여부를 완전히 분리한다). 캡처가 어떻게
+        //    되든 이 시점 이후로는 activeStrokeRef와 첫 점이 반드시 존재한다.
+        const sessionId = ++sessionCounterRef.current;
+        activeSessionRef.current = { sessionId, pointerId: event.pointerId };
         activePointerIdRef.current = event.pointerId;
-        // iOS Safari(WebKit)는 애플펜슬 pointerId를 연속된 획 사이에서 재사용하는데, 직전 획의
-        // 캡처 해제가 브라우저 내부적으로 완전히 정리되기 전에 같은 pointerId로 다시
-        // `setPointerCapture`를 호출하면 예외를 던지는 경우가 있다(P0). 캡처는 "그리기 시작"의
-        // 전제조건이 아니라 부가 기능(포인터가 캔버스 밖으로 나가도 이벤트를 계속 받기 위한 것)이므로,
-        // 캡처 획득이 실패해도 아래 획 생성/렌더는 반드시 진행되어야 한다.
-        let captureAcquired = true;
-        try {
-          event.currentTarget.setPointerCapture?.(event.pointerId);
-        } catch {
-          captureAcquired = false;
-        }
-        if (captureAcquired) {
-          pointerCaptureDebtRef.current.set(
-            event.pointerId,
-            (pointerCaptureDebtRef.current.get(event.pointerId) ?? 0) + 1,
-          );
-        }
         pointerDownTimestampsRef.current.set(event.pointerId, performance.now());
 
         const point = toStrokePoint(event);
@@ -620,8 +967,56 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         // 리렌더 없이 즉시 그린다 — `render()`가 zero-dependency라 state를 전혀 거치지 않는다.
         render();
         maybeGrowContent();
+
+        // 2) 그 다음에야 캡처를 시도한다. `setPointerCapture` 호출만 별도로 감싸서, 이게 던져도
+        //    위에서 이미 만든 stroke/첫 점에는 전혀 영향이 없다(진단 플래그로 아예 시도 자체를
+        //    끌 수도 있다 — iPad 실기기 A/B 비교용).
+        if (isExplicitPointerCaptureEnabled()) {
+          try {
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            captureAttemptResult = "success";
+          } catch (error) {
+            captureAttemptResult = "failed";
+            captureErrorName = error instanceof Error ? error.name : undefined;
+            captureErrorMessage = error instanceof Error ? error.message : String(error);
+          }
+        } else {
+          captureAttemptResult = "skipped";
+        }
+
+        // 3) 우리 호출의 성공 여부와 무관하게, 실제로 캡처된 상태인지(암묵적 캡처 포함)를 직접
+        //    확인한다 — 이 값이 캡처 성공/실패보다 더 신뢰할 수 있는 "진짜 상태"다.
+        hasCaptureAfterAttempt = hasPointerCaptureSafe(event.currentTarget, event.pointerId);
+
+        if (hasCaptureAfterAttempt === true) {
+          // 캡처가 실제로 걸려 있음(명시적이든 암묵적이든) — native 라우팅 + lostpointercapture를
+          // 신뢰할 수 있으므로, 이 세션을 "언젠가 정확히 1번 lostpointercapture를 받을 것"으로
+          // 큐에 등록한다. document fallback은 붙이지 않는다.
+          //
+          // 재사용된 pointerId의 이전 세션이 document fallback을 쓰고 있었다면(캡처 실패 후 이번에
+          // 성공한 경우), 그 리스너가 "우연히" 자기 정리되길 기다리지 않고 명시적으로 지운다 —
+          // pointerId 재사용이 바로 이번 조사의 핵심 가설이므로 이 경로는 타이밍에 의존하면 안 된다.
+          detachDocumentFallback();
+          const queue = captureExpectationQueueRef.current.get(event.pointerId) ?? [];
+          queue.push(sessionId);
+          captureExpectationQueueRef.current.set(event.pointerId, queue);
+        } else {
+          // 캡처가 확인되지 않음(실패했거나, 성공했다고 나왔어도 hasPointerCapture로 재확인이 안
+          // 되거나, 진단 플래그로 아예 껐거나) — canvas 라우팅에 의존할 수 없으므로 document
+          // fallback을 부착한다. 이 세션은 lostpointercapture를 기다리지 않는다(캡처가 안 걸린
+          // 세션에 대해 그 신호를 기대하는 것 자체가 틀린 가정이기 때문).
+          attachDocumentFallback(sessionId, event.pointerId);
+        }
       } finally {
-        logGestureEvent("pointerdown", event, activePointerIdBefore);
+        logGestureEvent("pointerdown", event, activePointerIdBefore, {
+          sessionId: activeSessionRef.current?.sessionId,
+          captureAttemptResult,
+          captureErrorName,
+          captureErrorMessage,
+          hasCaptureAfterAttempt,
+          firstPointDrawn: activeStrokeRef.current !== null && activeStrokeRef.current.points.length > 0,
+          eventSource: "canvas",
+        });
       }
     }
 
@@ -629,6 +1024,7 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       const activePointerIdBefore = activePointerIdRef.current;
       let coalescedCount: number | null = null;
       let firstDrawLatencyMs: number | undefined;
+      processedNativeEventsRef.current.add(event.nativeEvent);
       try {
         if (event.pointerType === "touch") {
           if (scrollable) {
@@ -647,37 +1043,11 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         // rect는 이 pointermove 호출당 한 번만 계산해서 모든(coalesced 포함) 좌표 변환에 재사용한다
         // — coalesced 포인트 개수만큼 반복 호출하면 강제 리플로우가 늘어난다.
         const rect = event.currentTarget.getBoundingClientRect();
-        const nativeEvent = event.nativeEvent;
-        const coalescedEvents =
-          typeof nativeEvent.getCoalescedEvents === "function"
-            ? nativeEvent.getCoalescedEvents()
-            : null;
-        // 폴백(coalesced 미지원 환경)에서는 기존처럼 이 이벤트 하나만 반영한다. rAF나 별도 큐는
-        // 도입하지 않는다 — 이벤트 하나(coalesced 포함)당 좌표를 전부 모은 뒤 `render()`/
-        // `maybeGrowContent()`를 한 번만 호출하는 즉시-동기 방식을 그대로 유지한다.
-        const pointsToApply =
-          coalescedEvents && coalescedEvents.length > 0 ? coalescedEvents : [nativeEvent];
-        coalescedCount = coalescedEvents ? coalescedEvents.length : null;
-
-        const downTimestamp = pointerDownTimestampsRef.current.get(event.pointerId);
-        let recordedFirstDraw = false;
-
-        for (const rawPoint of pointsToApply) {
-          const point = toStrokePointFromRect(rawPoint.clientX, rawPoint.clientY, rawPoint.pressure, rect);
-          // 진행 중인 Stroke를 직접 mutate한다(React state를 거치지 않는다) — 이 배열은 아직
-          // `onCommitStroke`로 전달되기 전이라 다른 곳에서 참조하지 않는다.
-          activeStroke.points.push(point);
-          if (point.y > activeMaxYRef.current) {
-            activeMaxYRef.current = point.y;
-          }
-          if (!recordedFirstDraw && downTimestamp !== undefined) {
-            firstDrawLatencyMs = performance.now() - downTimestamp;
-            recordedFirstDraw = true;
-          }
-        }
-        if (recordedFirstDraw) {
-          pointerDownTimestampsRef.current.delete(event.pointerId);
-        }
+        ({ coalescedCount, firstDrawLatencyMs } = applyPointerMovePoints(
+          event.nativeEvent,
+          activeStroke,
+          rect,
+        ));
 
         // 리렌더 없이 즉시 그린다.
         render();
@@ -689,35 +1059,22 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         logGestureEvent("pointermove", event, activePointerIdBefore, {
           coalescedCount,
           firstDrawLatencyMs,
+          eventSource: "canvas",
         });
       }
     }
 
-    /** `pointerup`/`pointercancel` 공통 종료 로직 — 다른 pointerId면 완전히 무시한다. */
-    function finishPointerGesture(event: React.PointerEvent<HTMLCanvasElement>) {
-      if (scrollable && event.pointerType === "touch") {
-        touchScrollPointersRef.current.delete(event.pointerId);
-      }
-      if (activePointerIdRef.current !== event.pointerId) {
-        return;
-      }
-      activePointerIdRef.current = null;
-      pointerDownTimestampsRef.current.delete(event.pointerId);
-
-      const activeStroke = activeStrokeRef.current;
-      if (activeStroke) {
-        onCommitStroke(activeStroke);
-      }
-      // 여기서 `activeStrokeRef.current`를 바로 비우지 않는다 — 위 `strokes` prop 동기화 effect가
-      // 새 값을 받아서 지울 때까지 유지해야 커밋 직후 화면이 끊기지 않는다(위 컴포넌트 JSDoc 참고).
-    }
-
     function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
       const activePointerIdBefore = activePointerIdRef.current;
+      processedNativeEventsRef.current.add(event.nativeEvent);
+      let strokeConfirmed = false;
       try {
-        finishPointerGesture(event);
+        ({ strokeConfirmed } = finishSession(event.pointerId, null, "canvas"));
       } finally {
-        logGestureEvent("pointerup", event, activePointerIdBefore);
+        logGestureEvent("pointerup", event, activePointerIdBefore, {
+          strokeConfirmed,
+          eventSource: "canvas",
+        });
       }
     }
 
@@ -727,10 +1084,15 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
     // 캡처 상태를 정리한다.
     function handlePointerCancel(event: React.PointerEvent<HTMLCanvasElement>) {
       const activePointerIdBefore = activePointerIdRef.current;
+      processedNativeEventsRef.current.add(event.nativeEvent);
+      let strokeConfirmed = false;
       try {
-        finishPointerGesture(event);
+        ({ strokeConfirmed } = finishSession(event.pointerId, null, "canvas"));
       } finally {
-        logGestureEvent("pointercancel", event, activePointerIdBefore);
+        logGestureEvent("pointercancel", event, activePointerIdBefore, {
+          strokeConfirmed,
+          eventSource: "canvas",
+        });
       }
     }
 
@@ -766,53 +1128,62 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         // mutate하게 된다) — activePointerIdRef는 그대로 유지한다.
         activeStrokeRef.current = { tool, points: [] };
       } finally {
-        logGestureEvent("pointerleave", event, activePointerIdBefore);
+        logGestureEvent("pointerleave", event, activePointerIdBefore, { eventSource: "canvas" });
       }
     }
 
-    // `pointerup`/`pointercancel` 없이 캡처만 풀리는 비정상 상황(`lostpointercapture`) — 더 이상 이
-    // pointerId로 들어올 이벤트가 없으므로 `pointerleave`와 달리 완전히 종료 처리한다: 지금까지
-    // 쌓인 부분을 즉시 커밋하고 `activePointerIdRef`/`activeStrokeRef`를 모두 정리해서 다음
-    // `pointerdown`이 깨끗한 상태에서 새 스트로크를 시작할 수 있게 한다.
-    //
-    // iOS Safari는 애플펜슬의 pointerId를 연속된 획 사이에서 재사용할 수 있다 — 획1의 `pointerup`이
-    // `activePointerIdRef`를 이미 비우고(정상 커밋) 획2의 `pointerdown`이 같은 pointerId로 새 활성
-    // 스트로크를 시작한 뒤에야, 획1의 capture-release에 대응하는 이 이벤트가 지연 도착하면 기존의
-    // `activePointerIdRef.current !== event.pointerId` 체크만으로는 이를 걸러내지 못해(둘 다 같은
-    // pointerId) 진행 중인 획2를 조기 커밋 후 완전히 종료시켜 버린다(P0 재발). `setPointerCapture`
-    // 호출 1회당 `lostpointercapture`가 정확히 1번 언젠가 발생한다는 스펙을 이용해, 아직 처리되지
-    // 않은 release가 2건 이상 쌓여 있으면(`debtBefore >= 2`) 이 이벤트를 "지금 활성 세션보다 오래된
-    // stale 이벤트"로 판단하고 `activePointerIdRef`/`activeStrokeRef`/`pointerDownTimestampsRef`를
-    // 전혀 건드리지 않은 채 무시한다.
+    /** `pointerup`/`pointercancel` 없이 캡처만 풀리는 비정상 상황. 이 pointerId에 대해 "캡처가
+     * 실제로 걸렸던 세션"만 큐에 들어있으므로(캡처가 안 걸린 세션은 애초에 이 큐에 없다 — 3-6
+     * 참고), 큐에서 꺼낸 sessionId가 지금 활성 세션과 정확히 일치할 때만 종료 처리한다.
+     * pointerId가 같아도 sessionId가 다르면(이전 세션의 지연된 release이거나, 큐가 비어 있어
+     * "이 pointerId에 대해 기대한 적 없는" 이벤트면) 절대 상태를 건드리지 않고 무시한다 —
+     * pointerId 재사용(WebKit 가설, 실기기 로그로 미확인) 여부와 무관하게 안전하다. */
     function handleLostPointerCapture(event: React.PointerEvent<HTMLCanvasElement>) {
       const activePointerIdBefore = activePointerIdRef.current;
+      let strokeConfirmed = false;
+      let isStale = false;
+      let dequeuedSessionId: number | undefined;
       try {
-        const debtBefore = pointerCaptureDebtRef.current.get(event.pointerId) ?? 0;
-        const debtAfter = debtBefore - 1;
-        if (debtAfter <= 0) {
-          pointerCaptureDebtRef.current.delete(event.pointerId);
-        } else {
-          pointerCaptureDebtRef.current.set(event.pointerId, debtAfter);
+        const queue = captureExpectationQueueRef.current.get(event.pointerId);
+        if (queue && queue.length > 0) {
+          dequeuedSessionId = queue.shift();
+          if (queue.length === 0) {
+            captureExpectationQueueRef.current.delete(event.pointerId);
+          }
         }
-        if (debtBefore >= 2) {
-          // 지연 도착한 stale release — 이미 새 세션(같은 pointerId)이 진행 중일 수 있으므로
-          // activePointerIdRef/activeStrokeRef/pointerDownTimestampsRef를 절대 건드리지 않는다.
+
+        const current = activeSessionRef.current;
+        const belongsToCurrentSession =
+          current !== null &&
+          current.pointerId === event.pointerId &&
+          dequeuedSessionId !== undefined &&
+          current.sessionId === dequeuedSessionId;
+
+        if (!belongsToCurrentSession) {
+          isStale = true;
           return;
         }
 
-        if (activePointerIdRef.current !== event.pointerId) {
-          return;
-        }
         const activeStroke = activeStrokeRef.current;
         if (activeStroke && activeStroke.points.length > 0) {
           onCommitStroke(activeStroke);
+          strokeConfirmed = true;
         }
         activePointerIdRef.current = null;
         activeStrokeRef.current = null;
+        activeSessionRef.current = null;
         pointerDownTimestampsRef.current.delete(event.pointerId);
       } finally {
-        logGestureEvent("lostpointercapture", event, activePointerIdBefore);
+        logGestureEvent("lostpointercapture", event, activePointerIdBefore, {
+          sessionId: dequeuedSessionId,
+          strokeConfirmed,
+          eventSource: "canvas",
+          // isStale은 PointerDebugEntry 정식 필드가 아니니 굳이 넣지 마라(위 사양에 없음) —
+          // 대신 sessionId가 undefined이거나 activePointerIdAfter가 안 바뀐 것으로 stale 여부를
+          // 로그에서 판별할 수 있다.
+        });
       }
+      void isStale;
     }
 
     // 마운트/언마운트 시점을 디버그 로그에 남긴다(비활성 상태면 `logPointerEvent` 내부에서 no-op).
@@ -823,6 +1194,7 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
         );
       }
       return () => {
+        detachDocumentFallback();
         if (isPointerDebugEnabled()) {
           logPointerEvent(
             buildLifecycleDebugEntry("unmount", activePointerIdRef, activeStrokeRef, strokesRef),
