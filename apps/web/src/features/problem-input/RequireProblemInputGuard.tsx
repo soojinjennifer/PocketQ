@@ -24,10 +24,10 @@ interface RequireProblemInputGuardProps {
  * 세션이 그 틈에 `/camera`로 튕기지 않도록 `recognizeStatus`도 함께 본다(딥링크 직접 진입은 여전히
  * `idle`이라 기존 리다이렉트 동작은 그대로다).
  *
- * 예외 3 — 결과 화면의 "수정"(다시 입력, `isRequestingReinput`): 인식이 잘못됐을 때 사진/필기를
- * 다시 받기 위해 `beginReinput()`으로 recognize/solve 상태를 idle로 되돌리는 순간에도, 아직 새
- * 입력(사진/필기)이 없어 `hasProblemInput`이 false다. 이 플래그가 없으면 사용자가 재입력 안내
- * (Problem Card의 "다시 찍어 주세요"/빈 캔버스)를 보기도 전에 `/camera`로 튕긴다.
+ * 예외 3 — RESULT 단계 "새 문제 풀기"(`startNewProblem()`, `isRequestingReinput`): 문제/입력을 전부
+ * 초기화한 직후 `/solve/pencilcanvas`로 `navigate`하기 전까지의 짧은 순간에도 `hasProblemInput`/
+ * `problemId`가 둘 다 비어 `/camera`로 튕길 수 있다 — 이 플래그가 켜져 있는 동안은 그 틈에도
+ * `/solve/landscape` 접근을 허용해 정상적으로 다음 라우트로 넘어갈 수 있게 한다.
  */
 export function RequireProblemInputGuard({ children }: RequireProblemInputGuardProps) {
   const { hasProblemInput, problemId, recognizeStatus, isRequestingReinput } = useProblemInput();

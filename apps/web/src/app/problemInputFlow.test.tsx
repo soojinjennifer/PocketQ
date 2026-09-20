@@ -326,8 +326,10 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     expect(screen.queryByText("테스트 스트리밍 텍스트")).not.toBeInTheDocument();
   });
 
-  it("풀이 성공 후 AI가 만들어준 제안 질문 pill이 표시되고, 누르면 입력창을 채운다(Final QA MEDIUM-4)", async () => {
+  it("풀이 성공 후 AI가 만들어준 제안 질문 pill이 표시되고, 누르면 입력창을 거치지 않고 곧바로 전송된다(오너 요청, 2026-09)", async () => {
     const { getSuggestedQuestions } = await import("../shared/api/suggestedQuestions");
+    const { sendChatMessage } = await import("../shared/api/chatMessage");
+    vi.mocked(sendChatMessage).mockResolvedValue({ answerMd: "다른 방법도 소개할게요." });
     const { container } = renderApp(["/solve/pencilcanvas"]);
 
     const canvas = await waitFor(() => {
@@ -345,10 +347,20 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     expect(screen.getByText("비슷한 문제 더 풀래요")).toBeInTheDocument();
 
     fireEvent.click(pill);
-    expect(screen.getByPlaceholderText("궁금증이 풀릴 때까지 물어보세요")).toHaveValue("다른 방법도 있나요?");
+
+    // 입력창을 거치지 않고 즉시 전송된다 — 입력창은 계속 비어 있어야 한다.
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith({
+        problemId: "problem-1",
+        question: "다른 방법도 있나요?",
+        history: [],
+      }),
+    );
+    expect(screen.getByPlaceholderText("궁금증이 풀릴 때까지 물어보세요")).toHaveValue("");
+    expect(await screen.findByText("다른 방법도 소개할게요.")).toBeInTheDocument();
   });
 
-  it("결과 화면에서 '수정'을 누르면 안내 후 필기 캔버스를 지우고 Result Panel을 닫는다(필기 입력, MEDIUM-3)", async () => {
+  it("필기로 풀이 완료 후 결과 화면에서 '수정'을 누르면 안내 후 문제 인식·풀이가 보존된 채 /solve/pencilcanvas WORK 화면으로 돌아간다(2026-09 목적지 재정의)", async () => {
     const { container } = renderApp(["/solve/pencilcanvas"]);
 
     const canvas = await waitFor(() => {
@@ -362,14 +374,21 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "수정" }));
-
     expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
-    // 안내를 확인하면 이전 결과는 더 이상 유효하지 않으므로 Result Panel이 사라진다 —
-    // 사용자는 캔버스에 새로 그린 뒤 평소처럼 "풀기"를 눌러 다시 제출한다.
+    // 결과 화면을 벗어나 문제 인식이 이미 끝난 `/solve/pencilcanvas` WORK 화면으로 돌아간다 —
+    // problemId/recognizedText(문제 인식)와 workStrokes(학생이 이미 쓴 풀이)는 그대로 보존되므로
+    // RecognizedChip("인식됨")이 다시 보이고, "아직 못 풀겠어요"도 곧바로 다시 누를 수 있다(오너
+    // 확정, Figma `267-607`/`365-1275` — `cameraFlow.test.tsx`의 사진 입력 경로와 대칭).
     await waitFor(() => expect(screen.queryByText("풀이 결과")).not.toBeInTheDocument());
-    expect(screen.queryByText("문제를 다시 입력해주세요")).not.toBeInTheDocument();
+    expect(screen.getByText("인식됨")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled();
+
+    // 필기 입력이었으므로 RecognizedChip의 액션은 "인식 수정"이다(사진 입력의 "인식 취소"와
+    // 대칭, `cameraFlow.test.tsx` 참고) — 그 화면에서 실제로 문제 인식을 고치고 싶으면 이미
+    // 구현된 이 버튼을 누르면 된다(이번 수정 범위 밖, 다른 테스트가 검증).
+    expect(screen.getByRole("button", { name: "인식 수정" })).toBeInTheDocument();
   });
 
   it("done 이전 스트리밍 도중에도 지금까지 도착한 헤더 섹션이 완료 후와 같은 카드 구조로 실시간 표시된다", async () => {

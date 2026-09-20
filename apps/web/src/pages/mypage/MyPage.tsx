@@ -286,13 +286,12 @@ export function MyPage() {
                 conceptMd={detail.solution.conceptMd}
                 solutionMd={detail.solution.solutionMd}
                 answerMd={detail.solution.answerMd}
-                // 다시 보기 오버레이는 조회 전용이라 "새 문제"/후속 질문 입력은 제공하지 않고,
-                // 인식된 문제 바의 액션만 "다시 풀기"(MYPAGE-2 후속)로 쓴다. 클릭하면 사진/필기
-                // 재입력 없이 `/solve/landscape`에서 곧바로 다시 풀이하도록 라우터 state로 의도를
-                // 넘긴다(마이페이지는 `ProblemInputProvider` 트리 밖이라 상태를 직접 넘길 수 없다 —
+                // 다시 보기 오버레이는 조회 전용이라 후속 질문 입력은 제공하지 않고, 인식된 문제
+                // 바의 액션만 "다시 풀기"(MYPAGE-2 후속)로 쓴다. 클릭하면 사진/필기 재입력 없이
+                // `/solve/landscape`에서 곧바로 다시 풀이하도록 라우터 state로 의도를 넘긴다
+                // (마이페이지는 `ProblemInputProvider` 트리 밖이라 상태를 직접 넘길 수 없다 —
                 // 재수화는 `SolveLandscapePage`가 트리거한다). 이동과 동시에 오버레이가 있는
                 // `/mypage`를 완전히 벗어나므로 별도의 닫기 처리는 필요 없다.
-                showNewProblemBadge={false}
                 editLabel="다시 풀기"
                 onEdit={() =>
                   void navigate("/solve/landscape", {

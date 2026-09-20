@@ -170,23 +170,12 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     }
   }, [setSuggestedQuestions]);
 
-  // "수정"(다시 입력) 흐름 전용 플래그. `resetSubmission`/`beginReinput`이 `problemId`/`recognizeStatus`를
-  // idle로 되돌리면, 그 시점엔 아직 새 입력(사진/필기)이 없어 `hasProblemInput`도 false다 —
-  // `RequireProblemInputGuard`가 이 순간을 "입력 없음"으로 오해해 `/camera`로 튕겨버리면 사용자가
-  // Result Panel의 "수정" 안내(Problem Card의 "다시 찍어 주세요" 등)를 보기도 전에 페이지를
-  // 떠나게 된다. 이 플래그가 켜져 있는 동안은 가드가 계속 `/solve/landscape` 접근을 허용한다.
+  // RESULT 단계 "새 문제 풀기"(`startNewProblem`) 전용 플래그. 문제/입력을 초기화한 직후
+  // `/solve/pencilcanvas`로 `navigate`하기 전까지의 짧은 순간에도 아직 새 입력(사진/필기)이 없어
+  // `hasProblemInput`도 false다 — `RequireProblemInputGuard`가 이 순간을 "입력 없음"으로 오해해
+  // `/camera`로 튕겨버리는 것을 막는다. 이 플래그가 켜져 있는 동안은 가드가 계속 `/solve/landscape`
+  // 접근을 허용한다.
   const [isRequestingReinput, setIsRequestingReinput] = useState(false);
-
-  const beginReinput = useCallback(() => {
-    resetRecognize();
-    resetSolve();
-    resetChat();
-    // 같은 문제를 다시 입력받는 시점이므로 이전 이어풀기 결과도 더 이상 유효하지 않다(오너 확정,
-    // §5단계) — 남아있으면 새 입력 제출 전 과도기에 이전 RESUME 결과가 잠깐 다시 보일 수 있다.
-    resetResume();
-    setSuggestedQuestions(null);
-    setIsRequestingReinput(true);
-  }, [resetRecognize, resetSolve, resetChat, resetResume, setSuggestedQuestions]);
 
   const submitProblem = useCallback(async () => {
     if (!grade) {
@@ -396,10 +385,9 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   );
 
   /**
-   * RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 전용. `beginReinput`("수정" 재입력 흐름,
-   * 같은 문제를 다시 입력받기 위해 recognize/solve/chat만 초기화)과는 완전히 별개의 함수다 —
-   * 문제/풀이/채팅/진단/학생풀이인식 상태를 전부 리셋하고, INPUT용 캔버스(`strokes`)와 WORK용
-   * 캔버스(`workStrokes`) 획도 모두 지워 완전히 새로운 문제를 처음부터 시작할 수 있게 한다.
+   * RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 전용. 문제/풀이/채팅/진단/학생풀이인식 상태를
+   * 전부 리셋하고, INPUT용 캔버스(`strokes`)와 WORK용 캔버스(`workStrokes`) 획도 모두 지워 완전히
+   * 새로운 문제를 처음부터 시작할 수 있게 한다.
    *
    * `startNewProblem()` 호출 직후 `/solve/landscape`를 벗어나기 전 짧은 순간에도
    * `RequireProblemInputGuard`가 `/camera`로 튕기지 않도록 `isRequestingReinput`을 잠깐
@@ -508,6 +496,21 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   ]);
 
   /**
+   * `/solve/landscape` `RecognizedProblemBar`의 "수정" 클릭 시 호출한다. `beginRecognitionEdit`와
+   * 달리 `problemId`/`recognizedText`(문제 인식 자체)와 학생이 이미 쓴
+   * 풀이(`workStrokes`)는 전혀 건드리지 않는다 — 결과(`solveStatus`)/진단(`diagnoseStatus`)/
+   * 이어풀기(`resumeStatus`) 진행 상태만 초기화해 WORK 단계로 되돌린다. `/solve/pencilcanvas`로
+   * 돌아가면 `RecognizedChip`이 다시 표시되고, 학생이 원하면 거기서 (이미 구현된) "인식 수정"/
+   * "인식 취소"를 눌러 실제로 문제 인식을 고칠 수 있다(Figma `267-607`/`365-1275`, design-agent
+   * 확인 완료 — 이 두 프레임은 `/solve/pencilcanvas` WORK 단계 화면 그 자체다).
+   */
+  const returnToWorkFromResult = useCallback(() => {
+    resetSolve();
+    resetDiagnose();
+    resetResume();
+  }, [resetSolve, resetDiagnose, resetResume]);
+
+  /**
    * `useDiagnose().diagnose`를 그대로 노출하지 않고 감싼다 — 진단이 성공하면(DIAG 화면 진입 직전)
    * 오너 확정(§5)에 따라 더 이상 필요 없는 사진 Blob 참조를 정리한다. 단, 사진으로 입력한 경우
    * (`lastInputType === "photo"`)에는 결과 화면(`ProblemCard`)에 원본 사진을 계속 보여줘야 하므로
@@ -571,7 +574,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
-      beginReinput,
       startNewProblem,
       recognizeStatus,
       problemId,
@@ -591,6 +593,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resetSubmission,
       cancelRecognition,
       beginRecognitionEdit,
+      returnToWorkFromResult,
       chatMessages,
       chatStatus,
       chatErrorMessage,
@@ -640,7 +643,6 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       hasProblemInput,
       lastInputType,
       isRequestingReinput,
-      beginReinput,
       startNewProblem,
       recognizeStatus,
       problemId,
@@ -660,6 +662,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resetSubmission,
       cancelRecognition,
       beginRecognitionEdit,
+      returnToWorkFromResult,
       chatMessages,
       chatStatus,
       chatErrorMessage,

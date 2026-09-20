@@ -12,15 +12,6 @@ interface ResultPanelProps {
   /** `RecognizedProblemBar`의 "수정" 버튼 표시 텍스트를 바꾼다(마이페이지 과거 풀이 다시 보기에서는
    *  "다시 풀기"). 전달하지 않으면 기존 그대로 "수정"이다. */
   editLabel?: string;
-  onNewProblem?: () => void;
-  /** 헤더의 "새 문제" 배지 노출 여부. 기본값 `true`(기존 `/solve/landscape` 동작 그대로 유지).
-   *  마이페이지의 과거 풀이 다시 보기처럼 read-only 조회에서는 "새 문제"라는 동작 자체가 없으므로
-   *  `false`를 전달해 감춘다.
-   *
-   *  `onNewProblem` 유무로 판단하지 않는 이유: `/solve/landscape`는 현재 `onNewProblem`을 전달하지
-   *  않은 채(=비상호작용 배지) Figma(`39:35`)대로 배지를 노출하고 있어, `onNewProblem` 조건부로
-   *  바꾸면 그 화면에서 배지가 사라지는 회귀가 생긴다(2026-08-16 확인). */
-  showNewProblemBadge?: boolean;
   conceptMd: string | null;
   solutionMd: string | null;
   answerMd: string;
@@ -38,8 +29,10 @@ interface ResultPanelProps {
 
 /**
  * Figma `Result Panel`(`39:28~39:65`, `docs/COMPONENT_MAP.md` §2) — Header(제목/카테고리
- * 배지/"새 문제" 배지) + Body(인식된 문제 바 + 개념/풀이 카드 + 최종 답 + 후속 질문 콘텐츠) +
- * Footer(후속 질문 입력, 있을 때만) 3블록.
+ * 배지) + Body(인식된 문제 바 + 개념/풀이 카드 + 최종 답 + 후속 질문 콘텐츠) + Footer(후속 질문
+ * 입력, 있을 때만) 3블록. Figma 원안에는 헤더에 "새 문제" 배지도 있지만, 하단 `ActionBar`(RESULT
+ * 상태)에 이미 동작하는 "새 문제 풀기" 버튼이 있어 기능이 중복되고 이 배지는 `onClick`이 연결된 적
+ * 없는 죽은 UI였다 — 오너 결정으로 삭제했다(Figma 편차, 2026-09, `docs/COMPONENT_MAP.md` §2 참고).
  *
  * 위치/폭/배경/모서리/그림자 등 패널 셸 스타일은 `ResultPanelShell`이 담당한다(로딩 중 콘텐츠와
  * 항상 같은 셸을 공유해야 해서 분리했다 — `SolveLandscapePage` 참고). 이 컴포넌트는 그 셸을
@@ -51,8 +44,6 @@ export function ResultPanel({
   recognizedText,
   onEdit,
   editLabel,
-  onNewProblem,
-  showNewProblemBadge = true,
   conceptMd,
   solutionMd,
   answerMd,
@@ -65,11 +56,6 @@ export function ResultPanel({
         <h2 className="text-label-primary text-[17px] leading-[22px] font-[590]">풀이 결과</h2>
         <div className="flex flex-wrap items-center gap-2">
           {category ? <Badge variant="tint-blue">{category}</Badge> : null}
-          {showNewProblemBadge ? (
-            <Badge variant="tint-blue" onClick={onNewProblem}>
-              새 문제
-            </Badge>
-          ) : null}
         </div>
       </div>
 

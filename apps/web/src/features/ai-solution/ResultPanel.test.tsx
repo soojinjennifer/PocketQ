@@ -20,7 +20,6 @@ describe("ResultPanel", () => {
     expect(screen.getByText("관련 개념")).toBeInTheDocument();
     expect(screen.getByText("단계별 풀이")).toBeInTheDocument();
     expect(screen.getByText(/x = 2 또는 x = 3/)).toBeInTheDocument();
-    expect(screen.getByText("새 문제")).toBeInTheDocument();
   });
 
   it("conceptMd/solutionMd가 null이면 해당 카드를 렌더링하지 않는다", () => {
@@ -40,51 +39,8 @@ describe("ResultPanel", () => {
   it("category가 없으면 카테고리 배지를 렌더링하지 않는다", () => {
     render(<ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />);
 
-    // "새 문제" 배지만 남아야 한다(카테고리 배지가 없어야 함).
-    expect(screen.getAllByText(/./).filter((el) => el.className.includes("bg-fill-tint-brand")).length).toBe(1);
-  });
-
-  it("onNewProblem이 있으면 '새 문제' 배지가 클릭 가능하다", () => {
-    const handleNewProblem = vi.fn();
-    render(
-      <ResultPanel
-        recognizedText="문제"
-        conceptMd={null}
-        solutionMd={null}
-        answerMd="42"
-        onNewProblem={handleNewProblem}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "새 문제" }));
-    expect(handleNewProblem).toHaveBeenCalledTimes(1);
-  });
-
-  it("onNewProblem이 없으면 '새 문제' 배지는 비상호작용 표시로만 렌더링된다", () => {
-    render(<ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />);
-
-    expect(screen.queryByRole("button", { name: "새 문제" })).not.toBeInTheDocument();
-    expect(screen.getByText("새 문제")).toBeInTheDocument();
-  });
-
-  it("showNewProblemBadge=false면 '새 문제' 배지를 렌더링하지 않는다(마이페이지 read-only 조회)", () => {
-    render(
-      <ResultPanel
-        recognizedText="문제"
-        conceptMd={null}
-        solutionMd={null}
-        answerMd="42"
-        showNewProblemBadge={false}
-      />,
-    );
-
-    expect(screen.queryByText("새 문제")).not.toBeInTheDocument();
-  });
-
-  it("showNewProblemBadge 기본값은 true다(기존 /solve/landscape 동작 유지)", () => {
-    render(<ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" />);
-
-    expect(screen.getByText("새 문제")).toBeInTheDocument();
+    // 카테고리 배지 자체가 없어야 한다(헤더의 "새 문제" 배지는 오너 결정으로 삭제됨, 2026-09).
+    expect(screen.queryAllByText(/./).filter((el) => el.className.includes("bg-fill-tint-brand")).length).toBe(0);
   });
 
   it("editLabel/onEdit을 RecognizedProblemBar로 그대로 전달한다(마이페이지 '다시 풀기')", () => {

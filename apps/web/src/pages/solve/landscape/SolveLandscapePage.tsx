@@ -22,12 +22,10 @@ import { ChatFooter, type ChatFooterHandle } from "../../../features/follow-up-c
 import { SuggestionPill } from "../../../features/follow-up-chat/SuggestionPill";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
-import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { SolveHeader } from "../../../features/solve-session/SolveHeader";
 import { useBodyClass } from "../../../shared/lib/dom/useBodyClass";
 import { deriveHighlightRegion } from "../../../shared/lib/solve/deriveHighlightRegion";
 import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLineJudgments";
-import { Badge } from "../../../shared/ui/badge/Badge";
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
 
@@ -56,7 +54,6 @@ export function SolveLandscapePage() {
   useBodyClass("solve-viewport-lock");
 
   const {
-    capturedImage,
     strokes,
     tool,
     setTool,
@@ -76,8 +73,6 @@ export function SolveLandscapePage() {
     canUndoWorkStroke,
     canRedoWorkStroke,
     hasProblemInput,
-    lastInputType,
-    beginReinput,
     startNewProblem,
     submitProblem,
     resumeFromHistory,
@@ -105,6 +100,7 @@ export function SolveLandscapePage() {
     resumeErrorMessage,
     startResume,
     resetResume,
+    returnToWorkFromResult,
   } = useProblemInput();
 
   // 마이페이지 "다시 풀기"로 진입한 경우(`RecognizedProblemBar`의 "다시 풀기" → `/solve/landscape`),
@@ -128,11 +124,13 @@ export function SolveLandscapePage() {
     void navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate, problemId, resumeFromHistory]);
 
-  // `SuggestionPill`(Body)이 채워야 할 `ChatFooter`(Footer)의 입력창은 서로 다른 슬롯(`ResultPanel`의
-  // `chatContent`/`chatFooter`)으로 전달되어 DOM 상 분리돼 있다 — `ResultPanel`(features/ai-solution)이
-  // `features/follow-up-chat`를 직접 import하지 않게 하기 위한 구조(`ResultPanel` JSDoc 참고)라, 두
-  // 슬롯을 조립하는 이 페이지가 `ref`로 연결한다(오너 확정 인터랙션: pill 클릭 → 입력창 채움 →
-  // 포커스 → 사용자 확인/수정 → 전송 버튼/Enter로만 제출, 자동 전송 금지).
+  // `ChatFooter`(Footer)는 `ResultPanel`의 `chatContent`/`chatFooter` 슬롯으로 나뉘어 DOM 상
+  // 분리돼 있다 — `ResultPanel`(features/ai-solution)이 `features/follow-up-chat`를 직접
+  // import하지 않게 하기 위한 구조(`ResultPanel` JSDoc 참고)라, 두 슬롯을 조립하는 이 페이지가
+  // `ref`로 연결한다. 해시태그 pill(`onHashtagClick`)은 이 ref로 입력창을 채우고 포커스만 준다
+  // (오너 확정: pill 클릭 → 입력창 채움 → 포커스 → 사용자 확인/수정 → 전송 버튼/Enter로만 제출).
+  // 후속 질문 추천 pill(`SuggestionPill`, `suggestedQuestions`)은 이와 달리 `sendChatMessage`를
+  // 직접 호출해 클릭 즉시 전송한다(오너 요청, 2026-09 — 아래 `chatContent` 참고).
   const chatFooterRef = useRef<ChatFooterHandle>(null);
 
   // 스크롤 앵커 패턴: `ResultPanel`의 `chatContent` 슬롯 맨 끝에 빈 앵커 요소를 두고, 새 메시지/로딩
@@ -145,12 +143,11 @@ export function SolveLandscapePage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatMessages.length, chatStatus]);
 
-  // "수정"(다시 입력) 흐름 — 오너 확정 UX(2026-08-17): 결과 화면에서 "수정"을 누르면 안내 메시지를
-  // 띄우고, 확인하면 입력 모달리티에 따라 필기는 캔버스를 지워 바로 다시 쓸 수 있게 하고 사진은
-  // Problem Card에 "다시 찍어 주세요" 안내로 바꾼다(사진 Blob 자체는 풀이 성공 시 이미 정리돼
-  // 있어 `ProblemCard`가 보여줄 게 없다). 그 다음은 평소 "풀기" 흐름과 동일하다.
+  // "수정" 흐름 — 오너 확정 UX(2026-09, `267-607`/`365-1275` 목적지 재정의): 결과 화면에서 "수정"을
+  // 누르면 안내 메시지를 띄우고, 확인하면 결과/진단 진행 상태만 초기화한 뒤 문제 인식이 이미 끝난
+  // `/solve/pencilcanvas` WORK 단계로 돌아간다 — 그 화면에서 `RecognizedChip`이 다시 표시되므로,
+  // 학생은 거기서 (이미 구현된) "인식 수정"/"인식 취소"를 눌러 실제로 문제 인식을 고칠 수 있다.
   const [isReinputModalOpen, setIsReinputModalOpen] = useState(false);
-  const [needsPhotoRetake, setNeedsPhotoRetake] = useState(false);
   // "#개념설명" 해시태그 pill 토글 상태(DIAG 결과 화면 전용, 패널 폭 Extend/Default와 무관한 로컬
   // state — 오너 확정). 켜지면 `diagnosis.conceptExplanations`를 관련 개념 카드로 보여준다.
   const [isConceptCardVisible, setIsConceptCardVisible] = useState(false);
@@ -168,21 +165,10 @@ export function SolveLandscapePage() {
 
   const handleReinputConfirm = () => {
     setIsReinputModalOpen(false);
-    // 이전 풀이/채팅 결과는 더 이상 유효하지 않으므로 지우고 Result Panel을 닫는다 — 이후
-    // 사용자는 평소 "풀기" 흐름 그대로 새 입력을 제출한다. `resetSubmission`이 아니라
-    // `beginReinput`을 쓰는 이유: 둘 다 recognize/solve/chat을 초기화하지만, `beginReinput`은
-    // 추가로 `isRequestingReinput`을 켜서 `RequireProblemInputGuard`가 이 과도기에도
-    // `/camera`로 튕기지 않게 한다(가드 JSDoc "예외 3" 참고).
-    beginReinput();
-    if (lastInputType === "photo") {
-      setNeedsPhotoRetake(true);
-    } else {
-      clearStrokes();
-    }
-  };
-
-  const handleRequestRetakePhoto = () => {
-    void navigate("/camera");
+    // 결과/진단 진행 상태만 초기화하고 문제 인식(`problemId`/`recognizedText`)과 학생이 이미 쓴
+    // 풀이(`workStrokes`)는 그대로 보존한 채 WORK 화면으로 돌아간다(위 "수정" 흐름 JSDoc 참고).
+    returnToWorkFromResult();
+    void navigate("/solve/pencilcanvas");
   };
 
   // WorkLineList "수정" 링크(오너 확정, 2026-09) — 인식된 학생 풀이가 틀렸을 때 WORK 캔버스로
@@ -198,11 +184,6 @@ export function SolveLandscapePage() {
     void navigate("/solve/pencilcanvas");
   };
 
-  const problemCardData: ProblemCardData = needsPhotoRetake
-    ? { needsRetake: true }
-    : capturedImage
-      ? { imageUrl: capturedImage.previewUrl }
-      : null;
   // WORK-4("아직 못 풀겠어요", 기존 solve 재사용)와 SOLVE-2("봐 주세요", recognizeWork → diagnose
   // 2단계) 중 어느 경로로 도달했든 제출 진행 중 상태를 함께 반영한다(오너 확정 §4b).
   const isSubmitting =
@@ -327,28 +308,13 @@ export function SolveLandscapePage() {
       {/* Result Panel(39:28)은 화면 우측에 독립 도킹된 패널이다. design-agent가 Figma(`38:21`)를
           재실측한 결과, Default 상태에서도 Action Bar 우측 끝이 Result Panel 좌측 끝과 10px
           겹치는 것으로 나타나(오너 명시 확인, 2026-08-14) — Figma 원안 자체가 "겹치지 않게 우측
-          공간을 예약"하는 구조가 아니라 "겹쳐도 z-index로 위에 얹는" 구조다. 이에 따라 ProblemCard/
-          ActionBar는 더 이상 우측 예약폭(pr-*)을 두지 않고 화면 전체 폭 기준으로 정상
-          중앙정렬하며, `ResultPanelShell`이 더 높은 z-index로 그 위에 얹혀 필요하면 겹친다(아래
-          `ResultPanelShell`의 z-20 참고). */}
-
-      {/* ProblemCard는 캔버스와 같은 레벨의 독립 absolute 요소로 배치한다(PenRail/SolveHeader와 동일
-          패턴). top-[90px]는 SolveNavTabs(top-6=24px) + NavTabBar 실측 높이(42px) + 24px 여백
-          (24+42+24=90) 유도값이다(기존 값 유지). 폭/정렬(543px, mx-auto)도 기존 값을 그대로
-          재사용한다 — 화면 전체 폭 기준 중앙정렬이며 우측 예약폭은 없다(위 코멘트 참고, Result
-          Panel과 겹칠 수 있음). 로딩 중 표시는 더 이상 이 컬럼에 두지 않고 우측
-          `ResultPanelShell`로 통합했다(위 JSDoc 참고). 결과 화면에서는 촬영 사진(`{imageUrl}`)을
-          완전히 숨긴다(오너 확정, 2026-09-08, 이전 결정 번복 — Figma `38:21` 재실측 결과 이 화면에
-          Problem Card 인스턴스 자체가 없음을 확인). `"needsRetake" in problemCardData`로 게이팅해
-          "수정" 흐름의 재촬영 안내(`{needsRetake:true}`) 케이스만 남기고, 사진 미리보기는
-          로딩/성공 여부와 무관하게 렌더링하지 않는다. */}
-      <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10">
-        <div className="mx-auto flex w-[543px] max-w-[calc(100%-3rem)] flex-col gap-3">
-          {problemCardData !== null && "needsRetake" in problemCardData ? (
-            <ProblemCard data={problemCardData} onRequestRetake={handleRequestRetakePhoto} />
-          ) : null}
-        </div>
-      </div>
+          공간을 예약"하는 구조가 아니라 "겹쳐도 z-index로 위에 얹는" 구조다. 이에 따라 ActionBar는
+          더 이상 우측 예약폭(pr-*)을 두지 않고 화면 전체 폭 기준으로 정상 중앙정렬하며,
+          `ResultPanelShell`이 더 높은 z-index로 그 위에 얹혀 필요하면 겹친다(아래 `ResultPanelShell`의
+          z-20 참고). 결과 화면에서는 촬영 사진을 완전히 숨긴다(오너 확정, 2026-09-08 — Figma `38:21`
+          재실측 결과 이 화면에 Problem Card 인스턴스 자체가 없음을 확인). 과거에는 "수정" 재촬영
+          안내(`{needsRetake:true}`)만 예외로 남겨뒀지만, "수정"이 `/solve/pencilcanvas`로 이동하는
+          흐름으로 바뀌면서(2026-09) 이 화면에는 더 이상 `ProblemCard` 렌더 지점 자체가 없다. */}
 
       {isPanelVisible ? (
         <ResultPanelShell
@@ -370,14 +336,17 @@ export function SolveLandscapePage() {
                 <>
                   {/* 제안 질문 pill(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 채워진다.
                       아직 안 왔거나(로딩 중) 실패했으면 행 자체를 그리지 않는다(선택적 보조 UI라
-                      별도 로딩/에러 표시 없음). */}
+                      별도 로딩/에러 표시 없음). 클릭 시 입력창을 거치지 않고 곧바로 전송한다(오너
+                      요청, 2026-09 — `sendChatMessage`가 빈/공백 질문·중복 전송 가드를 이미
+                      갖추고 있어 안전하다). 해시태그 pill(아래 `onHashtagClick`)은 채움+포커스만
+                      하는 기존 동작을 그대로 유지한다 — 오너가 이번에 언급한 대상이 아니다. */}
                   {suggestedQuestions && suggestedQuestions.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {suggestedQuestions.map((question) => (
                         <SuggestionPill
                           key={question}
                           label={question}
-                          onClick={() => chatFooterRef.current?.fillAndFocus(question)}
+                          onClick={() => void sendChatMessage(question)}
                         />
                       ))}
                     </div>
@@ -420,20 +389,20 @@ export function SolveLandscapePage() {
             // `ResumeResultCard`)을 이 페이지가 직접 조립한다(오너 확정 §4b, RESUME 화면 연결은
             // 5단계 2차 — `docs/PROJECT_STATUS.md` §3.23).
             <>
-              {/* Figma Header의 Actions 프레임에는 토픽 배지도 있지만 `Diagnosis` 타입에 대응
-                  필드가 없어 이번엔 "새 문제" 배지만 넣었다 — 정식 필드가 추가되면 반영 검토
-                  (결정 필요, 오너 확인 필요). */}
+              {/* Figma 원안(`39:33`/`39:35`) 헤더에는 "새 문제" 배지도 있지만, 하단 `ActionBar`
+                  (RESULT 상태)에 이미 동작하는 "새 문제 풀기" 버튼이 있어 기능이 중복되고 이 배지는
+                  `onClick`이 연결된 적 없는 죽은 UI였다 — 오너 결정으로 삭제했다(Figma 편차, 2026-09,
+                  `docs/COMPONENT_MAP.md` §2 참고). */}
               <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-5 py-3">
                 <h2 className="text-label-primary text-[17px] leading-[22px] font-[590]">풀이 결과</h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="tint-blue">새 문제</Badge>
-                </div>
               </div>
               <div
                 className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5 touch-pan-y"
                 aria-live="polite"
               >
-                {recognizedText ? <RecognizedProblemBar recognizedText={recognizedText} /> : null}
+                {recognizedText ? (
+                  <RecognizedProblemBar recognizedText={recognizedText} onEdit={handleRequestReinput} />
+                ) : null}
                 <WorkLineList
                   lines={deriveWorkLineJudgments(workLines ?? [], diagnosis)}
                   onEdit={handleEditWork}
@@ -460,7 +429,7 @@ export function SolveLandscapePage() {
                       <SuggestionPill
                         key={question}
                         label={question}
-                        onClick={() => chatFooterRef.current?.fillAndFocus(question)}
+                        onClick={() => void sendChatMessage(question)}
                       />
                     ))}
                   </div>
@@ -618,7 +587,7 @@ export function SolveLandscapePage() {
         <Modal
           icon="check"
           title="문제를 다시 입력해주세요"
-          description="인식이 잘못됐다면 문제를 다시 촬영하거나 손글씨로 다시 써서 입력해 주세요."
+          description="결과 화면을 나가서 인식된 문제 화면으로 돌아갈까요? 인식이 잘못됐다면 그 화면에서 문제를 다시 촬영하거나 손글씨를 고쳐 쓸 수 있어요."
           actionLabel="확인"
           onAction={handleReinputConfirm}
         />

@@ -59,20 +59,17 @@ export interface ProblemInputContextValue {
 
   /** 사진 또는 필기 획 중 하나라도 있으면 true. `/solve/*` "풀기" 버튼 활성화 조건에 사용한다. */
   hasProblemInput: boolean;
-  /** 마지막으로 제출한 입력이 사진인지 필기인지. 제출 전에는 `null`. 결과 화면의 "다시 풀기 위해
-   *  입력 다시 받기" 흐름(`RecognizedProblemBar`의 "수정")이 어느 입력을 초기화할지 판단하는 데
-   *  쓴다 — 풀이 성공 시 `capturedImage`는 지워지므로 그것만으로는 모달리티를 알 수 없다. */
+  /** 마지막으로 제출한 입력이 사진인지 필기인지. 제출 전에는 `null`. `RecognizedChip`이 인식 버튼
+   *  라벨/동작을 "인식 취소"(사진)/"인식 수정"(필기)으로 분기하는 데 쓴다 — 풀이 성공 시
+   *  `capturedImage`는 지워지므로 그것만으로는 모달리티를 알 수 없다. */
   lastInputType: "photo" | "handwriting" | null;
-  /** "수정"(다시 입력) 확인 직후 ~ 새 입력 제출 전 사이의 과도기 동안 true. `hasProblemInput`/
+  /** RESULT 단계 "새 문제 풀기"(`startNewProblem`)로 문제/입력을 초기화한 직후
+   *  `/solve/pencilcanvas`로 이동하기 전까지의 짧은 과도기 동안 true. `hasProblemInput`/
    *  `problemId`가 둘 다 비는 이 짧은 구간에도 `RequireProblemInputGuard`가 `/solve/landscape`
-   *  접근을 계속 허용하도록 참조한다(아래 `beginReinput` 참고). */
+   *  접근을 계속 허용하도록 참조한다(아래 `startNewProblem` 참고). */
   isRequestingReinput: boolean;
-  /** "수정" 확인 시 호출한다 — recognize/solve/chat 상태를 초기화하고 `isRequestingReinput`을
-   *  켠다. 새 `submitProblem()`이 시작되면 자동으로 꺼진다. */
-  beginReinput: () => void;
-  /** RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 클릭 시 호출한다. `beginReinput`(같은 문제를
-   *  다시 입력받는 "수정" 흐름)과 달리 완전히 새로운 문제를 시작하기 위한 함수다 — 문제/풀이/채팅/
-   *  진단/학생풀이인식 상태를 전부 초기화하고, INPUT용 캔버스와 WORK용 캔버스 획도 모두 지운다. */
+  /** RESULT 단계 Action Bar의 "새 문제 풀기"(v2.0 4b) 클릭 시 호출한다. 문제/풀이/채팅/진단/
+   *  학생풀이인식 상태를 전부 초기화하고, INPUT용 캔버스와 WORK용 캔버스 획도 모두 지운다. */
   startNewProblem: () => void;
 
   // recognize → solve 제출 오케스트레이션
@@ -127,6 +124,12 @@ export interface ProblemInputContextValue {
    *  'Pencil_afterwrite'). 사진 입력의 "인식 취소"(`cancelRecognition`, 완전 초기화)와는 별도의
    *  함수다. */
   beginRecognitionEdit: () => void;
+  /** `/solve/landscape` `RecognizedProblemBar`의 "수정" 클릭 시 호출한다. `beginRecognitionEdit`와
+   *  달리 `problemId`/`recognizedText`(문제 인식 자체)와 학생이 이미 쓴 풀이(`workStrokes`)는
+   *  전혀 건드리지 않는다 — 결과/진단/이어풀기 진행 상태만 초기화해 WORK 단계로 되돌린다.
+   *  `/solve/pencilcanvas`로 돌아가면 `RecognizedChip`이 다시 표시되고, 학생이 원하면 거기서
+   *  (이미 구현된) "인식 수정"/"인식 취소"를 눌러 실제로 문제 인식을 고칠 수 있다. */
+  returnToWorkFromResult: () => void;
 
   // 후속 질문(채팅) — `features/follow-up-chat/useChatMessages`를 이 Provider가 한 번만 호출해
   // 소유권을 옮긴 것(필기 획을 `useDrawingStrokes`로 옮긴 것과 동일한 패턴). 새 문제가 시작되면
@@ -173,9 +176,9 @@ export interface ProblemInputContextValue {
   resumeErrorMessage: string | null;
   /** `ResumeModeBar`의 버튼 클릭 시 호출한다 — `problemId`가 없으면 아무 동작도 하지 않는다. */
   startResume: (mode: ResumeMode) => Promise<void>;
-  /** `useResumeStream().reset`. 새 문제를 시작하거나(`startNewProblem`) "수정"으로 재입력을
-   *  시작할 때(`beginReinput`), WORK로 돌아가 학생 풀이를 고칠 때(`SolveLandscapePage`의
-   *  `handleEditWork`) 이전 이어풀기 상태가 남아있지 않도록 함께 호출된다. */
+  /** `useResumeStream().reset`. 새 문제를 시작하거나(`startNewProblem`), 결과 화면 "수정"으로 WORK
+   *  단계로 돌아가거나(`returnToWorkFromResult`), WORK로 돌아가 학생 풀이를 고칠 때
+   *  (`SolveLandscapePage`의 `handleEditWork`) 이전 이어풀기 상태가 남아있지 않도록 함께 호출된다. */
   resetResume: () => void;
 }
 

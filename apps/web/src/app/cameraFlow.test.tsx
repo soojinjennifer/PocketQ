@@ -152,7 +152,7 @@ describe("사진 문제 입력 흐름", () => {
     expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
   });
 
-  it("사진으로 풀이 완료 후 결과 화면에서 '수정'을 누르면 안내 후 Problem Card가 '다시 찍어 주세요'로 바뀐다(MEDIUM-3)", async () => {
+  it("사진으로 풀이 완료 후 결과 화면에서 '수정'을 누르면 안내 후 문제 인식이 보존된 채 /solve/pencilcanvas WORK 화면으로 돌아간다(2026-09 목적지 재정의)", async () => {
     // submitProblem()은 학년이 없으면 조용히 중단된다 — 이 파일의 기본 fake 세션엔 grade가 없어서
     // (다른 기존 테스트는 pencilcanvas 진입까지만 확인해 필요 없었다) 이 테스트에서만 채워준다.
     vi.mocked(supabase.auth.getSession).mockResolvedValue({
@@ -196,11 +196,15 @@ describe("사진 문제 입력 흐름", () => {
     expect(await screen.findByText("문제를 다시 입력해주세요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
+    // 결과 화면을 벗어나 문제 인식이 이미 끝난 `/solve/pencilcanvas` WORK 화면으로 돌아간다 —
+    // problemId/recognizedText(문제 인식)는 그대로 보존되므로 RecognizedChip("인식됨")이 다시
+    // 보이고, "아직 못 풀겠어요"도 곧바로 다시 누를 수 있다(오너 확정, Figma `267-607`/`365-1275`).
     await waitFor(() => expect(screen.queryByText("풀이 결과")).not.toBeInTheDocument());
-    expect(screen.getByText("문제를 다시 찍어 주세요")).toBeInTheDocument();
+    expect(screen.getByText("인식됨")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled();
 
-    // Problem Card를 누르면(다시 찍기 안내 상태) /camera로 돌아간다.
-    fireEvent.click(screen.getByText("문제를 다시 찍어 주세요"));
-    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
+    // 사진 입력이었으므로 RecognizedChip의 액션은 "인식 취소"다 — 그 화면에서 실제로 문제 인식을
+    // 고치고 싶으면 이미 구현된 이 버튼을 누르면 된다(이번 수정 범위 밖, 다른 테스트가 검증).
+    expect(screen.getByRole("button", { name: "인식 취소" })).toBeInTheDocument();
   });
 });

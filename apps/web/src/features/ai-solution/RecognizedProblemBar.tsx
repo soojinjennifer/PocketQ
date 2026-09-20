@@ -2,9 +2,9 @@ import { Badge } from "../../shared/ui/badge/Badge";
 
 interface RecognizedProblemBarProps {
   recognizedText: string;
-  /** "수정" 링크 클릭 시 호출한다. 현재 코드베이스에는 인식 완료 후 텍스트를 고쳐 재제출하는
-   *  확정된 흐름이 없어(plan-agent 조사 결과), 상위에서 아직 전달하지 않는다. 전달하지 않으면
-   *  링크는 시각적으로만 존재하고 클릭해도 아무 동작이 없다. */
+  /** "수정" 링크 클릭 시 호출한다. `SolveLandscapePage`의 SOLVE/DIAG 결과 분기 양쪽과
+   *  `MyPage`(과거 풀이 다시 보기)가 이미 전달한다 — 전달하지 않으면 링크는 시각적으로만
+   *  존재하고 클릭해도 아무 동작이 없다(비활성 표시). */
   onEdit?: () => void;
   /** "수정" 버튼의 표시 텍스트. 마이페이지 과거 풀이 다시 보기에서는 "다시 풀기"로 바뀐다.
    *  @default "수정" */

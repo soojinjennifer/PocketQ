@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../shared/api/ApiError";
+import type { ResumeStreamEvent } from "../../shared/api/resumeProblem";
+import type { SolveStreamEvent } from "../../shared/api/solveProblem";
 import { ProblemInputProvider } from "./ProblemInputProvider";
 import { useProblemInput } from "./useProblemInput";
 
@@ -32,6 +34,48 @@ vi.mock("../../shared/api/suggestedQuestions", () => ({
 
 const { recognizeProblem } = await import("../../shared/api/recognizeProblem");
 const { recognizeWork } = await import("../../shared/api/recognizeWork");
+const { solveProblemStream } = await import("../../shared/api/solveProblem");
+const { diagnoseProblem } = await import("../../shared/api/diagnoseProblem");
+const { resumeProblemStream } = await import("../../shared/api/resumeProblem");
+
+async function* eventsOf<T>(events: T[]) {
+  await Promise.resolve();
+  for (const event of events) {
+    yield event;
+  }
+}
+
+const SOLUTION = {
+  conceptMd: null,
+  solutionMd: "풀이",
+  answerMd: "답",
+  conceptTags: [],
+  aiProvider: "openai" as const,
+  aiModel: "gpt-5.6-terra",
+};
+
+const DIAGNOSIS = {
+  lastValidLine: 1,
+  stallLine: 2,
+  errorTypeLabel: "부호 오류",
+  errorDetail: "2번째 줄을 다시 확인하세요.",
+  relatedConcepts: ["이차함수 > 완전제곱식"],
+  reachedAnswerWithNotes: false,
+  isLowConfidence: false,
+  conceptExplanations: [],
+  identifiedMethod: null,
+  isMethodApplicable: true,
+  methodApplicabilityNote: null,
+  problemAnswerLatex: "-1",
+};
+
+const RESUME_SOLUTION = {
+  mode: "own" as const,
+  methodName: "3번째 줄부터 이어가기",
+  solutionMd: "이어풀기 본문",
+  answerMd: "답",
+  verified: true,
+};
 
 /**
  * `SolvePencilcanvasPage.test.tsx`/`RequireProblemInputGuard.test.tsx`와 달리, 이 테스트는 mock
@@ -60,6 +104,11 @@ function Consumer() {
     recognizeWorkStatus,
     diagnoseStatus,
     recognizeWork: doRecognizeWork,
+    resumeStatus,
+    returnToWorkFromResult,
+    giveUp,
+    diagnose,
+    startResume,
   } = useProblemInput();
 
   return (
@@ -77,6 +126,7 @@ function Consumer() {
       <div data-testid="workLines">{workLines ? "has-work-lines" : "null"}</div>
       <div data-testid="recognizeWorkStatus">{recognizeWorkStatus}</div>
       <div data-testid="diagnoseStatus">{diagnoseStatus}</div>
+      <div data-testid="resumeStatus">{resumeStatus}</div>
 
       <button onClick={() => setCapturedImage(new Blob(["fake"], { type: "image/jpeg" }))}>
         사진설정
@@ -97,7 +147,19 @@ function Consumer() {
       >
         WORK인식하기
       </button>
+      <button onClick={() => void giveUp()}>풀이생성</button>
+      <button
+        onClick={() => {
+          if (problemId) {
+            void diagnose({ problemId, workLines: [{ lineNo: 1, latex: "x" }] });
+          }
+        }}
+      >
+        진단하기
+      </button>
+      <button onClick={() => void startResume("own")}>이어풀기하기</button>
       <button onClick={cancelRecognition}>인식취소</button>
+      <button onClick={returnToWorkFromResult}>결과에서수정</button>
     </div>
   );
 }
@@ -180,5 +242,52 @@ describe("ProblemInputProvider — cancelRecognition (인식취소, 오너 UX �
     expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("idle");
     expect(screen.getByTestId("capturedImage")).toHaveTextContent("no-image");
     expect(screen.getByTestId("lastInputType")).toHaveTextContent("null");
+  });
+});
+
+describe("ProblemInputProvider — returnToWorkFromResult (`/solve/landscape` '수정', 2026-09 목적지 재정의)", () => {
+  it("problemId/recognizedText/workStrokes는 그대로 두고 solveStatus/diagnoseStatus/resumeStatus만 idle로 되돌린다", async () => {
+    vi.mocked(recognizeProblem).mockResolvedValue({
+      problemId: "problem-1",
+      recognizedText: "1+1=?",
+      recognizedLatex: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+    });
+    vi.mocked(solveProblemStream).mockReturnValue(
+      eventsOf<SolveStreamEvent>([{ type: "done", result: SOLUTION }]),
+    );
+    vi.mocked(diagnoseProblem).mockResolvedValue(DIAGNOSIS);
+    vi.mocked(resumeProblemStream).mockReturnValue(
+      eventsOf<ResumeStreamEvent>([{ type: "done", result: RESUME_SOLUTION }]),
+    );
+
+    renderProvider();
+
+    fireEvent.click(screen.getByText("사진설정"));
+    fireEvent.click(screen.getByText("인식하기"));
+    await waitFor(() => expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1"));
+
+    fireEvent.click(screen.getByText("WORK필기추가"));
+    expect(screen.getByTestId("workStrokes")).toHaveTextContent("1");
+
+    fireEvent.click(screen.getByText("풀이생성"));
+    await waitFor(() => expect(screen.getByTestId("solveStatus")).toHaveTextContent("success"));
+
+    fireEvent.click(screen.getByText("진단하기"));
+    await waitFor(() => expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("success"));
+
+    fireEvent.click(screen.getByText("이어풀기하기"));
+    await waitFor(() => expect(screen.getByTestId("resumeStatus")).toHaveTextContent("success"));
+
+    fireEvent.click(screen.getByText("결과에서수정"));
+
+    // 결과/진단/이어풀기 진행 상태만 초기화된다.
+    expect(screen.getByTestId("solveStatus")).toHaveTextContent("idle");
+    expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("idle");
+    expect(screen.getByTestId("resumeStatus")).toHaveTextContent("idle");
+    // 문제 인식(problemId/recognizedText)과 학생이 이미 쓴 풀이(workStrokes)는 그대로 보존된다.
+    expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1");
+    expect(screen.getByTestId("recognizedText")).toHaveTextContent("1+1=?");
+    expect(screen.getByTestId("workStrokes")).toHaveTextContent("1");
   });
 });

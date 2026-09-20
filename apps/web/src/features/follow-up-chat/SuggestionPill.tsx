@@ -10,9 +10,10 @@ interface SuggestionPillProps {
  * 해시태그 pill과는 다른 요소, 혼동 금지). `Badge`의 `variant="outline"`/`size="footnote"`
  * (배경 없음, `border-brand` 보더/텍스트, 13px/590)를 그대로 재사용한다.
  *
- * 클릭하면 입력창에 문구를 채우고 포커스만 이동시킨다 — 자동 전송은 하지 않는다(오너 확정
- * 인터랙션: pill 클릭 → 입력창 채움 → 포커스 → 사용자가 확인/수정 후 전송 버튼/Enter로만 제출).
- * 실제 채움/포커스/전송 로직은 상위 `ChatFooter`가 담당하고, 이 컴포넌트는 클릭 이벤트만 위임한다.
+ * 클릭 시 동작은 `onClick`을 넘기는 쪽(`pages/solve/landscape/SolveLandscapePage`)이 결정한다 —
+ * 이 컴포넌트 자체는 클릭 이벤트만 위임하고 채움/포커스/전송 로직을 갖지 않는다. 오너 요청
+ * (2026-09)에 따라 현재 호출부는 클릭 즉시 질문을 전송한다(`sendChatMessage`) — 과거에는
+ * `ChatFooter` 입력창을 채우고 포커스만 주는 동작이었다.
  */
 export function SuggestionPill({ label, onClick }: SuggestionPillProps) {
   return (

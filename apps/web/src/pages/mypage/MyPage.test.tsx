@@ -173,7 +173,7 @@ describe("MyPage", () => {
     expect(screen.getByText("지민")).toBeInTheDocument();
   });
 
-  it("오버레이는 read-only다 — '새 문제' 배지와 후속 질문 입력창을 렌더링하지 않는다", async () => {
+  it("오버레이는 read-only다 — 후속 질문 입력창을 렌더링하지 않는다(헤더의 '새 문제' 배지는 오너 결정으로 완전히 삭제됨, 2026-09)", async () => {
     vi.mocked(listProblemHistory).mockResolvedValue({ items: ITEMS });
     vi.mocked(getProblemHistoryDetail).mockResolvedValue(DETAIL);
     renderMyPage();

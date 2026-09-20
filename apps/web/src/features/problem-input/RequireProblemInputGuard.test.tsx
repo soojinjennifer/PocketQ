@@ -34,7 +34,6 @@ function createContextValue(
     hasProblemInput: false,
     lastInputType: null,
     isRequestingReinput: false,
-    beginReinput: () => undefined,
     startNewProblem: () => undefined,
     recognizeStatus: "idle",
     problemId: null,
@@ -54,6 +53,7 @@ function createContextValue(
     resetSubmission: () => undefined,
     cancelRecognition: () => undefined,
     beginRecognitionEdit: () => undefined,
+    returnToWorkFromResult: () => undefined,
     chatMessages: [],
     chatStatus: "idle",
     chatErrorMessage: null,
@@ -136,7 +136,7 @@ describe("RequireProblemInputGuard", () => {
     await waitFor(() => expect(screen.queryByText("CameraPage")).not.toBeInTheDocument());
   });
 
-  it("isRequestingReinput이면(결과 화면 '수정' 확인 직후) 입력이 없어도 튕기지 않는다(예외 3)", async () => {
+  it("isRequestingReinput이면(RESULT 단계 '새 문제 풀기' 직후 과도기) 입력이 없어도 튕기지 않는다(예외 3)", async () => {
     renderGuard(createContextValue({ isRequestingReinput: true }), "/solve/landscape");
 
     expect(screen.getByText("LandscapePage")).toBeInTheDocument();
