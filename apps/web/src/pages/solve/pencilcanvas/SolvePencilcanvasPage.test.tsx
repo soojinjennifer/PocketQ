@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ProblemInputContext,
   type ProblemInputContextValue,
 } from "../../../features/problem-input/ProblemInputContext";
+import type { PreparePhotoResult } from "../../../features/problem-input/preparePhotoForUpload";
 import { SolvePencilcanvasPage } from "./SolvePencilcanvasPage";
+
+// 사진 업로드(INPUT-4)의 실제 디코딩/캔버스 인코딩은 jsdom에서 불가능하므로 검증+정규화 단계를 모킹한다.
+const { mockPreparePhoto } = vi.hoisted(() => ({
+  mockPreparePhoto: vi.fn<(file: File) => Promise<PreparePhotoResult>>(),
+}));
+vi.mock("../../../features/problem-input/preparePhotoForUpload", () => ({
+  preparePhotoForUpload: (file: File) => mockPreparePhoto(file),
+}));
 
 /** `RequireProblemInputGuard.test.tsx`와 동일한 최소 컨텍스트 베이스 — 이 페이지가 실제로 읽는
  *  필드만 테스트별로 override한다. */
@@ -898,6 +907,243 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     expect(
       screen.queryByRole("button", { name: "사진으로 문제 인식" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+/** 실제 Provider 없이 `capturedImage`만 상태로 흉내 내는 하니스 — 업로드 성공 후 토글/문제 카드 반영을
+ *  검증한다(`setCapturedImage`/`clearCapturedImage`가 이 상태를 바꾼다). */
+function UploadHarness({
+  onSetCapturedImage,
+  onClearCapturedImage,
+}: {
+  onSetCapturedImage?: (blob: Blob) => void;
+  onClearCapturedImage?: () => void;
+}) {
+  const [capturedImage, setImage] = useState<ProblemInputContextValue["capturedImage"]>(null);
+  const value = createContextValue({
+    capturedImage,
+    hasProblemInput: capturedImage !== null,
+    setCapturedImage: (blob) => {
+      onSetCapturedImage?.(blob);
+      setImage({ blob, previewUrl: "blob:uploaded-preview" });
+    },
+    clearCapturedImage: () => {
+      onClearCapturedImage?.();
+      setImage(null);
+    },
+  });
+  return (
+    <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+      <ProblemInputContext.Provider value={value}>
+        <Routes>
+          <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          <Route path="/camera" element={<div>CameraPage</div>} />
+        </Routes>
+      </ProblemInputContext.Provider>
+      {/* 인식 취소 등 외부 요인으로 사진이 지워지는 상황을 재현한다. */}
+      <button type="button" onClick={() => setImage(null)}>
+        외부-사진-삭제
+      </button>
+    </MemoryRouter>
+  );
+}
+
+function pickFile(files: File[]) {
+  const input = screen.getByTestId("photo-upload-input");
+  Object.defineProperty(input, "files", { value: files, configurable: true });
+  fireEvent.change(input);
+}
+
+describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
+  beforeEach(() => {
+    mockPreparePhoto.mockReset();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  // `HTMLInputElement.prototype.click` spy가 테스트 간 호출 횟수를 누적하지 않도록 복원한다.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const photoFile = () => new File(["x"], "a.jpg", { type: "image/jpeg" });
+
+  it("'사진 업로드' 탭은 동기적으로 파일 input을 열고 /camera로 이동하지 않으며 모드도 바꾸지 않는다", () => {
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+    render(<UploadHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "사진 업로드" }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("파일 input은 capture 없이 image/*만 받는다", () => {
+    render(<UploadHarness />);
+
+    const input = screen.getByTestId("photo-upload-input");
+    expect(input).toHaveAttribute("accept", "image/*");
+    expect(input).not.toHaveAttribute("capture");
+  });
+
+  it("사진을 고르면 setCapturedImage가 호출되고 '사진 업로드'가 선택되며 문제 카드에 표시된다(자동 인식 없음)", async () => {
+    const jpeg = new Blob(["j"], { type: "image/jpeg" });
+    mockPreparePhoto.mockResolvedValue({ ok: true, blob: jpeg });
+    const onSetCapturedImage = vi.fn();
+    render(<UploadHarness onSetCapturedImage={onSetCapturedImage} />);
+
+    pickFile([photoFile()]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+    expect(onSetCapturedImage).toHaveBeenCalledWith(jpeg);
+    expect(screen.getByAltText("촬영한 문제")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "문제 인식하기" })).toBeEnabled();
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+  });
+
+  it("처리 중에는 '사진을 불러오는 중' 로딩 표시가 나타났다 사라진다", async () => {
+    let resolvePrepare!: (result: PreparePhotoResult) => void;
+    mockPreparePhoto.mockReturnValue(
+      new Promise<PreparePhotoResult>((resolve) => {
+        resolvePrepare = resolve;
+      }),
+    );
+    render(<UploadHarness />);
+
+    pickFile([photoFile()]);
+
+    expect(await screen.findByText("사진을 불러오는 중")).toBeInTheDocument();
+    resolvePrepare({ ok: true, blob: new Blob(["j"]) });
+    await waitFor(() => expect(screen.queryByText("사진을 불러오는 중")).not.toBeInTheDocument());
+  });
+
+  it("처리 중에는 다른 탭을 눌러도 무시되어 곧 도착할 사진이 마지막 선택을 뒤집지 않는다", async () => {
+    let resolvePrepare!: (result: PreparePhotoResult) => void;
+    mockPreparePhoto.mockReturnValue(
+      new Promise<PreparePhotoResult>((resolve) => {
+        resolvePrepare = resolve;
+      }),
+    );
+    const onClearCapturedImage = vi.fn();
+    render(<UploadHarness onClearCapturedImage={onClearCapturedImage} />);
+
+    pickFile([photoFile()]);
+    await screen.findByText("사진을 불러오는 중");
+
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    expect(onClearCapturedImage).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    resolvePrepare({ ok: true, blob: new Blob(["j"]) });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "true"),
+    );
+  });
+
+  it("선택 창을 취소하면(files 없음) 아무 변화도 없다", () => {
+    const onSetCapturedImage = vi.fn();
+    render(<UploadHarness onSetCapturedImage={onSetCapturedImage} />);
+
+    pickFile([]);
+
+    expect(mockPreparePhoto).not.toHaveBeenCalled();
+    expect(onSetCapturedImage).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["not-image", "사진 파일만 올릴 수 있어요. 다른 파일을 선택해 주세요."],
+    ["decode-failed", "사진을 읽을 수 없어요. 다른 사진을 선택해 주세요."],
+    ["too-large", "사진 용량이 너무 커요. 더 작은 사진을 선택해 주세요."],
+  ] as const)("%s 오류면 안내 모달을 띄우고 기존 입력/모드를 유지하며 확인으로 닫힌다", async (kind, message) => {
+    mockPreparePhoto.mockResolvedValue({ ok: false, kind });
+    const onSetCapturedImage = vi.fn();
+    render(<UploadHarness onSetCapturedImage={onSetCapturedImage} />);
+
+    pickFile([photoFile()]);
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent(message);
+    expect(onSetCapturedImage).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("사진이 있는 상태에서 '필기로 문제 인식'을 누르면 clearCapturedImage가 호출되어 사진이 지워진다", async () => {
+    mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
+    const onClearCapturedImage = vi.fn();
+    render(<UploadHarness onClearCapturedImage={onClearCapturedImage} />);
+    pickFile([photoFile()]);
+    await screen.findByAltText("촬영한 문제");
+
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    expect(onClearCapturedImage).toHaveBeenCalledTimes(1);
+    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("사진이 없을 때 '필기로 문제 인식'을 눌러도 clearCapturedImage를 호출하지 않는다", () => {
+    const onClearCapturedImage = vi.fn();
+    render(<UploadHarness onClearCapturedImage={onClearCapturedImage} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    expect(onClearCapturedImage).not.toHaveBeenCalled();
+  });
+
+  it("업로드 후 사진이 외부에서 지워지면(예: 인식 취소) 표시 모드가 '사진으로 문제 인식'으로 돌아간다", async () => {
+    mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
+    render(<UploadHarness />);
+    pickFile([photoFile()]);
+    await screen.findByAltText("촬영한 문제");
+    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "외부-사진-삭제" }));
+
+    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("이미 업로드된 상태에서 '사진 업로드'를 다시 눌러도 항상 선택 창을 다시 연다", async () => {
+    mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+    render(<UploadHarness />);
+    pickFile([photoFile()]);
+    await screen.findByAltText("촬영한 문제");
+
+    fireEvent.click(screen.getByRole("button", { name: "사진 업로드" }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
   });
 });
 

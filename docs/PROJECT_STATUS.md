@@ -668,6 +668,10 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 **검증**: `render.yaml`을 Render에 실제로 업로드해 검증하지는 못함(계정 접근 권한 없음, 문서에 이 한계 명시) — 대신 로컬에서 직접 검증 가능한 것은 전부 실행: (1) YAML 문법 유효성(`python3 -c "import yaml; yaml.safe_load(...)"`), (2) `pocketq-web` 빌드 명령(`pnpm --filter shared-types --filter validation --filter web build`)을 그대로 실행해 성공 확인, (3) `pocketq-api` 시작 명령(`pnpm --filter api start`)을 Render 런타임과 동일하게 `.env` 파일 없이 환경변수만 주입해 실행, `/health` 200 응답 확인, (4) `pnpm typecheck && pnpm lint && pnpm test && pnpm build`(루트, 전체) 재실행 — `apps/api/package.json` 변경(tsx 이동, `start` 스크립트 추가) 이후에도 전부 통과(api 330/330, web 476/476).
 
+### 3.39 INPUT "사진 업로드" 입력 방식 구현 (INPUT-4, 2026-09, 미커밋)
+
+`InputModeToggle` 3분할(사진으로 문제 인식 / 사진 업로드 / 필기로 문제 인식, 구분선 2개는 `accent-green` 재사용) + 숨은 파일 input(`features/problem-input/usePhotoUpload.ts`, `preparePhotoForUpload.ts`, `shared/lib/image/reencodeImageToJpeg.ts`) + `SolvePencilcanvasPage` 조립. 업로드 사진은 클라이언트에서 긴 변 1568px 이하 JPEG로 정규화되어 서버 관점에서 `inputType=photo`와 동일하다(서버/`packages/*`/카메라 라우트 무변경). "필기로 문제 인식" 탭 선택 시 올라간 사진을 지운다. 실기기(iPad 홈화면 PWA 파일 선택 시트, HEIC, EXIF 회전, 대용량 처리 시간, `.solve-viewport-lock` 회귀, 토글 겹침) 확인은 아직 필요하다. 에러 안내 문구는 오너 미확정 초안.
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.

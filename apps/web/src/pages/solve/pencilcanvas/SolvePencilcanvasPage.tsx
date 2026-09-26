@@ -7,6 +7,8 @@ import {
 } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
+import type { PhotoUploadErrorKind } from "../../../features/problem-input/preparePhotoForUpload";
+import { usePhotoUpload } from "../../../features/problem-input/usePhotoUpload";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { EmptyStateHint } from "../../../features/solve-session/EmptyStateHint";
@@ -40,13 +42,20 @@ import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
  * 패턴). solve()는 호출하지 않으므로 "봐 주세요"/"아직 못 풀겠어요"를 눌러야 다음 단계로 넘어간다.
  */
 
+/** 사진 업로드(INPUT-4) 실패 안내 문구 — 오너 미확정 초안(Figma 없음). */
+const PHOTO_UPLOAD_ERROR_MESSAGE: Record<PhotoUploadErrorKind, string> = {
+  "not-image": "사진 파일만 올릴 수 있어요. 다른 파일을 선택해 주세요.",
+  "decode-failed": "사진을 읽을 수 없어요. 다른 사진을 선택해 주세요.",
+  "too-large": "사진 용량이 너무 커요. 더 작은 사진을 선택해 주세요.",
+};
+
 /**
  * INPUT 단계 `EmptyStateHint` 문구 — `InputModeToggle`(사진/필기) 선택에 따라 분기한다(Figma 원문
  * 그대로, 오너 확정). 공백/구두점을 임의로 정리하지 않는다: `photo.subtitle`은 "찍고"와 "하단에"
  * 사이 공백 2칸, `handwriting.title`은 끝에 공백 2칸, `handwriting.subtitle`은 "후" 다음 붙여쓰기를
  * Figma 원문 그대로 유지한다.
  */
-const INPUT_EMPTY_STATE_HINT: Record<InputMode, { title: string; subtitle: string }> = {
+const INPUT_EMPTY_STATE_HINT: Record<Exclude<InputMode, "upload">, { title: string; subtitle: string }> = {
   photo: {
     title: "문제집을 사진으로 찍어서 올리세요",
     subtitle:
@@ -70,6 +79,7 @@ export function SolvePencilcanvasPage() {
   const location = useLocation();
   const {
     capturedImage,
+    clearCapturedImage,
     lastInputType,
     strokes,
     tool,
@@ -117,17 +127,44 @@ export function SolvePencilcanvasPage() {
     : null;
   const isWorkStage = problemId !== null;
 
-  // 사진/필기 입력 토글(`InputModeToggle`, Figma `342-833`, 오너 UX 결정) — INPUT 단계 전용. "사진"
-  // 탭을 누르면 기존 `CameraRailButton`이 하던 것과 동일하게 `/camera`로 이동한다(카메라는 자동
-  // 호출되지 않는다, 사용자가 명시적으로 탭을 눌러야 한다). "필기" 탭을 누르면 라우팅 없이
-  // `EmptyStateHint`의 안내 문구만 필기 전용으로 바뀐다.
+  // 사진/업로드/필기 입력 토글(`InputModeToggle`, Figma `342-833`, 오너 UX 결정) — INPUT 단계 전용.
+  // "사진" 탭을 누르면 `/camera`로 이동한다(카메라는 자동 호출되지 않는다, 사용자가 명시적으로 탭을
+  // 눌러야 한다). "사진 업로드" 탭은 라우팅 없이 기기 사진 선택 창만 연다(INPUT-4). "필기" 탭을 누르면
+  // 라우팅 없이 `EmptyStateHint`의 안내 문구만 필기 전용으로 바뀐다.
   const [inputMode, setInputMode] = useState<InputMode>("photo");
+  const {
+    openPicker,
+    inputProps: photoUploadInputProps,
+    isProcessing: isUploadProcessing,
+    errorKind: photoUploadErrorKind,
+    dismissError: dismissPhotoUploadError,
+  } = usePhotoUpload({ onUploaded: () => setInputMode("upload") });
   const handleSelectInputMode = (mode: InputMode) => {
+    // 업로드 처리 중(수백 ms)에 다른 탭을 누르면, 곧 도착할 사진이 `onUploaded`로 마지막 선택을
+    // 뒤집어 버린다 — 처리가 끝날 때까지 모든 탭 입력을 무시한다.
+    if (isUploadProcessing) {
+      return;
+    }
+    if (mode === "upload") {
+      // 탭 핸들러 안에서 동기적으로 선택 창을 열어야 iOS가 막지 않는다. 모드는 사진이 실제로
+      // 올라간 뒤(`onUploaded`)에만 바꾼다 — 선택 창을 취소해도 이전 모드가 유지된다.
+      openPicker();
+      return;
+    }
     setInputMode(mode);
     if (mode === "photo") {
       void navigate("/camera");
+      return;
+    }
+    // 선택한 모드와 실제 인식 입력이 어긋나지 않도록 올라간 사진(촬영/업로드 공통)을 지운다.
+    if (capturedImage !== null) {
+      clearCapturedImage();
     }
   };
+  // 업로드 후 "인식 취소" 등으로 사진이 지워졌는데 "사진 업로드"가 선택된 채 남는 어긋남을 막는다.
+  const displayInputMode: InputMode =
+    inputMode === "upload" && capturedImage === null ? "photo" : inputMode;
+  const hintMode = displayInputMode === "upload" ? "photo" : displayInputMode;
   // INPUT 캔버스도 WORK 캔버스와 동일하게 `scrollable`로 전환한다(오너 결정, 2026-09 — "항상
   // disabled 상시 표시"가 아니라 "실제 스크롤 가능 여부 기반"으로 통일). `inputCanvasRef`는 WORK
   // 단계의 `workCanvasRef`와 동일한 역할로 실제 `<HandwritingCanvas>`에 연결되고, `SolveScroll`의
@@ -291,11 +328,14 @@ export function SolvePencilcanvasPage() {
     <div className="bg-canvas-texture solve-no-callout relative h-dvh">
       <SolveHeader />
 
+      {/* 사진 업로드용 숨은 파일 input(INPUT-4) — "사진 업로드" 탭이 `openPicker()`로 연다. */}
+      <input {...photoUploadInputProps} />
+
       {/* 사진/필기 입력 토글(INPUT 단계 전용) — NavTabBar(top-6=24px + 실측 높이 42px) 바로 아래
       12px 간격(Figma 실측)에 화면 상단 중앙으로 배치한다: 24+42+12=78px. */}
       {!isWorkStage ? (
         <div className="absolute inset-x-0 top-[78px] z-10 mx-auto w-fit">
-          <InputModeToggle mode={inputMode} onSelectMode={handleSelectInputMode} />
+          <InputModeToggle mode={displayInputMode} onSelectMode={handleSelectInputMode} />
         </div>
       ) : null}
 
@@ -398,16 +438,18 @@ export function SolvePencilcanvasPage() {
             </>
           )}
 
-          {isRecognizing || isRecognizingWork || isDiagnosing ? (
+          {isUploadProcessing || isRecognizing || isRecognizingWork || isDiagnosing ? (
             <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
               <LoadingMark
                 size={48}
                 label={
-                  isRecognizing
-                    ? "문제를 인식하는 중"
-                    : isRecognizingWork
-                      ? "풀이를 인식하는 중"
-                      : "진단하는 중"
+                  isUploadProcessing
+                    ? "사진을 불러오는 중"
+                    : isRecognizing
+                      ? "문제를 인식하는 중"
+                      : isRecognizingWork
+                        ? "풀이를 인식하는 중"
+                        : "진단하는 중"
                 }
               />
             </div>
@@ -433,8 +475,8 @@ export function SolvePencilcanvasPage() {
           {!isWorkStage && problemCardData === null && strokes.length === 0 ? (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mx-auto w-fit -translate-y-1/2">
               <EmptyStateHint
-                title={INPUT_EMPTY_STATE_HINT[inputMode].title}
-                subtitle={INPUT_EMPTY_STATE_HINT[inputMode].subtitle}
+                title={INPUT_EMPTY_STATE_HINT[hintMode].title}
+                subtitle={INPUT_EMPTY_STATE_HINT[hintMode].subtitle}
               />
             </div>
           ) : null}
@@ -485,7 +527,9 @@ export function SolvePencilcanvasPage() {
           <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
             <ActionBar
               problemId={problemId}
-              hasProblemInput={hasProblemInput}
+              // 업로드 처리 중에는 이전 사진(또는 필기)으로 인식이 시작돼 곧 교체될 사진과 어긋나지
+              // 않도록 "문제 인식하기"를 비활성으로 둔다.
+              hasProblemInput={hasProblemInput && !isUploadProcessing}
               hasWorkInput={hasWorkInput}
               recognizeStatus={recognizeStatus}
               solveStatus={solveStatus}
@@ -502,7 +546,15 @@ export function SolvePencilcanvasPage() {
             />
           </div>
 
-          {isRecognizeError ? (
+          {photoUploadErrorKind !== null ? (
+            <Modal
+              icon="error"
+              title="사진을 올리지 못했습니다"
+              description={PHOTO_UPLOAD_ERROR_MESSAGE[photoUploadErrorKind]}
+              actionLabel="확인"
+              onAction={dismissPhotoUploadError}
+            />
+          ) : isRecognizeError ? (
             <Modal
               icon="error"
               title="문제를 인식하지 못했습니다"

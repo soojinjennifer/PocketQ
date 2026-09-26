@@ -21,7 +21,7 @@
 | `brand/indigo` (`accent/primary`) | `#5e6e82` | `--color-brand` | `colors-pastel.css`의 `--brand` (동일 값) |
 | `accent/primary-deep` | `#46536a` | `--color-brand-deep` | `colors-pastel.css`의 `--brand-deep` (동일 값) |
 | `brand/tint`(불투명) | `#c3ccd9` | `--color-brand-tint` | 신규. 2026-09 design-agent Figma 실측(`255:96` 이어풀기 최종 답 배너). 기존 `--color-fill-tint-brand`(반투명 `#5e6e8229`)와는 다른 별도 토큰 |
-| `accent/green` | `#6fa898` | `--color-accent-green` | `colors-pastel.css`의 `--accents-green` (동일 값) |
+| `accent/green` | `#6fa898` | `--color-accent-green` | `colors-pastel.css`의 `--accents-green` (동일 값) ; `InputModeToggle` 세그먼트 사이 세로 구분선(Figma `#6FA898`)도 이 토큰을 재사용(신규 토큰 없음) |
 | `accent/purple` | `#9a93b0` | `--color-accent-purple` | `colors-pastel.css`의 `--accents-purple` (동일 값) |
 | `accent/orange` | `#d9a05b` | `--color-accent-orange` | `colors-pastel.css`의 `--accents-orange` (동일 값) |
 | `accent/yellow` | `#dcc08a` | `--color-accent-yellow` | `colors-pastel.css`의 `--accents-yellow` (동일 값) |
