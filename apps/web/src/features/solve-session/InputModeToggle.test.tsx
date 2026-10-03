@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { InputModeToggle } from "./InputModeToggle";
 
 describe("InputModeToggle", () => {
-  it("세 세그먼트 버튼을 '사진으로 문제 인식' → '사진 업로드' → '필기로 문제 인식' 순서로 렌더링한다", () => {
+  it("세 세그먼트 버튼을 '카메라로 문제인식' → '사진 업로드' → '필기로 문제 인식' 순서로 렌더링한다", () => {
     render(<InputModeToggle mode="photo" onSelectMode={() => undefined} />);
 
     const labels = screen.getAllByRole("button").map((button) => button.textContent);
-    expect(labels).toEqual(["사진으로 문제 인식", "사진 업로드", "필기로 문제 인식"]);
+    expect(labels).toEqual(["카메라로 문제인식", "사진 업로드", "필기로 문제 인식"]);
   });
 
   it("'사진 업로드'를 클릭하면 onSelectMode('upload')가 호출된다", () => {
@@ -21,7 +21,7 @@ describe("InputModeToggle", () => {
   });
 
   it.each([
-    ["photo", "사진으로 문제 인식"],
+    ["photo", "카메라로 문제인식"],
     ["upload", "사진 업로드"],
     ["handwriting", "필기로 문제 인식"],
   ] as const)("mode='%s'이면 '%s'만 aria-pressed=true이고 선택 스타일을 갖는다", (mode, selectedLabel) => {
@@ -67,20 +67,20 @@ describe("InputModeToggle", () => {
     expect(handleSelectMode).toHaveBeenCalledWith("handwriting");
   });
 
-  it("'사진으로 문제 인식'을 클릭하면 onSelectMode('photo')가 호출된다", () => {
+  it("'카메라로 문제인식'을 클릭하면 onSelectMode('photo')가 호출된다", () => {
     const handleSelectMode = vi.fn();
     render(<InputModeToggle mode="handwriting" onSelectMode={handleSelectMode} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    fireEvent.click(screen.getByRole("button", { name: "카메라로 문제인식" }));
 
     expect(handleSelectMode).toHaveBeenCalledTimes(1);
     expect(handleSelectMode).toHaveBeenCalledWith("photo");
   });
 
-  it("mode='photo'면 '사진으로 문제 인식'이 선택 스타일(bg-bg-canvas)과 aria-pressed=true를 갖는다", () => {
+  it("mode='photo'면 '카메라로 문제인식'이 선택 스타일(bg-bg-canvas)과 aria-pressed=true를 갖는다", () => {
     render(<InputModeToggle mode="photo" onSelectMode={() => undefined} />);
 
-    const photoButton = screen.getByRole("button", { name: "사진으로 문제 인식" });
+    const photoButton = screen.getByRole("button", { name: "카메라로 문제인식" });
     const handwritingButton = screen.getByRole("button", { name: "필기로 문제 인식" });
 
     expect(photoButton).toHaveAttribute("aria-pressed", "true");
@@ -94,7 +94,7 @@ describe("InputModeToggle", () => {
   it("mode='handwriting'이면 '필기로 문제 인식'이 선택 스타일과 aria-pressed=true를 갖는다", () => {
     render(<InputModeToggle mode="handwriting" onSelectMode={() => undefined} />);
 
-    const photoButton = screen.getByRole("button", { name: "사진으로 문제 인식" });
+    const photoButton = screen.getByRole("button", { name: "카메라로 문제인식" });
     const handwritingButton = screen.getByRole("button", { name: "필기로 문제 인식" });
 
     expect(handwritingButton).toHaveAttribute("aria-pressed", "true");

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { exportStrokesToJpegBlob } from "../../../shared/lib/canvas/exportStrokesToJpegBlob";
+import { CANVAS_OCCLUDER_PROPS } from "../../../shared/lib/canvas/useOccluderMask";
 import {
   HandwritingCanvas,
   type HandwritingCanvasHandle,
@@ -334,7 +335,7 @@ export function SolvePencilcanvasPage() {
       {/* 사진/필기 입력 토글(INPUT 단계 전용) — NavTabBar(top-6=24px + 실측 높이 42px) 바로 아래
       12px 간격(Figma 실측)에 화면 상단 중앙으로 배치한다: 24+42+12=78px. */}
       {!isWorkStage ? (
-        <div className="absolute inset-x-0 top-[78px] z-10 mx-auto w-fit">
+        <div {...CANVAS_OCCLUDER_PROPS} className="absolute inset-x-0 top-[78px] z-10 mx-auto w-fit">
           <InputModeToggle mode={displayInputMode} onSelectMode={handleSelectInputMode} />
         </div>
       ) : null}
@@ -364,6 +365,7 @@ export function SolvePencilcanvasPage() {
                 onScrollRatioChange={setWorkScrollRatio}
                 onScrollableChange={setIsWorkScrollable}
                 scrollable
+                maskOccluders
               />
               {/* PenRail+SolveScroll 그룹 컨테이너(오너 iPad 실기기 보고 수정) — PenRail을
               `positioned={false}`로 위치 클래스 없이 렌더링하고, 이 컨테이너가 대신
@@ -371,7 +373,7 @@ export function SolvePencilcanvasPage() {
               `gap-[14px]`는 Figma 실측값(PenRail/SolveScroll 간 간격, work-order PenRail 5버튼
               재구성 반영). 카메라 진입은 더 이상 `CameraRailButton`이 아니라 상단 `InputModeToggle`
               "사진" 탭이 담당한다(2026-09, 사진/필기 토글로 대체). */}
-              <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+              <div {...CANVAS_OCCLUDER_PROPS} className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
                 <PenRail
                   positioned={false}
                   activeTool={workTool}
@@ -407,6 +409,7 @@ export function SolvePencilcanvasPage() {
                 onScrollRatioChange={setInputScrollRatio}
                 onScrollableChange={setIsInputScrollable}
                 scrollable
+                maskOccluders
                 // INPUT 단계는 문제 하나만 짧게 입력해 WORK 단계 기본값(85%)까지 거의 도달하지 못하고
                 // `SolveScroll`이 계속 비활성으로 남는 오너 실기기 피드백(2026-09)이 있어, 화면 높이
                 // 45% 지점에 필기가 닿으면 곧바로 한 뷰포트 늘어나며 스크롤 가능 상태가 되도록 낮췄다.
@@ -418,7 +421,7 @@ export function SolvePencilcanvasPage() {
               WORK 캔버스와 동일한 `scrollable` 코드 경로를 타므로(오너 결정, 2026-09) `SolveScroll`은
               항상 `disabled`가 아니라 WORK 단계와 동일하게 실제 스크롤 가능 여부(`isInputScrollable`)를
               반영한다. */}
-              <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
+              <div {...CANVAS_OCCLUDER_PROPS} className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
                 <PenRail
                   positioned={false}
                   activeTool={tool}
@@ -490,7 +493,7 @@ export function SolvePencilcanvasPage() {
           아니라 유도값 — top-[90px] + ActionBar 하단 예약 공간을 고려해 안전 마진으로 선택한
           값이다. `pointer-events-auto`로 카드 스크롤/탭이 정상 동작하게 한다. */}
           {!isWorkStage && problemCardData !== null ? (
-            <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
+            <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
               <ProblemCard data={problemCardData} />
             </div>
           ) : null}
@@ -505,7 +508,7 @@ export function SolvePencilcanvasPage() {
           바꾼다 — 이전에는 축소=화면 상단 중앙, 확장=PenRail 우측으로 서로 다른 DOM 위치에
           마운트되어 토글할 때마다 언마운트/재마운트가 일어나 포커스가 유실됐다. */}
           {isWorkStage && recognizedText ? (
-            <div className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto w-[400px] max-w-[calc(100%-3rem)]">
+            <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto w-[400px] max-w-[calc(100%-3rem)]">
               <RecognizedChip
                 recognizedText={recognizedText}
                 isExpanded={isRecognizedChipExpanded}
@@ -524,7 +527,7 @@ export function SolvePencilcanvasPage() {
           `127:445` 내부) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
           40px 여백. iPad Safari 하단 툴바/홈 인디케이터에 가려지는 문제까지 함께 방지하기 위해
           세이프에어리어 inset도 더해서 실제 화면 여백은 항상 최소 40px 이상이 되도록 한다. */}
-          <div className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
+          <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
             <ActionBar
               problemId={problemId}
               // 업로드 처리 중에는 이전 사진(또는 필기)으로 인식이 시작돼 곧 교체될 사진과 어긋나지

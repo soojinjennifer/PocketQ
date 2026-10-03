@@ -824,7 +824,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     );
   });
 
-  it("INPUT 단계 기본값은 '사진으로 문제 인식'이 선택되어 있고 사진 전용 안내 문구를 보여준다", () => {
+  it("INPUT 단계 기본값은 '카메라로 문제인식'이 선택되어 있고 사진 전용 안내 문구를 보여준다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
         <ProblemInputContext.Provider value={createContextValue()}>
@@ -835,7 +835,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -847,7 +847,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     ).toBeInTheDocument();
   });
 
-  it("'사진으로 문제 인식' 탭을 클릭하면 /camera로 이동한다", () => {
+  it("'카메라로 문제인식' 탭을 클릭하면 /camera로 이동한다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
         <ProblemInputContext.Provider value={createContextValue()}>
@@ -859,7 +859,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    fireEvent.click(screen.getByRole("button", { name: "카메라로 문제인식" }));
 
     expect(screen.getByText("CameraPage")).toBeInTheDocument();
   });
@@ -905,7 +905,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     );
 
     expect(
-      screen.queryByRole("button", { name: "사진으로 문제 인식" }),
+      screen.queryByRole("button", { name: "카메라로 문제인식" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -978,7 +978,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1062,7 +1062,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
 
     expect(mockPreparePhoto).not.toHaveBeenCalled();
     expect(onSetCapturedImage).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1083,7 +1083,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(message);
     expect(onSetCapturedImage).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1118,7 +1118,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     expect(onClearCapturedImage).not.toHaveBeenCalled();
   });
 
-  it("업로드 후 사진이 외부에서 지워지면(예: 인식 취소) 표시 모드가 '사진으로 문제 인식'으로 돌아간다", async () => {
+  it("업로드 후 사진이 외부에서 지워지면(예: 인식 취소) 표시 모드가 '카메라로 문제인식'으로 돌아간다", async () => {
     mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
     render(<UploadHarness />);
     pickFile([photoFile()]);
@@ -1128,7 +1128,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "외부-사진-삭제" }));
 
     expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );

@@ -17,6 +17,7 @@ import {
 } from "../../shared/lib/canvas/pointerDebugLog";
 import { isExplicitPointerCaptureEnabled } from "../../shared/lib/canvas/pointerCaptureMode";
 import { isDirectRenderModeEnabled } from "../../shared/lib/canvas/renderMode";
+import { useOccluderMask } from "../../shared/lib/canvas/useOccluderMask";
 
 interface HandwritingCanvasProps {
   strokes: Stroke[];
@@ -65,6 +66,12 @@ interface HandwritingCanvasProps {
    * 상태로 남는 오너 실기기 피드백(2026-09)이 있어, 이 단계 호출부에서만 더 낮은 값을 주입한다.
    */
   growthThresholdRatio?: number;
+  /**
+   * `true`면 같은 부모 안에서 `CANVAS_OCCLUDER_PROPS`가 붙은 오버레이(버튼/탭 등) 영역의 잉크를
+   * 가린다(`useOccluderMask` 참고) — 스크롤 시 필기가 반투명 버튼 위로 겹쳐 보이던 오너 실기기
+   * 보고(2026-10) 대응. 기본값 `false`.
+   */
+  maskOccluders?: boolean;
 }
 
 /**
@@ -224,6 +231,7 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       onScrollRatioChange,
       onScrollableChange,
       growthThresholdRatio = SCROLL_GROWTH_THRESHOLD_RATIO,
+      maskOccluders = false,
     },
     ref,
   ) {
@@ -1202,6 +1210,33 @@ export const HandwritingCanvas = forwardRef<HandwritingCanvasHandle, Handwriting
       }
       void isStale;
     }
+
+    useOccluderMask(outerRef, maskOccluders);
+
+    // iPadOS 손글씨 입력(Scribble)이 Apple Pencil 획을 시스템 레벨에서 가로채, 빠르게 연속으로 쓸 때
+    // 다음 획의 pointerdown/pointermove가 웹페이지에 아예 도착하지 않는 WebKit 문제(iPadOS 14+,
+    // `<canvas>`에서도 발생)를 막는다. CSS `touch-action: none`만으로는 막히지 않고, passive가 아닌
+    // 네이티브 touchstart/touchmove 리스너에서 `preventDefault()`를 호출해야 한다 — React의
+    // `onTouchStart`는 passive로 등록돼 `preventDefault`가 무시되므로 직접 `addEventListener`한다.
+    // pointer 이벤트는 touch 이벤트보다 먼저 발생해 이 처리의 영향을 받지 않고, 손가락 스크롤은
+    // 원래부터 pointer 이벤트로 JS가 직접 구동하므로 함께 막아도 동작이 바뀌지 않는다(2026-10 재분석).
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      const preventSystemGesture = (event: TouchEvent) => {
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+      };
+      canvas.addEventListener("touchstart", preventSystemGesture, { passive: false });
+      canvas.addEventListener("touchmove", preventSystemGesture, { passive: false });
+      return () => {
+        canvas.removeEventListener("touchstart", preventSystemGesture);
+        canvas.removeEventListener("touchmove", preventSystemGesture);
+      };
+    }, []);
 
     // 마운트/언마운트 시점을 디버그 로그에 남긴다(비활성 상태면 `logPointerEvent` 내부에서 no-op).
     useEffect(() => {

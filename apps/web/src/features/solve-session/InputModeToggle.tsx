@@ -9,7 +9,7 @@ interface InputModeToggleProps {
 }
 
 const SEGMENT_LABEL: Record<InputMode, string> = {
-  photo: "사진으로 문제 인식",
+  photo: "카메라로 문제인식",
   upload: "사진 업로드",
   handwriting: "필기로 문제 인식",
 };
@@ -53,11 +53,11 @@ function SegmentDivider() {
 
 /**
  * Figma `Input Mode Toggle`(node `342-833`, fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) —
- * `/solve/pencilcanvas` INPUT 단계 전용 "사진으로 문제 인식" / "사진 업로드" / "필기로 문제 인식"
+ * `/solve/pencilcanvas` INPUT 단계 전용 "카메라로 문제인식" / "사진 업로드" / "필기로 문제 인식"
  * 3분할 세그먼트 토글. NavTabBar 바로 아래 화면 상단 중앙에 배치된다(배치는 이
  * 컴포넌트를 쓰는 페이지가 담당한다, `PenRail`/`SolveHeader`와 동일한 패턴).
  *
- * 오너 UX 결정(2026-09): "사진으로 문제 인식"이 시각적으로 강조돼 있을 뿐, 카메라는 자동
+ * 오너 UX 결정(2026-09): "카메라로 문제인식"이 시각적으로 강조돼 있을 뿐, 카메라는 자동
  * 호출되지 않는다 — 사용자가 이 탭을 명시적으로 눌러야 상위(`SolvePencilcanvasPage`)가
  * `navigate("/camera")`를 실행한다. "사진 업로드"는 상위가 숨은 파일 input을 열어 기기의 사진
  * 선택 창을 띄운다(INPUT-4). 이 컴포넌트 자체는 라우팅/파일 로직을 갖지 않고 `onSelectMode`만

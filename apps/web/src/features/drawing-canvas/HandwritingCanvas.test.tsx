@@ -2045,3 +2045,26 @@ describe("HandwritingCanvas — 렌더링 파이프라인 계측(offscreen-cache
     expect(vi.mocked(logPointerEvent)).not.toHaveBeenCalled();
   });
 });
+
+describe("HandwritingCanvas iPadOS Scribble 차단", () => {
+  it("canvas의 touchstart/touchmove를 preventDefault해 시스템 손글씨 입력이 Pencil 획을 가로채지 못하게 한다", () => {
+    const { container } = render(<HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={() => {}} />);
+    const canvas = container.querySelector("canvas") as HTMLCanvasElement;
+
+    for (const type of ["touchstart", "touchmove"]) {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      canvas.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    }
+  });
+
+  it("touch 리스너는 passive:false로 등록된다(passive면 preventDefault가 무시된다)", () => {
+    const addEventListenerSpy = vi.spyOn(HTMLCanvasElement.prototype, "addEventListener");
+    render(<HandwritingCanvas strokes={[]} tool="pen" onCommitStroke={() => {}} />);
+    for (const type of ["touchstart", "touchmove"]) {
+      expect(addEventListenerSpy).toHaveBeenCalledWith(type, expect.any(Function), { passive: false });
+    }
+    addEventListenerSpy.mockRestore();
+  });
+});
+
