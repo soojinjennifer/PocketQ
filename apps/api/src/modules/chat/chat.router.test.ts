@@ -16,6 +16,15 @@ const { inMemoryProblemStore } = await import("../../infrastructure/store/inMemo
 const AUTH_HEADER = { Authorization: "Bearer valid-token" };
 const KNOWN_PROBLEM_ID = "22222222-2222-4222-8222-222222222222";
 const UNSOLVED_PROBLEM_ID = "33333333-3333-4333-8333-333333333333";
+const RESUMED_PROBLEM_ID = "66666666-6666-4666-8666-666666666666";
+
+const RESUME_SOLUTION = {
+  mode: "own" as const,
+  methodName: "3번째 줄부터 이어가기",
+  solutionMd: "양변을 정리합니다.",
+  answerMd: "x = 3 (이어풀기 답)",
+  verified: false,
+};
 
 // 실제 AI_PROVIDER 환경변수·실제 OpenAI 호출과 무관하게 결정적으로 동작하도록
 // 모든 테스트에서 FakeLLMAdapter를 명시적으로 주입한다.
@@ -159,5 +168,41 @@ describe("POST /api/problems/:problemId/chat", () => {
     expect(res.headers["content-type"]).toContain("application/json");
     expect(typeof res.body.answerMd).toBe("string");
     expect(res.body.answerMd.length).toBeGreaterThan(0);
+  });
+
+  describe("내 방법(work → diagnose → resume) 흐름 이후", () => {
+    beforeEach(() => {
+      inMemoryProblemStore.set({
+        problemId: RESUMED_PROBLEM_ID,
+        userId: "user-1",
+        grade: "M2",
+        problem: { recognizedText: "2x - 1 = 5", recognizedLatex: null },
+        createdAt: new Date().toISOString(),
+      });
+      inMemoryProblemStore.setResumeSolution(RESUMED_PROBLEM_ID, RESUME_SOLUTION);
+    });
+
+    it("resumeSolution만 있는 문제(verified=false 포함)도 200과 함께 이어풀기 답을 컨텍스트로 쓴다", async () => {
+      const res = await request(createTestApp())
+        .post(`/api/problems/${RESUMED_PROBLEM_ID}/chat`)
+        .set(AUTH_HEADER)
+        .send({ question: "왜 3인가요?", history: [] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.answerMd).toContain(RESUME_SOLUTION.answerMd);
+    });
+
+    it("solution과 resumeSolution이 모두 있으면 solution을 우선한다", async () => {
+      inMemoryProblemStore.setResumeSolution(KNOWN_PROBLEM_ID, RESUME_SOLUTION);
+
+      const res = await request(createTestApp())
+        .post(`/api/problems/${KNOWN_PROBLEM_ID}/chat`)
+        .set(AUTH_HEADER)
+        .send({ question: "왜 2인가요?", history: [] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.answerMd).toContain("2입니다.");
+      expect(res.body.answerMd).not.toContain(RESUME_SOLUTION.answerMd);
+    });
   });
 });

@@ -534,15 +534,20 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
   /**
    * `ResumeModeBar`의 버튼 클릭 시 호출한다(오너 확정: 진단 성공 시 자동 트리거 없음, 사용자가
    * 직접 모드를 선택해야 한다). `problemId`가 아직 없으면(예: 진단 전) 아무 동작도 하지 않는다.
+   * 이어풀기가 성공하면 질문 추천 pill을 다시 불러온다 — 서버가 이제 이어풀기 결과를 대화
+   * 컨텍스트로 쓰므로(`resolveSolutionContext`), 이어풀기 이후 기준의 질문을 받을 수 있다.
    */
   const startResume = useCallback(
     async (mode: ResumeMode) => {
       if (!problemId) {
         return;
       }
-      await resumeRequest({ problemId, mode });
+      const result = await resumeRequest({ problemId, mode });
+      if (result) {
+        void fetchSuggestedQuestions(problemId);
+      }
     },
-    [problemId, resumeRequest],
+    [problemId, resumeRequest, fetchSuggestedQuestions],
   );
 
   const submitErrorMessage = recognizeErrorMessage ?? solveErrorMessage;

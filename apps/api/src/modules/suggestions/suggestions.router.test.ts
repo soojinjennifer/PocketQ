@@ -16,6 +16,15 @@ const { inMemoryProblemStore } = await import("../../infrastructure/store/inMemo
 const AUTH_HEADER = { Authorization: "Bearer valid-token" };
 const KNOWN_PROBLEM_ID = "44444444-4444-4444-8444-444444444444";
 const UNSOLVED_PROBLEM_ID = "55555555-5555-4555-8555-555555555555";
+const RESUMED_PROBLEM_ID = "77777777-7777-4777-8777-777777777777";
+
+const RESUME_SOLUTION = {
+  mode: "own" as const,
+  methodName: "3번째 줄부터 이어가기",
+  solutionMd: "양변을 정리합니다.",
+  answerMd: "x = 3 (이어풀기 답)",
+  verified: false,
+};
 
 function createTestApp() {
   return createApp(new FakeLLMAdapter());
@@ -103,5 +112,49 @@ describe("POST /api/problems/:problemId/suggestions", () => {
     for (const question of res.body.questions as unknown[]) {
       expect(typeof question).toBe("string");
     }
+  });
+
+  describe("내 방법(work → diagnose → resume) 흐름 이후", () => {
+    beforeEach(() => {
+      inMemoryProblemStore.set({
+        problemId: RESUMED_PROBLEM_ID,
+        userId: "user-1",
+        grade: "M2",
+        problem: { recognizedText: "2x - 1 = 5", recognizedLatex: null },
+        createdAt: new Date().toISOString(),
+      });
+      inMemoryProblemStore.setResumeSolution(RESUMED_PROBLEM_ID, RESUME_SOLUTION);
+    });
+
+    it("resumeSolution만 있는 문제(verified=false 포함)도 200과 함께 이어풀기 풀이를 컨텍스트로 쓴다", async () => {
+      const adapter = new FakeLLMAdapter();
+      const suggestSpy = vi.spyOn(adapter, "suggestQuestions");
+
+      const res = await request(createApp(adapter))
+        .post(`/api/problems/${RESUMED_PROBLEM_ID}/suggestions`)
+        .set(AUTH_HEADER);
+
+      expect(res.status).toBe(200);
+      expect(res.body.questions.length).toBeGreaterThan(0);
+      expect(suggestSpy).toHaveBeenCalledTimes(1);
+      const solution = suggestSpy.mock.calls[0]?.[0].solution;
+      expect(solution?.answerMd).toBe(RESUME_SOLUTION.answerMd);
+      expect(solution?.solutionMd).toBe(RESUME_SOLUTION.solutionMd);
+      expect(solution?.conceptMd).toBeNull();
+      expect(solution?.conceptTags).toEqual([]);
+    });
+
+    it("solution과 resumeSolution이 모두 있으면 solution을 우선한다", async () => {
+      inMemoryProblemStore.setResumeSolution(KNOWN_PROBLEM_ID, RESUME_SOLUTION);
+      const adapter = new FakeLLMAdapter();
+      const suggestSpy = vi.spyOn(adapter, "suggestQuestions");
+
+      const res = await request(createApp(adapter))
+        .post(`/api/problems/${KNOWN_PROBLEM_ID}/suggestions`)
+        .set(AUTH_HEADER);
+
+      expect(res.status).toBe(200);
+      expect(suggestSpy.mock.calls[0]?.[0].solution.answerMd).toBe("2입니다.");
+    });
   });
 });

@@ -1,5 +1,4 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
-import type { Grade, RecognizedProblem, Solution } from "shared-types";
 import { chatRequestSchema, chatResponseSchema, type ChatRequestDto } from "validation";
 import { authenticate } from "../../middleware/authenticate";
 import { rateLimiter } from "../../middleware/rate-limiter";
@@ -8,39 +7,8 @@ import { AppError } from "../../shared/errors/AppError";
 import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
 import { problemRepository } from "../../infrastructure/persistence/problemRepository";
-import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
+import { resolveSolutionContext } from "../../infrastructure/store/resolveSolutionContext";
 import { getRequestUser } from "../../shared/lib/request-user";
-
-interface ResolvedChatContext {
-  problem: RecognizedProblem;
-  solution: Solution;
-  grade: Grade;
-}
-
-/**
- * `problemId`로 저장소에서 문제/최초 풀이 컨텍스트를 모두 조회한다.
- * 문제 자체가 없거나(잘못된 problemId) 다른 사용자 소유면 동일하게 404, 문제는 있지만 solve가
- * 아직 끝나지 않아 풀이가 없으면(예: solve 진행 전에 chat을 먼저 호출) 별도로 구분해 400을 던진다.
- * 소유권 검증은 Final QA(BLOCKER-1) 지적 반영 — 없으면 다른 사용자의 problemId로 그 사람의
- * 대화 기록에 메시지를 끼워넣을 수 있었다.
- */
-function resolveChatContext(problemId: string, userId: string): ResolvedChatContext {
-  const stored = inMemoryProblemStore.get(problemId);
-
-  if (!stored || stored.userId !== userId) {
-    throw new AppError("validation_error", `문제(${problemId})를 찾을 수 없습니다.`, 404);
-  }
-
-  if (!stored.solution) {
-    throw new AppError(
-      "validation_error",
-      `문제(${problemId})의 풀이가 아직 없습니다. 먼저 풀이를 완료해주세요.`,
-      400,
-    );
-  }
-
-  return { problem: stored.problem, solution: stored.solution, grade: stored.grade };
-}
 
 function createHandleChat(adapter: LLMAdapter) {
   return async function handleChat(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -54,7 +22,7 @@ function createHandleChat(adapter: LLMAdapter) {
     }
 
     try {
-      const { problem, solution, grade } = resolveChatContext(problemId, userId);
+      const { problem, solution, grade } = resolveSolutionContext(problemId, userId);
 
       const answerMd = await adapter.chat({ problem, solution, history, question, grade });
 

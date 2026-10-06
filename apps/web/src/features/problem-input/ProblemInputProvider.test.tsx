@@ -37,6 +37,7 @@ const { recognizeWork } = await import("../../shared/api/recognizeWork");
 const { solveProblemStream } = await import("../../shared/api/solveProblem");
 const { diagnoseProblem } = await import("../../shared/api/diagnoseProblem");
 const { resumeProblemStream } = await import("../../shared/api/resumeProblem");
+const { getSuggestedQuestions } = await import("../../shared/api/suggestedQuestions");
 
 async function* eventsOf<T>(events: T[]) {
   await Promise.resolve();
@@ -289,5 +290,56 @@ describe("ProblemInputProvider — returnToWorkFromResult (`/solve/landscape` '�
     expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1");
     expect(screen.getByTestId("recognizedText")).toHaveTextContent("1+1=?");
     expect(screen.getByTestId("workStrokes")).toHaveTextContent("1");
+  });
+});
+
+describe("ProblemInputProvider — startResume 후 질문 추천 재요청", () => {
+  async function reachDiagnoseSuccess() {
+    vi.mocked(recognizeProblem).mockResolvedValue({
+      problemId: "problem-1",
+      recognizedText: "1+1=?",
+      recognizedLatex: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+    });
+    vi.mocked(diagnoseProblem).mockResolvedValue(DIAGNOSIS);
+    vi.mocked(getSuggestedQuestions).mockResolvedValue({ questions: ["왜 그런가요?"] });
+
+    renderProvider();
+
+    fireEvent.click(screen.getByText("사진설정"));
+    fireEvent.click(screen.getByText("인식하기"));
+    await waitFor(() => expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1"));
+
+    fireEvent.click(screen.getByText("진단하기"));
+    await waitFor(() => expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("success"));
+    // 진단 성공 시점의 질문 추천 호출은 이 테스트의 관심사가 아니므로 기록을 비운다.
+    await waitFor(() => expect(getSuggestedQuestions).toHaveBeenCalled());
+    vi.mocked(getSuggestedQuestions).mockClear();
+  }
+
+  it("이어풀기가 성공하면 같은 problemId로 질문 추천을 다시 불러온다", async () => {
+    vi.mocked(resumeProblemStream).mockReturnValue(
+      eventsOf<ResumeStreamEvent>([{ type: "done", result: RESUME_SOLUTION }]),
+    );
+    await reachDiagnoseSuccess();
+
+    fireEvent.click(screen.getByText("이어풀기하기"));
+    await waitFor(() => expect(screen.getByTestId("resumeStatus")).toHaveTextContent("success"));
+
+    await waitFor(() => expect(getSuggestedQuestions).toHaveBeenCalledTimes(1));
+    expect(getSuggestedQuestions).toHaveBeenCalledWith("problem-1");
+    expect(screen.getByTestId("suggestedQuestions")).toHaveTextContent("has-suggestions");
+  });
+
+  it("이어풀기가 실패하면(result가 null) 질문 추천을 다시 부르지 않는다", async () => {
+    vi.mocked(resumeProblemStream).mockReturnValue(
+      eventsOf<ResumeStreamEvent>([{ type: "error", code: "provider_error", message: "실패" }]),
+    );
+    await reachDiagnoseSuccess();
+
+    fireEvent.click(screen.getByText("이어풀기하기"));
+    await waitFor(() => expect(screen.getByTestId("resumeStatus")).toHaveTextContent("error"));
+
+    expect(getSuggestedQuestions).not.toHaveBeenCalled();
   });
 });
