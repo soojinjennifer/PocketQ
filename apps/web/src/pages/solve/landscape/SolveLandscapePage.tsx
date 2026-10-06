@@ -254,8 +254,8 @@ export function SolveLandscapePage() {
               주석 참고) — Figma(`38:21`) 실측 결과 이 화면에도 동일 좌표(wrapper left-5, 화면 세로
               중앙)로 같은 그룹이 있어야 한다. `gap-[14px]`는 Figma 실측값(PenRail/SolveScroll 간
               간격, work-order PenRail 5버튼 재구성 반영). 카메라 진입은 더 이상 `CameraRailButton`이
-              아니라 `/solve/pencilcanvas` 상단 `InputModeToggle` "사진" 탭이 담당한다(2026-09,
-              사진/필기 토글로 대체). */}
+              아니라 `/solve/pencilcanvas` 상단 `InputModeToggle` "사진으로 문제 인식" 메뉴의 "사진 찍기"가
+              담당한다(2026-09 사진/필기 토글로 대체, 2026-10 2버튼+메뉴로 개정). */}
           <div className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
             <PenRail
               positioned={false}

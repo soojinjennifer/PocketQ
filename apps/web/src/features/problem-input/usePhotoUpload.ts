@@ -3,7 +3,7 @@ import { preparePhotoForUpload, type PhotoUploadErrorKind, type PreparePhotoResu
 import { useProblemInput } from "./useProblemInput";
 
 export interface UsePhotoUploadOptions {
-  /** 정규화된 사진이 `setCapturedImage`로 저장된 직후 호출된다(예: 입력 모드를 "upload"로 전환). */
+  /** 정규화된 사진이 `setCapturedImage`로 저장된 직후 호출된다(예: 입력 모드를 "photo"로 전환). */
   onUploaded: () => void;
   /** 테스트용 주입 지점 — 기본값은 실제 검증 + JPEG 정규화다. */
   prepare?: (file: File) => Promise<PreparePhotoResult>;
@@ -30,7 +30,7 @@ export interface UsePhotoUploadResult {
 }
 
 /**
- * "사진 업로드" 입력(INPUT-4) — 숨은 파일 input을 열고, 고른 사진을 검증/JPEG 정규화한 뒤
+ * "사진 보관함" 입력(INPUT-4, "사진으로 문제 인식" 메뉴) — 숨은 파일 input을 열고, 고른 사진을 검증/JPEG 정규화한 뒤
  * `setCapturedImage`에 넘긴다. `capture`/`multiple`은 쓰지 않는다(카메라 직행 금지, 1장만).
  * 원본 `File`은 보관하지 않고 재인코딩된 Blob만 Provider가 보관한다.
  */

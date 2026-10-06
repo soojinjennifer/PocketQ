@@ -672,6 +672,31 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 
 `InputModeToggle` 3분할(사진으로 문제 인식 / 사진 업로드 / 필기로 문제 인식, 구분선 2개는 `accent-green` 재사용) + 숨은 파일 input(`features/problem-input/usePhotoUpload.ts`, `preparePhotoForUpload.ts`, `shared/lib/image/reencodeImageToJpeg.ts`) + `SolvePencilcanvasPage` 조립. 업로드 사진은 클라이언트에서 긴 변 1568px 이하 JPEG로 정규화되어 서버 관점에서 `inputType=photo`와 동일하다(서버/`packages/*`/카메라 라우트 무변경). "필기로 문제 인식" 탭 선택 시 올라간 사진을 지운다. 실기기(iPad 홈화면 PWA 파일 선택 시트, HEIC, EXIF 회전, 대용량 처리 시간, `.solve-viewport-lock` 회귀, 토글 겹침) 확인은 아직 필요하다. 에러 안내 문구는 오너 미확정 초안.
 
+### 3.40 INPUT 입력 방식 2버튼+메뉴로 간소화, ProblemCard 겹침 수정 (PRD §4.3, 2026-10, 미커밋)
+
+**오너 요구**: (1) 입력 방식 버튼을 "사진으로 문제 인식" / "필기로 문제 인식" 2개로 간소화하고, "사진으로 문제 인식"은 앱 자체 메뉴 [사진 보관함] [사진 찍기]를 연다. 기존 "카메라로 문제인식"/"사진 업로드" 탭은 제거. (2) 사진 미리보기(ProblemCard)가 입력 버튼을 가리지 않고 버튼 바로 아래에 보이게 한다.
+
+**구현**:
+- `shared/ui/action-menu/ActionMenu.tsx`(신규) — 범용 메뉴. Figma 대응 없음, 기존 토큰만 재사용한 임시 디자인(`docs/COMPONENT_MAP.md` `Action Menu` 행).
+- `features/solve-session/InputModeToggle.tsx` — `InputMode = "photo" | "handwriting"`, 2분할(구분선 1개, 기존 세그먼트 스타일 유지), props `onSelectHandwriting`/`onSelectPhotoSource("library" | "camera")`/`disabled?`. 사진 버튼은 메뉴만 연다.
+- `pages/solve/pencilcanvas/SolvePencilcanvasPage.tsx` — "사진 찍기" → `setInputMode("photo")` + `navigate("/camera")`, "사진 보관함" → `openPicker()` 동기 호출(업로드 성공 `onUploaded` 시에만 photo), 업로드 처리 중 토글 `disabled`. `displayInputMode`/`hintMode` 파생 보정과 `Exclude<InputMode,"upload">` 삭제(사진이 지워져도 "사진으로 문제 인식" 선택 유지). 토글과 ProblemCard를 하나의 세로 흐름 컨테이너(`pointer-events-none absolute inset-x-0 top-[78px] z-10 flex flex-col items-center gap-[12px]`)로 묶어 겹침 제거 — 원인은 토글 래퍼(top-[78px], 높이 36px)와 ProblemCard 래퍼(top-[90px], DOM상 뒤, pointer-events-auto)가 24px 겹친 것. 카드 래퍼 `max-h-[70vh]` → `max-h-[70dvh]`(이후 검수 반영에서 고정 max-h 자체를 제거, 아래 참고). EmptyStateHint와 WORK 단계 RecognizedChip(top-[90px])은 그대로.
+- `accept="image/*"` 유지, `capture` 미사용. **iOS/iPadOS 한계(오너 수용)**: 앱 메뉴에서 "사진 보관함"을 골라도 시스템 시트가 한 번 더 뜬다.
+- 문서: PRD §4.3(화면 표, 도입부, INPUT-2/4/5), `docs/COMPONENT_MAP.md`, `docs/FIGMA_SCREEN_MAP.md`, 관련 코드 주석.
+
+**검수 반영(design-agent/stage-qa, 2026-10)**:
+- 토글 순서를 [필기로 문제 인식 | 사진으로 문제 인식](Figma `342:833` 실측, 오너 원 요청)으로 바꾸고 메뉴를 사진 세그먼트 기준 오른쪽 정렬(`right-0`)로 변경.
+- Figma `342:833`은 이미 2분할(폭 264, 세그먼트 113/123, 구분선 1개)임을 `docs/FIGMA_SCREEN_MAP.md`에 바로잡고, variant 결함(`Select=Pencil` 선택 pill 없음, `Select=Camera` pill이 필기 라벨 쪽)을 "Figma 수정 필요"로 기록. 이 파일의 CRLF 줄바꿈 복원.
+- 짧은 뷰포트에서 카드-ActionBar 겹침 수정: 세로 흐름 컨테이너를 `top-[78px]`~`bottom-[calc(env(safe-area-inset-bottom)+40px)]`(기존 ActionBar 래퍼 값)로 위아래 고정하고 ActionBar 래퍼를 그 안의 마지막 자식(`mt-auto shrink-0`)으로 옮겼다. 카드 래퍼는 `min-h-0 overflow-y-auto`(고정 `max-h` 제거)로 남은 공간만 쓴다 — ActionBar 높이를 숫자로 예약하지 않고 실제 높이를 반영하며, 하단 값은 한 곳에서만 정의된다. ActionBar는 INPUT/WORK 모두 같은 트리 위치라 단계 전환 시 리마운트되지 않는다.
+- scrim이 ActionBar를 덮지 못하던 문제: 위 이동으로 메뉴를 담은 컨테이너가 DOM상 마지막 z-10 오버레이가 되어(포털·z 조정 없이) scrim이 캔버스·PenRail·NavTabBar·ActionBar를 모두 덮는다. 포털은 occluder 측정 범위(캔버스 부모) 밖으로 메뉴가 빠져 잉크 가림이 깨지므로 택하지 않았다.
+- 바깥 탭 전달 차단: `pointerdown`에서 즉시 닫지 않고, scrim이 `pointerdown` 기본 동작만 막은 뒤 이어지는 `click`을 document capture 단계에서 가로채(전파 차단) 닫는다.
+- 메뉴 항목 `min-h-[44px]`(Apple HIG, 오너 승인 대상), `active:bg-fill-tint-green`, `role="menu"`에 `aria-labelledby`(트리거, `useId`), Tab 등 포커스 이탈 시 닫힘(포커스 복귀 없음), disabled로 닫힐 때 포커스 복귀 생략.
+
+**재검수 반영(design-agent, 2026-10)**:
+- [P0] "사진 보관함"을 눌러도 파일 선택 창이 열리지 않던 회귀 수정 — `ActionMenu`의 document capture click 리스너가 항목 `onSelect` 안에서 동기로 실행된 `input.click()`의 click을 바깥 탭으로 오인해 `preventDefault`/`stopPropagation`했다. 리스너가 `!event.isTrusted`면 무시하고, 항목 선택 중(`isSelectingRef`)에도 무시하도록 이중으로 막았다. 회귀 테스트는 `HTMLInputElement.prototype.click`을 모킹하지 않고 file input 리스너 호출·`defaultPrevented === false`·document까지 버블링을 확인한다. jsdom은 `fireEvent`/`dispatchEvent`를 항상 `isTrusted=false`로 만들므로, 사용자 탭 재현에는 테스트 전용 헬퍼 `apps/web/src/test/dispatchTrustedClick.ts`(jsdom 내부 impl 객체 사용, 구조 변경 시 즉시 예외)를 쓴다.
+- [P3] 메뉴가 열린 채 같은 토글의 "필기로 문제 인식"을 탭하면 메뉴를 닫고 필기를 바로 선택(오너 결정) — `ActionMenu`에 `passThroughRef` prop 추가, `InputModeToggle`이 토글 컨테이너 ref를 넘긴다.
+
+**결정 필요/후속**: (1) Figma `342:833` variant 결함 수정 필요(위). 사진 출처 메뉴 Figma 프레임 없음. (2) 메뉴 시각(라벨 색 `label-secondary`, 토글과의 간격 6px, 눌림/포커스 표시 `fill-tint-green`, 44px 터치 높이)은 임시값 — Figma 확정 및 오너 승인 대기. (3) 업로드 처리 중 토글 disabled의 시각 표시는 추가하지 않았다(로딩 마크가 이미 표시됨). (4) 실기기 확인 필요: 메뉴 열림 중 캔버스/ActionBar 탭 흡수(iOS에서 scrim click 발생), 짧은 뷰포트·Split View에서 카드 스크롤, 홈화면 PWA에서 "사진 보관함" 파일 선택 창. (5) 포커스가 메뉴에서 트리거로 이동(Shift+Tab)하는 경우는 트리거 토글과 충돌하지 않도록 닫지 않는다.
+
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.

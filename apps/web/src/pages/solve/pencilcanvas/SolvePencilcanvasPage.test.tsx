@@ -7,6 +7,7 @@ import {
   type ProblemInputContextValue,
 } from "../../../features/problem-input/ProblemInputContext";
 import type { PreparePhotoResult } from "../../../features/problem-input/preparePhotoForUpload";
+import { dispatchTrustedClick } from "../../../test/dispatchTrustedClick";
 import { SolvePencilcanvasPage } from "./SolvePencilcanvasPage";
 
 // 사진 업로드(INPUT-4)의 실제 디코딩/캔버스 인코딩은 jsdom에서 불가능하므로 검증+정규화 단계를 모킹한다.
@@ -763,10 +764,93 @@ describe("SolvePencilcanvasPage — ProblemCard/EmptyStateHint 컨테이너 데�
     );
 
     const image = screen.getByAltText("촬영한 문제");
-    const containerEl = image.closest("div[class*='top-[90px]']");
+    const containerEl = image.closest("div[class*='overflow-y-auto']");
     expect(containerEl).not.toBeNull();
     expect(containerEl).toHaveClass("pointer-events-auto");
     expect(containerEl).not.toHaveClass("pointer-events-none");
+  });
+
+  it("ProblemCard 래퍼는 토글 래퍼와 같은 세로 흐름 컨테이너에서 토글 바로 다음 형제로 와서 입력 버튼을 가리지 않는다(2026-10 겹침 회귀 방지)", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            capturedImage: { blob: new Blob(), previewUrl: "blob:test-preview" },
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const toggleWrapper = screen
+      .getByRole("button", { name: "사진으로 문제 인식" })
+      .closest("[data-canvas-occluder]");
+    const cardWrapper = screen.getByAltText("촬영한 문제").closest("[data-canvas-occluder]");
+    expect(toggleWrapper).not.toBeNull();
+    expect(cardWrapper).not.toBeNull();
+
+    // 같은 부모(세로 흐름 컨테이너)에서 토글 → 카드 순서의 인접 형제.
+    const flowContainer = toggleWrapper?.parentElement;
+    expect(cardWrapper?.parentElement).toBe(flowContainer);
+    expect(toggleWrapper?.nextElementSibling).toBe(cardWrapper);
+    expect(flowContainer).toHaveClass(
+      "pointer-events-none",
+      "absolute",
+      "inset-x-0",
+      "top-[78px]",
+      // 아래로도 ActionBar 하단 여백(기존 ActionBar 래퍼 bottom 값)에 고정된다.
+      "bottom-[calc(env(safe-area-inset-bottom)+40px)]",
+      "z-10",
+      "flex",
+      "flex-col",
+      "items-center",
+      "gap-[12px]",
+    );
+    expect(flowContainer).not.toHaveAttribute("data-canvas-occluder");
+
+    // 토글 래퍼는 메뉴가 카드 위에 그려지도록 relative z-[1].
+    expect(toggleWrapper).toHaveClass("pointer-events-auto", "relative", "z-[1]");
+
+    // 카드 래퍼는 독자적인 absolute top-[90px] 배치나 고정 max-h 없이, 토글과 ActionBar 사이에
+    // 남은 공간만 쓰고(min-h-0) 넘치면 스크롤한다(세로가 짧은 뷰포트에서 ActionBar와 겹침 방지).
+    expect(cardWrapper).toHaveClass("pointer-events-auto", "w-[448px]", "min-h-0", "overflow-y-auto");
+    expect(cardWrapper?.className).not.toContain("top-[90px]");
+    expect(cardWrapper?.className).not.toContain("absolute");
+    expect(cardWrapper?.className).not.toContain("max-h-");
+
+    // ActionBar 래퍼는 같은 컨테이너의 마지막 형제로 맨 아래(mt-auto)에 놓이고 줄어들지 않는다.
+    const actionBarWrapper = screen
+      .getByRole("button", { name: "문제 인식하기" })
+      .closest("[data-canvas-occluder]");
+    expect(actionBarWrapper?.parentElement).toBe(flowContainer);
+    expect(flowContainer?.lastElementChild).toBe(actionBarWrapper);
+    expect(cardWrapper?.nextElementSibling).toBe(actionBarWrapper);
+    expect(actionBarWrapper).toHaveClass("pointer-events-auto", "mt-auto", "shrink-0");
+    expect(actionBarWrapper?.className).not.toContain("absolute");
+  });
+
+  it("WORK 단계에서도 ActionBar는 같은 하단 고정 컨테이너의 유일한 자식으로 같은 위치에 렌더링된다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({ hasProblemInput: true, problemId: "problem-1" })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const actionBarWrapper = screen
+      .getByRole("button", { name: "아직 못 풀겠어요" })
+      .closest("[data-canvas-occluder]");
+    const flowContainer = actionBarWrapper?.parentElement;
+    expect(flowContainer).toHaveClass("bottom-[calc(env(safe-area-inset-bottom)+40px)]", "pointer-events-none");
+    expect(flowContainer?.children).toHaveLength(1);
   });
 });
 
@@ -824,7 +908,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     );
   });
 
-  it("INPUT 단계 기본값은 '카메라로 문제인식'이 선택되어 있고 사진 전용 안내 문구를 보여준다", () => {
+  it("INPUT 단계 기본값은 '사진으로 문제 인식'이 선택되어 있고 사진 전용 안내 문구를 보여준다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
         <ProblemInputContext.Provider value={createContextValue()}>
@@ -835,10 +919,12 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    expect(screen.queryByRole("button", { name: "카메라로 문제인식" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "사진 업로드" })).not.toBeInTheDocument();
     expect(getByExactText("문제집을 사진으로 찍어서 올리세요")).toBeInTheDocument();
     expect(
       getByExactText(
@@ -847,7 +933,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     ).toBeInTheDocument();
   });
 
-  it("'카메라로 문제인식' 탭을 클릭하면 /camera로 이동한다", () => {
+  it("'사진으로 문제 인식'만 누르면 /camera로 이동하지 않고 메뉴만 열린다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
         <ProblemInputContext.Provider value={createContextValue()}>
@@ -859,12 +945,35 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "카메라로 문제인식" }));
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
 
-    expect(screen.getByText("CameraPage")).toBeInTheDocument();
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "사진 보관함",
+      "사진 찍기",
+    ]);
   });
 
-  it("'필기로 문제 인식' 탭을 클릭하면 /camera로 이동하지 않고 EmptyStateHint 문구가 필기 전용으로 바뀐다", () => {
+  it("'사진으로 문제 인식' → 메뉴 '사진 찍기'를 고르면 실제 라우터를 통해 /camera로 이동한다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+            <Route path="/camera" element={<div>CameraPage</div>} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "사진 찍기" }));
+
+    expect(screen.getByText("CameraPage")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "사진으로 문제 인식" })).not.toBeInTheDocument();
+  });
+
+  it("'필기로 문제 인식'을 누르면 /camera로 이동하지 않고 EmptyStateHint 문구가 필기 전용으로 바뀐다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
         <ProblemInputContext.Provider value={createContextValue()}>
@@ -891,6 +1000,28 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     ).toBeInTheDocument();
   });
 
+  it("필기 모드에서 메뉴를 열었다가 Escape로 닫으면 필기 모드가 유지된다", () => {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue()}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   it("WORK 단계(problemId 있음)에서는 InputModeToggle이 렌더링되지 않는다", () => {
     render(
       <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
@@ -905,7 +1036,7 @@ describe("SolvePencilcanvasPage — 사진/필기 입력 토글(InputModeToggle,
     );
 
     expect(
-      screen.queryByRole("button", { name: "카메라로 문제인식" }),
+      screen.queryByRole("button", { name: "사진으로 문제 인식" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -954,7 +1085,13 @@ function pickFile(files: File[]) {
   fireEvent.change(input);
 }
 
-describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
+/** "사진으로 문제 인식" → 메뉴 "사진 보관함" 경로로 파일 선택 창을 연다. */
+function openLibraryFromMenu() {
+  fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "사진 보관함" }));
+}
+
+describe("SolvePencilcanvasPage — 사진 보관함 업로드(INPUT-4, '사진으로 문제 인식' 메뉴)", () => {
   beforeEach(() => {
     mockPreparePhoto.mockReset();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
@@ -969,16 +1106,23 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
 
   const photoFile = () => new File(["x"], "a.jpg", { type: "image/jpeg" });
 
-  it("'사진 업로드' 탭은 동기적으로 파일 input을 열고 /camera로 이동하지 않으며 모드도 바꾸지 않는다", () => {
+  it("메뉴의 '사진 보관함'은 그 탭 핸들러 안에서 동기적으로 파일 input을 1회 열고, /camera로 이동하지 않으며 모드도 바꾸지 않는다", () => {
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
     render(<UploadHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "사진 업로드" }));
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    // 메뉴를 여는 것만으로는 선택 창이 열리지 않는다.
+    expect(clickSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "사진 보관함" }));
 
+    // fireEvent.click은 동기 디스패치이므로 바로 다음 줄에서 이미 호출돼 있어야 한다(await 없음).
     expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(clickSpy.mock.contexts[0]).toBe(screen.getByTestId("photo-upload-input"));
     expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    // 선택 창을 취소한 것과 같은 상태 — 이전 모드(필기)가 유지된다.
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -992,16 +1136,19 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     expect(input).not.toHaveAttribute("capture");
   });
 
-  it("사진을 고르면 setCapturedImage가 호출되고 '사진 업로드'가 선택되며 문제 카드에 표시된다(자동 인식 없음)", async () => {
+  it("사진을 고르면 setCapturedImage가 호출되고 '사진으로 문제 인식'이 선택되며 문제 카드에 표시된다(자동 인식 없음)", async () => {
     const jpeg = new Blob(["j"], { type: "image/jpeg" });
     mockPreparePhoto.mockResolvedValue({ ok: true, blob: jpeg });
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
     const onSetCapturedImage = vi.fn();
     render(<UploadHarness onSetCapturedImage={onSetCapturedImage} />);
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
 
+    openLibraryFromMenu();
     pickFile([photoFile()]);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
         "aria-pressed",
         "true",
       ),
@@ -1028,7 +1175,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     await waitFor(() => expect(screen.queryByText("사진을 불러오는 중")).not.toBeInTheDocument());
   });
 
-  it("처리 중에는 다른 탭을 눌러도 무시되어 곧 도착할 사진이 마지막 선택을 뒤집지 않는다", async () => {
+  it("처리 중에는 토글이 disabled라 메뉴가 열리지 않고 필기도 선택되지 않아, 곧 도착할 사진이 마지막 선택을 뒤집지 않는다", async () => {
     let resolvePrepare!: (result: PreparePhotoResult) => void;
     mockPreparePhoto.mockReturnValue(
       new Promise<PreparePhotoResult>((resolve) => {
@@ -1041,8 +1188,12 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     pickFile([photoFile()]);
     await screen.findByText("사진을 불러오는 중");
 
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
     fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
 
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(onClearCapturedImage).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
@@ -1050,7 +1201,11 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     );
     resolvePrepare({ ok: true, blob: new Blob(["j"]) });
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "true"),
+      expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 
@@ -1062,7 +1217,7 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
 
     expect(mockPreparePhoto).not.toHaveBeenCalled();
     expect(onSetCapturedImage).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1077,13 +1232,14 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     mockPreparePhoto.mockResolvedValue({ ok: false, kind });
     const onSetCapturedImage = vi.fn();
     render(<UploadHarness onSetCapturedImage={onSetCapturedImage} />);
+    fireEvent.click(screen.getByRole("button", { name: "필기로 문제 인식" }));
 
     pickFile([photoFile()]);
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(message);
     expect(onSetCapturedImage).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1118,32 +1274,177 @@ describe("SolvePencilcanvasPage — 사진 업로드(INPUT-4)", () => {
     expect(onClearCapturedImage).not.toHaveBeenCalled();
   });
 
-  it("업로드 후 사진이 외부에서 지워지면(예: 인식 취소) 표시 모드가 '카메라로 문제인식'으로 돌아간다", async () => {
+  it("업로드 후 사진이 외부에서 지워져도(예: 인식 취소) '사진으로 문제 인식' 선택이 유지된다", async () => {
     mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
     render(<UploadHarness />);
     pickFile([photoFile()]);
     await screen.findByAltText("촬영한 문제");
-    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "외부-사진-삭제" }));
 
-    expect(screen.getByRole("button", { name: "사진 업로드" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "카메라로 문제인식" })).toHaveAttribute(
+    expect(screen.queryByAltText("촬영한 문제")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사진으로 문제 인식" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
-  it("이미 업로드된 상태에서 '사진 업로드'를 다시 눌러도 항상 선택 창을 다시 연다", async () => {
+  it("이미 사진이 올라간 상태에서도 메뉴 '사진 보관함'은 항상 선택 창을 다시 연다", async () => {
     mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
     render(<UploadHarness />);
     pickFile([photoFile()]);
     await screen.findByAltText("촬영한 문제");
 
-    fireEvent.click(screen.getByRole("button", { name: "사진 업로드" }));
+    openLibraryFromMenu();
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("사진이 올라간 상태에서 메뉴를 열면 메뉴가 문제 카드보다 위 레이어(토글 래퍼 z-[1])에 렌더링된다", async () => {
+    mockPreparePhoto.mockResolvedValue({ ok: true, blob: new Blob(["j"]) });
+    render(<UploadHarness />);
+    pickFile([photoFile()]);
+    await screen.findByAltText("촬영한 문제");
+
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+
+    const menu = screen.getByRole("menu");
+    const toggleWrapper = screen
+      .getByRole("button", { name: "사진으로 문제 인식" })
+      .closest("[data-canvas-occluder]");
+    expect(toggleWrapper).toContainElement(menu);
+    expect(toggleWrapper).toHaveClass("relative", "z-[1]");
+  });
+});
+
+describe("SolvePencilcanvasPage — 사진 메뉴가 열린 동안 바깥 탭 흡수(QA)", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => createMockContext() as unknown as CanvasRenderingContext2D,
+    );
+  });
+
+  function renderWithMenuOpen(overrides: Partial<ProblemInputContextValue> = {}) {
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider value={createContextValue(overrides)}>
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+            <Route path="/camera" element={<div>CameraPage</div>} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "사진으로 문제 인식" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  }
+
+  it("메뉴를 연 뒤 scrim(캔버스 위)을 탭하면 메뉴만 닫히고 획은 커밋되지 않는다", () => {
+    const commitStroke = vi.fn();
+    renderWithMenuOpen({ commitStroke });
+
+    const scrim = screen.getByTestId("action-menu-scrim");
+    // scrim은 화면 전체를 덮는 고정 레이어이며, 캔버스 잉크 가림 표식이 아니다.
+    expect(scrim).toHaveClass("fixed", "h-dvh");
+    expect(scrim).not.toHaveAttribute("data-canvas-occluder");
+    fireEvent.pointerDown(scrim, { pointerId: 1, pointerType: "pen", clientX: 300, clientY: 400 });
+    fireEvent.pointerUp(scrim, { pointerId: 1, pointerType: "pen", clientX: 300, clientY: 400 });
+    dispatchTrustedClick(scrim);
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(commitStroke).not.toHaveBeenCalled();
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+  });
+
+  it("메뉴가 열린 채 ActionBar '문제 인식하기'를 탭하면 메뉴만 닫히고 인식은 실행되지 않는다", () => {
+    const recognizeOnly = vi.fn(() => Promise.resolve(null));
+    renderWithMenuOpen({
+      capturedImage: { blob: new Blob(), previewUrl: "blob:test-preview" },
+      hasProblemInput: true,
+      recognizeOnly,
+    });
+    const recognizeButton = screen.getByRole("button", { name: "문제 인식하기" });
+    expect(recognizeButton).toBeEnabled();
+
+    // 실제 사용자 탭과 같은 신뢰된 click(jsdom의 fireEvent는 isTrusted=false라 차단 대상이 아니다).
+    const notCanceled = dispatchTrustedClick(recognizeButton);
+
+    expect(notCanceled).toBe(false);
+    expect(recognizeOnly).not.toHaveBeenCalled();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    // 메뉴가 닫힌 뒤에는 정상적으로 인식이 실행된다.
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+    expect(recognizeOnly).toHaveBeenCalledTimes(1);
+  });
+
+  it("메뉴에서 '사진 보관함'을 실제 탭(신뢰된 click)으로 고르면 숨은 file input의 click이 취소·전파 차단 없이 1회 발생한다(P0 회귀, input.click 모킹 없음)", () => {
+    renderWithMenuOpen();
+    const fileInput = screen.getByTestId("photo-upload-input");
+    const observed: Event[] = [];
+    const onInputClick = (event: Event) => observed.push(event);
+    const onDocumentBubble = vi.fn((event: Event) => {
+      if (event.target === fileInput) {
+        observed.push(event);
+      }
+    });
+    fileInput.addEventListener("click", onInputClick);
+    document.addEventListener("click", onDocumentBubble);
+
+    dispatchTrustedClick(screen.getByRole("menuitem", { name: "사진 보관함" }));
+
+    // [input 리스너, document 버블 리스너]가 같은 이벤트를 받았다 = 전파가 막히지 않았다.
+    expect(observed).toHaveLength(2);
+    const [atInput, atDocument] = observed;
+    expect(atInput).toBe(atDocument);
+    expect(atInput?.defaultPrevented).toBe(false);
+    expect(atInput?.isTrusted).toBe(false);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByText("CameraPage")).not.toBeInTheDocument();
+
+    fileInput.removeEventListener("click", onInputClick);
+    document.removeEventListener("click", onDocumentBubble);
+  });
+
+  it("메뉴가 열린 채 같은 토글의 '필기로 문제 인식'을 탭하면 메뉴가 닫히고 필기 모드가 바로 선택된다(오너 결정)", () => {
+    renderWithMenuOpen();
+
+    const notCanceled = dispatchTrustedClick(screen.getByRole("button", { name: "필기로 문제 인식" }));
+
+    expect(notCanceled).toBe(true);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "필기로 문제 인식" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(getByExactText("문제를 펜으로 쓰면 인식 할 수 있습니다.  ")).toBeInTheDocument();
+  });
+
+  it("scrim이 ActionBar까지 덮도록 메뉴가 든 토글 래퍼(z-[1])와 ActionBar 래퍼가 같은 z-10 컨테이너 안에 있고, 이 컨테이너가 DOM상 마지막 z-10 오버레이다", () => {
+    renderWithMenuOpen({
+      capturedImage: { blob: new Blob(), previewUrl: "blob:test-preview" },
+      hasProblemInput: true,
+    });
+
+    const toggleWrapper = screen
+      .getByRole("button", { name: "사진으로 문제 인식" })
+      .closest("[data-canvas-occluder]");
+    const actionBarWrapper = screen
+      .getByRole("button", { name: "문제 인식하기" })
+      .closest("[data-canvas-occluder]");
+    const flowContainer = toggleWrapper?.parentElement;
+    expect(toggleWrapper).toContainElement(screen.getByTestId("action-menu-scrim"));
+    expect(toggleWrapper).toHaveClass("relative", "z-[1]");
+    expect(actionBarWrapper?.parentElement).toBe(flowContainer);
+    expect(actionBarWrapper?.className).not.toMatch(/(^|\s)z-/);
+
+    const zTenOverlays = Array.from(document.querySelectorAll("div.z-10"));
+    expect(zTenOverlays[zTenOverlays.length - 1]).toBe(flowContainer);
   });
 });
 

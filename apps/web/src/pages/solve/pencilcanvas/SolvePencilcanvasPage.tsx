@@ -13,7 +13,11 @@ import { usePhotoUpload } from "../../../features/problem-input/usePhotoUpload";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { EmptyStateHint } from "../../../features/solve-session/EmptyStateHint";
-import { InputModeToggle, type InputMode } from "../../../features/solve-session/InputModeToggle";
+import {
+  InputModeToggle,
+  type InputMode,
+  type PhotoSource,
+} from "../../../features/solve-session/InputModeToggle";
 import { ProblemCard, type ProblemCardData } from "../../../features/solve-session/ProblemCard";
 import { RecognizedChip } from "../../../features/solve-session/RecognizedChip";
 import { RecognizedProblemPopup } from "../../../features/solve-session/RecognizedProblemPopup";
@@ -43,7 +47,7 @@ import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
  * 패턴). solve()는 호출하지 않으므로 "봐 주세요"/"아직 못 풀겠어요"를 눌러야 다음 단계로 넘어간다.
  */
 
-/** 사진 업로드(INPUT-4) 실패 안내 문구 — 오너 미확정 초안(Figma 없음). */
+/** 사진 보관함 업로드(INPUT-4) 실패 안내 문구 — 오너 미확정 초안(Figma 없음). */
 const PHOTO_UPLOAD_ERROR_MESSAGE: Record<PhotoUploadErrorKind, string> = {
   "not-image": "사진 파일만 올릴 수 있어요. 다른 파일을 선택해 주세요.",
   "decode-failed": "사진을 읽을 수 없어요. 다른 사진을 선택해 주세요.",
@@ -56,7 +60,7 @@ const PHOTO_UPLOAD_ERROR_MESSAGE: Record<PhotoUploadErrorKind, string> = {
  * 사이 공백 2칸, `handwriting.title`은 끝에 공백 2칸, `handwriting.subtitle`은 "후" 다음 붙여쓰기를
  * Figma 원문 그대로 유지한다.
  */
-const INPUT_EMPTY_STATE_HINT: Record<Exclude<InputMode, "upload">, { title: string; subtitle: string }> = {
+const INPUT_EMPTY_STATE_HINT: Record<InputMode, { title: string; subtitle: string }> = {
   photo: {
     title: "문제집을 사진으로 찍어서 올리세요",
     subtitle:
@@ -128,10 +132,12 @@ export function SolvePencilcanvasPage() {
     : null;
   const isWorkStage = problemId !== null;
 
-  // 사진/업로드/필기 입력 토글(`InputModeToggle`, Figma `342-833`, 오너 UX 결정) — INPUT 단계 전용.
-  // "사진" 탭을 누르면 `/camera`로 이동한다(카메라는 자동 호출되지 않는다, 사용자가 명시적으로 탭을
-  // 눌러야 한다). "사진 업로드" 탭은 라우팅 없이 기기 사진 선택 창만 연다(INPUT-4). "필기" 탭을 누르면
-  // 라우팅 없이 `EmptyStateHint`의 안내 문구만 필기 전용으로 바뀐다.
+  // 사진/필기 입력 토글(`InputModeToggle`, Figma `342-833`, 오너 UX 결정) — INPUT 단계 전용.
+  // "사진으로 문제 인식"은 모드를 바꾸지 않고 [사진 보관함] [사진 찍기] 메뉴만 연다(2026-10 오너 결정).
+  // "사진 찍기"는 곧바로 사진 모드로 바꾸고 `/camera`로 이동한다(카메라는 자동 호출되지 않는다).
+  // "사진 보관함"은 라우팅 없이 기기 사진 선택 창만 열고(INPUT-4), 사진이 실제로 올라간 뒤
+  // (`onUploaded`)에만 사진 모드로 바꾼다 — 메뉴나 선택 창을 취소하면 이전 모드가 유지된다.
+  // "필기로 문제 인식"은 라우팅 없이 `EmptyStateHint`의 안내 문구만 필기 전용으로 바꾼다.
   const [inputMode, setInputMode] = useState<InputMode>("photo");
   const {
     openPicker,
@@ -139,33 +145,31 @@ export function SolvePencilcanvasPage() {
     isProcessing: isUploadProcessing,
     errorKind: photoUploadErrorKind,
     dismissError: dismissPhotoUploadError,
-  } = usePhotoUpload({ onUploaded: () => setInputMode("upload") });
-  const handleSelectInputMode = (mode: InputMode) => {
-    // 업로드 처리 중(수백 ms)에 다른 탭을 누르면, 곧 도착할 사진이 `onUploaded`로 마지막 선택을
-    // 뒤집어 버린다 — 처리가 끝날 때까지 모든 탭 입력을 무시한다.
+  } = usePhotoUpload({ onUploaded: () => setInputMode("photo") });
+  // 업로드 처리 중(수백 ms)에는 토글 자체가 disabled지만, 곧 도착할 사진이 `onUploaded`로 마지막 선택을
+  // 뒤집지 않도록 핸들러에서도 한 번 더 막는다.
+  const handleSelectPhotoSource = (source: PhotoSource) => {
     if (isUploadProcessing) {
       return;
     }
-    if (mode === "upload") {
-      // 탭 핸들러 안에서 동기적으로 선택 창을 열어야 iOS가 막지 않는다. 모드는 사진이 실제로
-      // 올라간 뒤(`onUploaded`)에만 바꾼다 — 선택 창을 취소해도 이전 모드가 유지된다.
+    if (source === "library") {
+      // 메뉴 항목 탭 핸들러 안에서 동기적으로 선택 창을 열어야 iOS가 막지 않는다.
       openPicker();
       return;
     }
-    setInputMode(mode);
-    if (mode === "photo") {
-      void navigate("/camera");
+    setInputMode("photo");
+    void navigate("/camera");
+  };
+  const handleSelectHandwriting = () => {
+    if (isUploadProcessing) {
       return;
     }
-    // 선택한 모드와 실제 인식 입력이 어긋나지 않도록 올라간 사진(촬영/업로드 공통)을 지운다.
+    setInputMode("handwriting");
+    // 선택한 모드와 실제 인식 입력이 어긋나지 않도록 올라간 사진(촬영/보관함 공통)을 지운다(INPUT-4 ⑦).
     if (capturedImage !== null) {
       clearCapturedImage();
     }
   };
-  // 업로드 후 "인식 취소" 등으로 사진이 지워졌는데 "사진 업로드"가 선택된 채 남는 어긋남을 막는다.
-  const displayInputMode: InputMode =
-    inputMode === "upload" && capturedImage === null ? "photo" : inputMode;
-  const hintMode = displayInputMode === "upload" ? "photo" : displayInputMode;
   // INPUT 캔버스도 WORK 캔버스와 동일하게 `scrollable`로 전환한다(오너 결정, 2026-09 — "항상
   // disabled 상시 표시"가 아니라 "실제 스크롤 가능 여부 기반"으로 통일). `inputCanvasRef`는 WORK
   // 단계의 `workCanvasRef`와 동일한 역할로 실제 `<HandwritingCanvas>`에 연결되고, `SolveScroll`의
@@ -329,16 +333,8 @@ export function SolvePencilcanvasPage() {
     <div className="bg-canvas-texture solve-no-callout relative h-dvh">
       <SolveHeader />
 
-      {/* 사진 업로드용 숨은 파일 input(INPUT-4) — "사진 업로드" 탭이 `openPicker()`로 연다. */}
+      {/* 사진 보관함용 숨은 파일 input(INPUT-4) — "사진으로 문제 인식" 메뉴의 "사진 보관함"이 `openPicker()`로 연다. */}
       <input {...photoUploadInputProps} />
-
-      {/* 사진/필기 입력 토글(INPUT 단계 전용) — NavTabBar(top-6=24px + 실측 높이 42px) 바로 아래
-      12px 간격(Figma 실측)에 화면 상단 중앙으로 배치한다: 24+42+12=78px. */}
-      {!isWorkStage ? (
-        <div {...CANVAS_OCCLUDER_PROPS} className="absolute inset-x-0 top-[78px] z-10 mx-auto w-fit">
-          <InputModeToggle mode={displayInputMode} onSelectMode={handleSelectInputMode} />
-        </div>
-      ) : null}
 
       {isRecognizedPreviewOpen ? (
         <RecognizedProblemPopup
@@ -372,7 +368,7 @@ export function SolvePencilcanvasPage() {
               `absolute top-1/2 left-5 z-10 -translate-y-1/2`로 화면 세로 중앙에 위치한다.
               `gap-[14px]`는 Figma 실측값(PenRail/SolveScroll 간 간격, work-order PenRail 5버튼
               재구성 반영). 카메라 진입은 더 이상 `CameraRailButton`이 아니라 상단 `InputModeToggle`
-              "사진" 탭이 담당한다(2026-09, 사진/필기 토글로 대체). */}
+              "사진으로 문제 인식" 메뉴의 "사진 찍기"가 담당한다(2026-09 토글로 대체, 2026-10 메뉴로 개정). */}
               <div {...CANVAS_OCCLUDER_PROPS} className="absolute top-1/2 left-5 z-10 flex -translate-y-1/2 flex-col items-center gap-[14px]">
                 <PenRail
                   positioned={false}
@@ -458,10 +454,10 @@ export function SolvePencilcanvasPage() {
             </div>
           ) : null}
 
-          {/* ProblemCard/ActionBar는 캔버스와 같은 레벨에서 개별 absolute 요소로 배치한다(PenRail/
+          {/* EmptyStateHint는 캔버스와 같은 레벨에서 개별 absolute 요소로 배치한다(PenRail/
           SolveHeader와 동일 패턴). EmptyStateHint와 ProblemCard는 오너 실기기 피드백(2026-09)으로
-          서로 다른 세로 위치를 갖게 되어 래퍼 자체를 두 갈래로 나눈다 — 하나의 공용 `top-[90px]`
-          래퍼로 감싸면 `InputModeToggle`(top-[78px])과 겹쳐 보이는 회귀가 있었다.
+          서로 다른 세로 위치를 갖는다 — ProblemCard와 ActionBar는 아래 세로 흐름 컨테이너에서
+          `InputModeToggle` 바로 아래/화면 하단에 배치된다(2026-10).
 
           EmptyStateHint(`problemCardData === null`, 학생이 아직 문제를 입력하지 않은 초기 상태)
           전용 래퍼: Figma(`260-423`) 재실측 결과 화면 프레임 전체 기준 `top: 50%;
@@ -478,33 +474,19 @@ export function SolvePencilcanvasPage() {
           {!isWorkStage && problemCardData === null && strokes.length === 0 ? (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mx-auto w-fit -translate-y-1/2">
               <EmptyStateHint
-                title={INPUT_EMPTY_STATE_HINT[hintMode].title}
-                subtitle={INPUT_EMPTY_STATE_HINT[hintMode].subtitle}
+                title={INPUT_EMPTY_STATE_HINT[inputMode].title}
+                subtitle={INPUT_EMPTY_STATE_HINT[inputMode].subtitle}
               />
-            </div>
-          ) : null}
-
-          {/* ProblemCard(`problemCardData !== null`, 사진 업로드 후 스크롤 가능한 카드) 전용 래퍼 —
-          이번 오너 피드백은 EmptyStateHint 위치에 대한 것이지 ProblemCard 위치는 언급되지 않아
-          기존 `top-[90px]` 위치를 그대로 유지한다. top-[90px]는 SolveNavTabs(top-6=24px) +
-          NavTabBar 실측 높이(42px) + 24px 여백(24+42+24=90) 유도값이다. 가로 제약은 Figma
-          "Left and Right"(constraints.horizontal=STRETCH)를 반영해 좌우 고정폭 트랜스폼
-          (-translate-x-1/2) 대신 inset-x-0 + mx-auto로 구현한다. max-h-[70vh]는 Figma 실측값이
-          아니라 유도값 — top-[90px] + ActionBar 하단 예약 공간을 고려해 안전 마진으로 선택한
-          값이다. `pointer-events-auto`로 카드 스크롤/탭이 정상 동작하게 한다. */}
-          {!isWorkStage && problemCardData !== null ? (
-            <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto absolute inset-x-0 top-[90px] z-10 mx-auto flex max-h-[70vh] w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
-              <ProblemCard data={problemCardData} />
             </div>
           ) : null}
 
           {/* RecognizedChip(design-agent Figma 재조회로 확정 — `267:607`/`38:21` 두 프레임 모두
           동일 좌표 x=400 y=98, 1194×834 프레임 기준): 화면 상단 중앙에 고정한다 — 오너가 iPad
           실기기에서 "PenRail 그룹 우측 고정"안을 확인한 뒤 "왼쪽 치우침이 이상하다"며 철회를
-          요청했다. 다른 상단 중앙 요소(`ProblemCard`/`EmptyStateHint` 컨테이너, 아래 참고)와 동일한
-          `inset-x-0 + mx-auto` 패턴을 쓴다. 결정 필요: Figma 실측은 y=98px이지만, 이 페이지의 다른
-          상단 요소들이 전부 `top-[90px]`을 공유하고 있어 시각적 일관성을 위해 기존 `top-[90px]`을
-          그대로 쓴다(8px 차이). 축소/확장 상태 모두 같은 DOM 위치에 렌더링하고 `isExpanded` prop만
+          요청했다. 다른 상단 중앙 요소(`EmptyStateHint` 컨테이너, 위 참고)와 동일한
+          `inset-x-0 + mx-auto` 패턴을 쓴다. 결정 필요: Figma 실측은 y=98px이지만, 기존
+          `top-[90px]`(24+42+24 유도값)을 그대로 쓴다(8px 차이). INPUT 단계 ProblemCard는 2026-10부터
+          토글 아래 세로 흐름 컨테이너로 옮겨져 더 이상 이 값을 공유하지 않는다. 축소/확장 상태 모두 같은 DOM 위치에 렌더링하고 `isExpanded` prop만
           바꾼다 — 이전에는 축소=화면 상단 중앙, 확장=PenRail 우측으로 서로 다른 DOM 위치에
           마운트되어 토글할 때마다 언마운트/재마운트가 일어나 포커스가 유실됐다. */}
           {isWorkStage && recognizedText ? (
@@ -523,30 +505,65 @@ export function SolvePencilcanvasPage() {
             </div>
           ) : null}
 
-          {/* Action Bar: Figma 실측(`Solve/Action Bar` 인스턴스 node 256:405, `3-1 · Solve/Pencilcanvas`
-          `127:445` 내부) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히
-          40px 여백. iPad Safari 하단 툴바/홈 인디케이터에 가려지는 문제까지 함께 방지하기 위해
-          세이프에어리어 inset도 더해서 실제 화면 여백은 항상 최소 40px 이상이 되도록 한다. */}
-          <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 mx-auto w-fit">
-            <ActionBar
-              problemId={problemId}
-              // 업로드 처리 중에는 이전 사진(또는 필기)으로 인식이 시작돼 곧 교체될 사진과 어긋나지
-              // 않도록 "문제 인식하기"를 비활성으로 둔다.
-              hasProblemInput={hasProblemInput && !isUploadProcessing}
-              hasWorkInput={hasWorkInput}
-              recognizeStatus={recognizeStatus}
-              solveStatus={solveStatus}
-              recognizeWorkStatus={recognizeWorkStatus}
-              diagnoseStatus={diagnoseStatus}
-              onRecognize={() => void handleRecognize()}
-              onGiveUp={handleGiveUp}
-              onDiagnose={() => void handleDiagnose()}
-              onNewProblem={() => {
-                setIsRecognizedPreviewOpen(false);
-                startNewProblem();
-                void navigate("/solve/pencilcanvas");
-              }}
-            />
+          {/* 상단 입력 방식 토글 + ProblemCard + 하단 ActionBar 세로 흐름 컨테이너(2026-10 오너 보고 수정).
+          이전에는 토글(top-[78px], 높이 36px)과 ProblemCard(top-[90px]) 래퍼가 각각 absolute로 배치돼
+          24px 겹쳤고(DOM상 뒤의 카드가 토글을 가림), 세로가 짧은 뷰포트에서는 카드가 ActionBar와도
+          겹쳤다. 이제 하나의 `flex flex-col` 컨테이너가 위(top-[78px])와 아래(ActionBar 하단 여백)
+          양쪽에 고정되고, 그 안에 토글 → 카드 → ActionBar(mt-auto로 맨 아래) 순서로 놓인다. 카드
+          래퍼는 `min-h-0 overflow-y-auto`라 토글과 ActionBar가 차지하고 남은 공간만 쓰며 넘치면
+          스크롤된다 — ActionBar 높이를 숫자로 예약하지 않고 실제 렌더링 높이를 그대로 반영한다.
+          - top-[78px]: NavTabBar(top-6=24px + 실측 높이 42px) 바로 아래 12px(Figma 실측) = 78px.
+          - bottom-[calc(env(safe-area-inset-bottom)+40px)]: ActionBar Figma 실측(`Solve/Action Bar`
+            node 256:405, `127:445` 내부) constraints.vertical=MAX(Bottom), 프레임 하단에서 정확히 40px
+            여백 + iPad Safari 하단 툴바/홈 인디케이터 대응 safe-area inset. 기존 ActionBar 래퍼의
+            값을 이 컨테이너가 그대로 이어받아 두 값이 한 곳에서만 정의된다.
+          - gap-[12px]: 토글 → 카드(→ ActionBar 최소) 간격. 같은 화면 NavTabBar → 토글 Figma 실측값 재사용.
+          - 컨테이너 자체는 pointer-events-none이고 occluder가 아니다(빈 영역이 펜 입력을 막거나 잉크를
+            가리면 안 된다). 토글/카드/ActionBar 래퍼만 pointer-events-auto + 잉크 가림 표식을 갖는다.
+          - 토글 래퍼 `relative z-[1]`: 그 안의 "사진으로 문제 인식" 메뉴와 투명 scrim이 카드·ActionBar
+            위에 그려진다. 이 컨테이너는 DOM상 마지막 z-10 오버레이라 scrim이 캔버스·PenRail·
+            SolveHeader·ActionBar까지 모든 바깥 탭을 흡수한다(포털 없이 occluder 측정 범위 안에 유지).
+          - 카드 래퍼: 가로 제약은 Figma "Left and Right"(STRETCH)를 반영한 w-[448px] + max-w.
+          - ActionBar는 INPUT/WORK 두 단계 모두 같은 트리 위치에 렌더링해(앞 형제들은 조건부 슬롯)
+            단계 전환 시 리마운트되지 않는다. WORK 단계에서는 토글/카드가 없어 ActionBar만 남는다.
+          사진 인식 확인 팝업이 열려 있으면 problemId가 채워져 WORK 단계이므로 토글/카드는 보이지 않는다. */}
+          <div className="pointer-events-none absolute inset-x-0 top-[78px] bottom-[calc(env(safe-area-inset-bottom)+40px)] z-10 flex flex-col items-center gap-[12px]">
+            {!isWorkStage ? (
+              <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto relative z-[1] shrink-0">
+                <InputModeToggle
+                  mode={inputMode}
+                  onSelectHandwriting={handleSelectHandwriting}
+                  onSelectPhotoSource={handleSelectPhotoSource}
+                  disabled={isUploadProcessing}
+                />
+              </div>
+            ) : null}
+            {!isWorkStage && problemCardData !== null ? (
+              <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto flex min-h-0 w-[448px] max-w-[calc(100%-3rem)] flex-col gap-[11px] overflow-y-auto">
+                <ProblemCard data={problemCardData} />
+              </div>
+            ) : null}
+            <div {...CANVAS_OCCLUDER_PROPS} className="pointer-events-auto mt-auto shrink-0">
+              <ActionBar
+                problemId={problemId}
+                // 업로드 처리 중에는 이전 사진(또는 필기)으로 인식이 시작돼 곧 교체될 사진과 어긋나지
+                // 않도록 "문제 인식하기"를 비활성으로 둔다.
+                hasProblemInput={hasProblemInput && !isUploadProcessing}
+                hasWorkInput={hasWorkInput}
+                recognizeStatus={recognizeStatus}
+                solveStatus={solveStatus}
+                recognizeWorkStatus={recognizeWorkStatus}
+                diagnoseStatus={diagnoseStatus}
+                onRecognize={() => void handleRecognize()}
+                onGiveUp={handleGiveUp}
+                onDiagnose={() => void handleDiagnose()}
+                onNewProblem={() => {
+                  setIsRecognizedPreviewOpen(false);
+                  startNewProblem();
+                  void navigate("/solve/pencilcanvas");
+                }}
+              />
+            </div>
           </div>
 
           {photoUploadErrorKind !== null ? (
