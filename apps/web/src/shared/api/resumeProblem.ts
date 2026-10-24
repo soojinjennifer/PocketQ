@@ -1,6 +1,7 @@
-import type { ErrorCode, ResumeMode, ResumeSolution } from "shared-types";
+import type { ErrorCode, FigureSpec, ResumeMode, ResumeSolution, StepFigureRef } from "shared-types";
 import { ApiError, parseApiErrorBody } from "./ApiError";
 import { buildApiUrl, getAuthHeaders } from "./httpClient";
+import { parseFiguresEventData } from "./parseFiguresEvent";
 import { parseSseStream } from "./parseSse";
 
 export interface ResumeProblemParams {
@@ -17,9 +18,11 @@ export interface ResumeProblemParams {
 export type ResumeStreamEvent =
   | { type: "chunk"; delta: string }
   | { type: "done"; result: ResumeSolution }
+  /** `done` 이후 서버가 검증한 도형(FIGURES on, 받아들인 도형이 있을 때만 1회). */
+  | { type: "figures"; figures: FigureSpec[]; stepFigureRefs: StepFigureRef[] }
   | { type: "error"; code: ErrorCode; message: string };
 
-/** `POST /api/problems/:problemId/resume` — SSE 스트림(`chunk`/`done`/`error`)을 순서대로 산출한다. */
+/** `POST /api/problems/:problemId/resume` — SSE 스트림(`chunk`/`done`/`figures`/`error`)을 순서대로 산출한다. `: keep-alive` 같은 주석 블록은 `parseSseStream`이 무시한다. */
 export async function* resumeProblemStream(params: ResumeProblemParams): AsyncGenerator<ResumeStreamEvent> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(buildApiUrl(`/api/problems/${encodeURIComponent(params.problemId)}/resume`), {
@@ -44,6 +47,12 @@ export async function* resumeProblemStream(params: ResumeProblemParams): AsyncGe
     } else if (sseEvent.event === "done") {
       const parsed = JSON.parse(sseEvent.data) as ResumeSolution;
       yield { type: "done", result: parsed };
+    } else if (sseEvent.event === "figures") {
+      // 깨진 figures 이벤트는 조용히 무시한다 — 텍스트 풀이에 영향을 주지 않는다.
+      const payload = parseFiguresEventData(sseEvent.data);
+      if (payload) {
+        yield { type: "figures", figures: payload.figures, stepFigureRefs: payload.stepFigureRefs };
+      }
     } else if (sseEvent.event === "error") {
       const parsed = JSON.parse(sseEvent.data) as { code: ErrorCode; message: string };
       yield { type: "error", code: parsed.code, message: parsed.message };

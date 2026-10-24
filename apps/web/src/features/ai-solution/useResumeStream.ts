@@ -19,7 +19,8 @@ interface UseResumeStreamResult {
   result: ResumeSolution | null;
   errorMessage: string | null;
   /** 성공(`done` 이벤트 수신)하면 결과 `ResumeSolution`을, 실패하면 `null`을 반환한다
-   *  (`useSolveStream`과 동일하게 호출 측이 반환값으로 바로 성공 여부를 판단할 수 있게 한다). */
+   *  (`useSolveStream`과 동일하게 호출 측이 반환값으로 바로 성공 여부를 판단할 수 있게 한다).
+   *  `done` 시점에 resolve되며, 그 뒤 도착하는 `figures`는 `result`에 병합된다. */
   resume: (input: ResumeStreamInput) => Promise<ResumeSolution | null>;
   reset: () => void;
 }
@@ -38,7 +39,7 @@ export function useResumeStream(): UseResumeStreamResult {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
-  const resume = useCallback(async (input: ResumeStreamInput): Promise<ResumeSolution | null> => {
+  const resume = useCallback((input: ResumeStreamInput): Promise<ResumeSolution | null> => {
     const requestId = (requestIdRef.current += 1);
     setStatus("loading");
     setMode(input.mode);
@@ -46,35 +47,54 @@ export function useResumeStream(): UseResumeStreamResult {
     setResult(null);
     setErrorMessage(null);
 
-    let resumedResult: ResumeSolution | null = null;
-
-    try {
-      for await (const event of resumeProblemStream(input)) {
-        if (requestIdRef.current !== requestId) {
-          return null;
+    // `useSolveStream`과 같은 규칙(Stage 3): `done` 즉시 resolve, 남은 스트림은 백그라운드에서 소비해
+    // `figures`를 결과에 병합, done 이후 오류는 상태를 바꾸지 않는다. 모드를 바꿔 다시 요청하면 이전
+    // 요청의 뒤늦은 figures는 요청 세대 비교로 무시된다.
+    return new Promise<ResumeSolution | null>((resolve) => {
+      let settled = false;
+      let doneReceived = false;
+      const settle = (value: ResumeSolution | null): void => {
+        if (!settled) {
+          settled = true;
+          resolve(value);
         }
-        if (event.type === "chunk") {
-          setStreamedText((prev) => prev + event.delta);
-        } else if (event.type === "done") {
-          resumedResult = event.result;
-          setResult(event.result);
-          setStatus("success");
-        } else {
-          setErrorMessage(event.message);
-          setStatus("error");
-        }
-      }
-    } catch (error) {
-      if (requestIdRef.current !== requestId) {
-        return null;
-      }
-      const message = error instanceof ApiError ? error.message : "이어풀기 생성 중 오류가 발생했습니다.";
-      setErrorMessage(message);
-      setStatus("error");
-      return null;
-    }
+      };
 
-    return resumedResult;
+      void (async () => {
+        try {
+          for await (const event of resumeProblemStream(input)) {
+            if (requestIdRef.current !== requestId) {
+              settle(null);
+              return;
+            }
+            if (event.type === "chunk") {
+              setStreamedText((prev) => prev + event.delta);
+            } else if (event.type === "done") {
+              doneReceived = true;
+              setResult(event.result);
+              setStatus("success");
+              settle(event.result);
+            } else if (event.type === "figures") {
+              if (doneReceived) {
+                setResult((prev) =>
+                  prev ? { ...prev, figures: event.figures, stepFigureRefs: event.stepFigureRefs } : prev,
+                );
+              }
+            } else if (!doneReceived) {
+              setErrorMessage(event.message);
+              setStatus("error");
+            }
+          }
+        } catch (error) {
+          if (requestIdRef.current === requestId && !doneReceived) {
+            const message = error instanceof ApiError ? error.message : "이어풀기 생성 중 오류가 발생했습니다.";
+            setErrorMessage(message);
+            setStatus("error");
+          }
+        }
+        settle(null);
+      })();
+    });
   }, []);
 
   const reset = useCallback(() => {

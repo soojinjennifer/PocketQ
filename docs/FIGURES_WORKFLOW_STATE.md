@@ -12,12 +12,12 @@
 
 | 항목 | 값 |
 |---|---|
-| 현재 Stage | Stage 3 — 풀이 AI API 연결(착수 전) |
-| 현재 역할 | **Stage 3 plan-agent** 대기 |
-| 상태 | Stage 2 **PASS** — design-agent 재검수 PASS + stage-qa 재검증 PASS(§4.6), 재작업 1/3, **실기기(iPad) 미확인**. 재작업 횟수에 넣지 않는 후속 정리 완료(§4.7) |
-| 재작업 | Stage 2: 1 / 3 (종료) |
-| 차단 요인 | 없음(물리 iPad 확인은 Stage 4 실기기 항목) |
-| 다음 작업 | Stage 3 plan-agent: 풀이 AI API 연결 계획(§5 남은 결정 1·3·4 포함) |
+| 현재 Stage | Stage 3 — 풀이 AI API 연결 |
+| 현재 역할 | Stage 3 stage-qa-agent 판정 완료(§6.10) → 다음 Stage 4 plan-agent 대기 |
+| 상태 | **Stage 3 PASS**(stage-qa 독립 검증, §6.10). 운영 플래그는 off 유지, on 전 조건 2건(텍스트 회귀 대표본/파서 보강, 보정 효과 측정) Stage 4로 이월(§6.10.8) |
+| 재작업 | Stage 2: 1 / 3 (종료). Stage 3: 0 / 3 |
+| 차단 요인 | 없음(실제 키로 평가 실행함). 운영 플래그는 off 유지(D9) |
+| 다음 작업 | Stage 4 plan-agent: §6.3 design 인계 + §6.10.8 이월 조건 반영. 제품 문서 머리말의 "stage-qa 전/대기" 문구 갱신(§6.10.4 L-3) |
 
 ## 2. Stage 표
 
@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | 1 | 현황 분석과 데이터 계약 | plan → dev → stage-qa | 생략(UI 영향 없음) | **PASS** | 0/3 |
 | 2 | 검증기와 고정 fixture 렌더링(JSXGraph 설치) | plan → design → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md`, 오너 승인) | **PASS**(design 재검수 PASS + stage-qa 재검증 PASS §4.6, 실기기 미확인) · 후속 정리 완료(§4.7) | 1/3 |
-| 3 | 풀이 AI API 연결 | plan → dev → stage-qa (+design: 로딩·실패 UI 시) | 조건부 | 미착수 | — |
+| 3 | 풀이 AI API 연결 | plan → dev → stage-qa (+design: 로딩·실패 UI 시) | 생략(화면 변경 없음, §6.3) | **PASS**(stage-qa §6.10, 실제 모델 보정 효과·텍스트 대표본은 이월 조건) | 0/3 |
 | 4 | 단계별 표시와 iPad 대응 | plan → design → dev → stage-qa | 필요 | 미착수 | — |
 | 5 | 저장·CHAT 연동과 통합 QA | plan → design(필요시) → dev → stage-qa | 조건부 | 미착수 | — |
 
@@ -511,3 +511,282 @@ Stage 2 PASS 이후 design 재검수(P2-A, P3-B)와 stage-qa 재검증 LOW 항�
 2. `problemHistoryDetailSchema.solution.figures`는 `z.array(z.unknown())`라 비배열 값이 저장돼 있으면 상세 조회 전체가 실패한다. 서버가 검증된 배열만 저장하는 한 문제없지만, Stage 5 저장 설계 시 재확인.
 3. `FIGURES_ENABLED`를 `render.yaml`/`docs/DEPLOYMENT.md`에 추가하는 시점(Stage 3 이후 권장).
 4. `docs/API_SPEC.md`의 solve/resume/history 응답 계약 갱신은 실제로 figures를 반환하는 Stage 3에서 반영.
+
+> Stage 3 처리(2026-10-24): 1번은 D1(done 뒤 별도 구조화 호출 + `event: figures`)로 결정·구현. 3번은 `docs/DEPLOYMENT.md`에 설명만 추가하고 `render.yaml`은 바꾸지 않음(운영 off, D9). 4번은 solve·resume만 `docs/API_SPEC.md`에 작성(D7) — history 응답은 Stage 5 저장과 함께. 2번은 Stage 5에서 재확인.
+
+## 6. Stage 3 — 풀이 AI API 연결
+
+- 승인된 계획: `.omc/plans/figures-stage3.md`(plan-agent 계획 + resume 보완 + 오너 결정 D1~D10)
+- 루프: plan-agent(완료) → development-agent(완료, 2026-10-24) → stage-qa-agent(대기)
+
+### 6.1 WU 진행 상태 (development-agent, 2026-10-24)
+
+| WU | 내용 | 상태 |
+|---|---|---|
+| 기준값 | off 상태 바이트 기준값을 **변경 전 코드**에서 캡처: `apps/api/src/contracts/__baseline__/figuresOff.baseline.json`(solve SSE 4조합, resume SSE own·alternative, `buildSystemPrompt` 6학년, `buildResumePrompt` 6×2, OpenAI solve/resume 요청 본문·이벤트) | 완료 |
+| WU0 | 스키마 probe·문서 확인 | 완료 — 공식 문서 확인(§6.2), 실제 호출 4회, 결과 `.omc/research/figures-stage3-probe.json` |
+| WU1 | `packages/validation/src/figures/{steps,candidate}.ts` + 계약 테스트 `figureCandidate.contract.test.ts`(S3-7·8·9) | 구현·자체 테스트 통과 |
+| WU2 | `prompts/system.ts` stepMarkers 옵션, `prompts/figures.ts`(생성·보정 프롬프트, priorWork 빌더) | 구현·자체 테스트 통과(`prompts/figures.test.ts`) |
+| WU3 | `adapter.ts` 인터페이스, `figuresJsonSchema.ts`(+S3-12 테스트 통과), `openai-adapter.ts`, `fake-adapter.ts` 시나리오 | 구현·자체 테스트 통과(`openai-adapter.figures.test.ts`, `fake-adapter.figures.test.ts`, `figuresJsonSchema.test.ts`) |
+| WU4 | `modules/figures/generateSolutionFigures.ts` | 구현·자체 테스트 통과(`generateSolutionFigures.test.ts`) |
+| WU5·5b | `solutions.router.ts`·`resume.router.ts` + `modules/figures/streamFigures.ts`. off 바이트 동일 테스트 `figuresOff.baseline.test.ts` 통과 | 구현·자체 테스트 통과(`solutions.router.figures.test.ts`, `resume.router.figures.test.ts`). api 697 테스트 통과 |
+| WU6 | 웹 `shared/api/{solveProblem,resumeProblem,parseFiguresEvent}.ts`, `features/ai-solution/{useSolveStream,useResumeStream}.ts`, 테스트 추가(기존 단언 삭제 0) | 구현·자체 테스트 통과(web 758), build grep S3-14 확인 |
+| WU7 | 문서 | 완료(§6.4 변경 파일) |
+| WU8 | 실제 모델 평가 1회 + 텍스트 회귀 확인 | 완료(§6.6). 평가에서 on 전용 텍스트 문제 1건 발견 → on 전용 프롬프트 수정 → 표적 재확인(§6.6.3) |
+| 게이트 | 루트 typecheck → lint → test → build | 통과(§6.7) |
+
+### 6.2 WU0 확인 결과
+
+- OpenAI 공식 문서 **확인함**: https://developers.openai.com/api/docs/guides/structured-outputs (`platform.openai.com/docs/guides/structured-outputs`에서 리다이렉트, 2026-10-24 조회). 요약은 `docs/FIGURE_SPEC.md` §16.5.
+- SDK: `openai@7.4.0` 설치본 `internal/request-options.d.ts`에서 요청별 `maxRetries`·`timeout`·`signal` 확인, `ResponseOutputRefusal { type: "refusal" }`, `ResponseStatus`에 `incomplete` 포함.
+- probe(실제 호출 4회, 모델 `gpt-5.6-terra`): 최소 재귀 스키마 수락 / **전체 봉투 스키마 strict 수락**(5.1초, 입력 2,170·출력 566토큰) / `max_output_tokens: 16` → `status: "incomplete"`, `reason: "max_output_tokens"`, `output_text` 빈 문자열 / 요청별 signal 취소 → `APIUserAbortError`. 거부(refusal)는 재현 못 함(문서·타입 기준 처리). 원본 `.omc/research/figures-stage3-probe.json`(키 없음).
+- probe에서 나온 도형은 `boundingBox`의 top/bottom을 뒤집어 zod에서 거부됐다 → 생성 프롬프트에 순서 규칙(`top > bottom`)을 명시했다.
+
+### 6.3 design-agent 생략 근거와 Stage 4 design 인계
+
+- **생략 근거**: Stage 3은 서버 API·검증·웹 데이터 계층(SSE 클라이언트·훅)만 바꿨고 `pages/*`·`shared/ui/*`·`features/figure-visualization/*`·`ResultCard`·`ResumeResultCard`는 diff 0이다. 새 로딩·실패 UI를 만들지 않았고 도형을 화면에 그리지 않는다(`Prompt/15` §2.3 실행 조건 해당 없음). 운영 플래그도 off다.
+- **Stage 4 design-agent 인계(필수)**:
+  1. done 이후 "도형 준비 중" 구간(텍스트는 끝났는데 figures가 아직 안 옴)과 "도형 없음"으로 끝나는 경우의 표시 방식. figures 이벤트는 받아들인 도형이 있을 때만 오므로, 클라이언트는 스트림 종료로 "도형 없음"을 안다(현재 훅은 스트림 종료 상태를 따로 노출하지 않음 — Stage 4 계획에서 결정).
+  2. `docs/FIGURE_DESIGN.md` §9 전제 변경(figures가 done과 함께 온다는 서술은 더 이상 사실이 아님, 정정 주석 추가함).
+  3. `**N단계**` 표지의 표시·제거 방식 — `ResultCard`·`ResumeResultCard`는 `renderMathText`(KaTeX만)라 플래그 on이면 별표가 그대로 보인다. 운영 off라 현재 문제 없음.
+  4. 이어풀기 결과 카드(`ResumeResultCard`)의 도형 배치.
+
+### 6.4 변경 파일
+
+| 구분 | 파일 | 내용 |
+|---|---|---|
+| validation | `packages/validation/src/figures/steps.ts`(신규) | `splitSolutionSteps`, `checkFigureStepRange`, `stepNumber` |
+| validation | `packages/validation/src/figures/candidate.ts`(신규) | `validateFigureCandidate`, `toRepairErrors`, `checkMeasureConstraints`(`measure_without_constraint`), `readCandidateFigureId` |
+| validation | `packages/validation/src/figures.ts` | 위 두 파일 재export 2줄만 |
+| api | `apps/api/src/infrastructure/ai/adapter.ts` | `SolveRequest.stepMarkers?`·`ResumeRequest.stepMarkers?`, `FigureCallContext`·`GenerateFiguresRequest`·`RepairFigureRequest`·`FigureCallResult`, `generateFigures`·`repairFigure` |
+| api | `apps/api/src/infrastructure/ai/figuresJsonSchema.ts`(신규) | 봉투·보정 strict JSON Schema(`$defs.figure`·`$defs.expr`) |
+| api | `apps/api/src/infrastructure/ai/openai-adapter.ts` | solve/resume에 stepMarkers 전달, 도형 호출 2종(stream false·strict·maxRetries 0·timeout·signal·incomplete/refusal/비JSON throw) |
+| api | `apps/api/src/infrastructure/ai/fake-adapter.ts` | `figureScenario` 7종, stepMarkers on일 때만 3단계 청크(F07 s1~s3). off 경로 바이트 동일 |
+| api | `apps/api/src/infrastructure/ai/prompts/system.ts` | `buildSystemPrompt(grade, { stepMarkers })`, `buildResumePrompt(grade, mode, { stepMarkers })` — off 문자열 불변 |
+| api | `apps/api/src/infrastructure/ai/prompts/figures.ts`(신규) | 생성·보정 프롬프트, 고정 힌트, `buildPriorWork` |
+| api | `apps/api/src/modules/figures/generateSolutionFigures.ts`(신규) | 오케스트레이터(throw 없음) |
+| api | `apps/api/src/modules/figures/streamFigures.ts`(신규) | done 뒤 keep-alive·figures 이벤트, 연결 끊김 abort |
+| api | `apps/api/src/modules/solutions/solutions.router.ts`, `apps/api/src/modules/resume/resume.router.ts` | `{ figuresEnabled = env.figuresEnabled, keepAliveMs, figuresTotalBudgetMs }` 주입, done 뒤 도형 단계 |
+| api | `apps/api/src/config/env.ts`(주석만), `apps/api/.env.example`(주석) | 플래그 설명 |
+| api | `apps/api/scripts/evalFigures.ts`(신규, 게이트 밖) | 실제 모델 평가(`EVAL_DRY_RUN=1`이면 Fake로 비용 0) |
+| api 테스트 | `contracts/figuresOff.baseline.test.ts` + `contracts/__baseline__/figuresOff.baseline.json`(변경 전 캡처), `contracts/figureCandidate.contract.test.ts`, `infrastructure/ai/{figuresJsonSchema,openai-adapter.figures,fake-adapter.figures}.test.ts`, `infrastructure/ai/prompts/figures.test.ts`, `modules/figures/generateSolutionFigures.test.ts`, `modules/{solutions/solutions,resume/resume}.router.figures.test.ts` | 모두 신규 파일 |
+| web | `apps/web/src/shared/api/parseFiguresEvent.ts`(신규), `solveProblem.ts`, `resumeProblem.ts` | `{ type: "figures" }`, 깨진 이벤트 무시, 검증기 import 없음 |
+| web | `apps/web/src/features/ai-solution/useSolveStream.ts`, `useResumeStream.ts` | done에서 resolve, 백그라운드 소비, figures 병합, done 후 오류 삼킴, 요청 세대 가드 |
+| web 테스트 | `useSolveStream.test.tsx`, `useResumeStream.test.tsx`, `ProblemInputProvider.test.tsx`, `solveProblem.test.ts`, `resumeProblem.test.ts` | **추가만**(`git diff --numstat` 삭제 줄 0) |
+| 문서 | `docs/API_SPEC.md`(0바이트 → solve·resume), `docs/FIGURE_SPEC.md`(머리말·§2·§4·§9·§13·§16), `docs/PRD_WHYMATH.md`(FIG-11), `docs/FIGURE_DESIGN.md`(§9 사실 정정 주석), `docs/DEPLOYMENT.md`(플래그 행), `docs/PROJECT_STATUS.md`(§3.41·§5), 본 장부 | |
+| 연구 기록 | `.omc/research/figures-stage3-probe.json`, `figures-stage3-eval.json`, `figures-stage3-textcheck.json` | 키 값 없음(grep 확인) |
+
+변경 금지 파일 diff 0 확인: `parseSolveOutput.ts`·`parseResumeOutput.ts`·`resolveSolutionContext.ts`·`inMemoryProblemStore.ts`·`infrastructure/cas/*`·`problemRepository.ts`·`supabase/migrations/*`·웹 `pages/*`·`shared/ui/*`·`features/figure-visualization/*`·`ResultCard.tsx`·`ResumeResultCard.tsx`·`render.yaml`. 새 npm 의존성 없음.
+
+### 6.5 수용 기준별 자체 결과 (development-agent 자체 검증 — QA 판정 아님)
+
+| AC | 자체 결과 | 근거 |
+|---|---|---|
+| S3-1 | 자체 테스트 통과 | `figuresOff.baseline.test.ts`: solve SSE 4조합이 **변경 전 캡처 기준값과 바이트 동일**, generateFigures·repairFigure 0회, done에 figures 키 없음, `saveSolution`이 done payload 그대로로 1회, `buildSystemPrompt(grade)` 6학년 불변, OpenAI 요청 본문·이벤트 불변(요청별 옵션 인자도 없음) |
+| S3-2 | 자체 테스트 통과 | `solutions.router.figures.test.ts`: chunk*→done→figures→종료, done 키 집합이 off와 같고 어댑터 결과와 deep-equal, figures 재파싱 deep-equal·rejected 0·페이로드 키 `{figures, stepFigureRefs}`만, refs는 수용 도형만 |
+| S3-3 | 자체 테스트 통과 | 오케스트레이터·라우터: 2개 중 1개 무효 → 그 도형만 보정 1회, 생성 1회, 순서 유지 |
+| S3-4 | 자체 테스트 통과 | 보정 실패·throw·null → 그 도형만 제외, 나머지·refs·텍스트 유지, error 0 |
+| S3-5 | 자체 테스트 통과 | 어댑터: incomplete·failed·refusal·비JSON·SDK 오류 → throw(호출 1회). 라우터: throw·hang(타임아웃) → figures 0·error 0·정상 종료 |
+| S3-6 | 자체 테스트 통과 | null·문자열·배열·`figures` 비배열·빈 객체 → `malformed`, 보정 0 |
+| S3-7 | 자체 테스트 통과 | `splitSolutionSteps` 경계(표지 없음·건너뜀·중복·역순·0·줄 중간·들여쓰기·s99·100), s(N+1) → `step_out_of_range` → 보정 대상, 분할 실패 → refs `[]`·도형 유지 |
+| S3-8 | 자체 테스트 통과 | `toRepairErrors`(모르는 code → invalid, path 조각 정제, 10건), 보정 user JSON의 errors에 인젝션 문자열 0, 시스템 메시지에 문제·풀이·학생 텍스트 0, user는 JSON 하나 |
+| S3-9 | 자체 테스트 통과 | `verified`·스타일 키 → `unrecognized_keys`로 거부·보정도 같으면 제외, 결과 직렬화에 추가 키 0, 수용 도형은 입력과 다른 zod 출력 객체 |
+| S3-10 | 자체 테스트 통과 | 실제 HTTP 서버에서 done 수신 후 소켓 종료 → 도형 호출 signal aborted, close 후 write 0(쓰기 감시 미들웨어). 변이 확인: abort를 지우면 테스트 실패 |
+| S3-11 | 자체 테스트 통과 | 요청별 `{ maxRetries: 0, timeout: 30000, signal }`, create 1회, 라우터 요청당 생성 1회 |
+| S3-12 | 자체 테스트 통과 | `figuresJsonSchema.test.ts`: 루트 object, 모든 객체 additionalProperties false·required = 전 키, `$ref`는 figure·expr만, expr 재귀, 미지원 키워드 0, 요소 12·제약 7·interaction 2·expr 6 변형의 판별자·키 집합이 zod shape와 일치. WU0 probe에서 실제 strict 수락 |
+| S3-13 | 자체 테스트 통과 | figures 병합, 깨진 이벤트 무시, done에서 resolve(Provider 테스트: 스트림이 열린 채로 추천 질문 요청 — 옛 훅으로 되돌리면 실패하는 것 확인), done 후 error·네트워크 오류에 status 유지, 새 요청·reset 뒤 이전 figures 무시. 기존 화면 테스트 무수정 |
+| S3-14 | 자체 확인 | `vite build` 산출물 JS에 `dependency_not_visible`·`line_out_of_view`·`measure_without_constraint`·`step_out_of_range` 0건. 메인 번들 966,973 → 967,760바이트(+787B, +0.08%). 비교 기준은 작업 시작 전 있던 dist(2026-10-24 22:53 빌드) |
+| S3-15 | 작성 | §6.4 문서 |
+| S3-R1 | 자체 테스트 통과 | resume SSE own·alternative 기준값과 바이트 동일, generateFigures 0, `buildResumePrompt` 12조합 불변 |
+| S3-R2 | 자체 테스트 통과 | own·alternative: chunk*→done(CAS verified)→figures→종료, done 키 집합 off와 같음, CAS 호출 인자 불변 |
+| S3-R3 | 자체 테스트 통과 | hang에서도 done이 keep-alive보다 먼저, `setResumeSolution` 1회·인자 = done payload, 도형 호출은 저장 뒤 시작 |
+| S3-R4 | 자체 테스트 통과 | throw·malformed·invalid-twice·incomplete(어댑터 throw) → figures 0(또는 유효 도형만)·error 0, 연결 끊김 → aborted |
+| S3-R5 | 자체 테스트 통과 | 이어풀기 refs s1~s3, own에서도 s1 = 이어 쓴 첫 단계(lastValidLine 2여도) |
+| S3-R6 | 자체 테스트 통과 | own: lineNo ≤ lastValidLine·stallLine 미만만, 무효 줄 0, alternative null, 30줄·300자 상한, 인젝션 줄은 user JSON에만·시스템 메시지 0 |
+| S3-R7 | 자체 테스트 통과 | Fake 표지 on: `## 최종 답` = `-1`(순수 LaTeX), `parseResumeOutput` 섹션 분리 정확 |
+| S3-R8 | 자체 테스트 통과 | 병합, done에서 resolve·추천 질문 직후, 깨진 이벤트 무시, 모드 재요청 시 이전 figures 무시 |
+| S3-INT | 평가 실행·지표 기록(§6.6). 필수 조건: 미검증 도형 전달 **0**. 텍스트 경로: on 전용 문제 1건(개념 분류 JSON 위치) 발견 → on 전용 프롬프트 수정 → 표적 재확인 0/6 | 판정은 stage-qa |
+| G | §6.7 | |
+
+### 6.6 실제 모델 평가 (WU8, 모델 `gpt-5.6-terra`, 2026-10-24, 1회 실행)
+
+- 스크립트 `apps/api/scripts/evalFigures.ts`, 원본 `.omc/research/figures-stage3-eval.json`. 사례 22건(solve 18 = 도형 필요 10 + 불필요 6 + 적대 2, resume 4). 사례마다 실제 흐름(표지 on 풀이 스트리밍 → `generateSolutionFigures`). 기대 좌표는 손 계산.
+
+#### 6.6.1 지표
+
+| 지표 | solve | resume | 전체 |
+|---|---|---|---|
+| 생성률(도형 필요 사례 중 수용 ≥1) | 12/12 (적대 2 포함) | 4/4 | 16/16 |
+| 오생성률(불필요 사례 중 수용 ≥1) | 0/6 | — | 0/6 |
+| 후보 수 | 12 | 4 | 16 |
+| 1차 통과율 | 12/12 | 4/4 | 16/16 |
+| 보정 시도 / 성공 | 0 / 0 | 0 / 0 | 0 / 0 (실제 모델에서 보정 경로는 한 번도 실행되지 않음 — 단위 테스트로만 검증) |
+| 최종 수용률 | 12/12 | 4/4 | 16/16 |
+| 거부 코드 분포(1차·최종) | 없음 | 없음 | 없음(`line_out_of_view` 0, `dependency_not_visible` 0) |
+| 단계 표지 준수율(`splitSolutionSteps` 성공) | 17/17 | 4/4 | 21/21 (X4는 `## 풀이` 섹션 자체가 없어 분모 제외 — `empty`) |
+| `step_out_of_range` | 0 | 0 | 0 |
+| 핵심 좌표 vs 독립 기대값(1e-6) | 11/11 | 2/2 | 13/13 |
+| bbox 대비 내용 넓이 비(측정만) | p50 0.50, 최소 0(A1: 점 3개가 한 직선 위라 넓이 0 — 측정 방식의 한계), 최대 1(함수 그래프) | p50 0.50, 0.44~0.52 | p50 0.50 |
+| done 이후 추가 시간(도형 단계) p50 / p95 / 최대 | 5,636 / 16,126 / 16,126 ms | 8,822 / 14,260 / 14,260 ms | 6,383 / 14,260 / 16,126 ms |
+| 도형 호출 수 | 18 | 4 | 22 (생성만, 보정 0) |
+| 도형 호출 토큰(입력 / 출력) | 65,661 / 10,891 | 14,787 / 4,704 | 80,448 / 15,595 |
+| 미검증 도형 전달 | 0 | 0 | **0** |
+| 불필요 사례 omitReason | not_helpful 3(계산·인수분해·확률), insufficient_info 2(그림 정보 없음·수치 불명확), unsupported 1(정육면체) | — | |
+| 적대 검사 | A1 인젝션: verified 없음·AB=100 조건 0 / A2 "보이는 5": AB 길이 조건은 4(derived)뿐, 5를 조건으로 둔 것 0 | R4 무효 줄 함정: `equalLength(AB, AC)` 0건 | 3/3 통과 |
+
+- 비용: `gpt-5.6-terra`가 공식 가격표(https://developers.openai.com/api/docs/pricing, 2026-10-24 조회)에 없어 **계산하지 않음**(추정 금지).
+- 품질 관찰(검증기 밖): N5(T1·T2)·N6(P)·N10(G)은 결과 점을 파생 요소가 아닌 자유 `point` 좌표로 두었다. N5는 `pointOnCircle`·`tangent` 제약이 있어 검증되지만, N6·N10은 관계 제약이 없어 좌표의 수학적 정확성은 검증기가 보장하지 않는다(이번 평가에서는 손 계산 기대값과 일치). Stage 4·5에서 "결과 점은 파생 요소(intersection·midpoint 등)로" 프롬프트 강화 검토 권장.
+- 시간: 도형 단계 p95 약 14~16초. 호출별 타임아웃 30초·전체 상한 60초 안이며 타임아웃 0건.
+
+#### 6.6.2 텍스트 경로 검사
+
+평가 스크립트의 엄격 검사가 3건을 표시했다: N7·A2 `no_concept_tags`(개념 분류 JSON이 `## 최종 답` 제목 바로 아래로 와서 `parseSolveOutput`이 태그를 잃고 답에 JSON이 섞임), X4 `no_solution_header`·`empty_answer`(그림 정보 없는 문제).
+
+#### 6.6.3 재실행 사유와 결과(표적 확인 12회, 도형 호출 없음) — `.omc/research/figures-stage3-textcheck.json`
+
+- **사유**: 위 3건이 단계 표지(on) 때문인지 가리기 위해 같은 3문제의 풀이 텍스트만 off/on 1회씩 다시 호출(6회).
+- 결과: off 3회 모두 태그 위치 정상, on 3회 중 1회(X4) 다시 태그가 `## 최종 답` 바로 아래 → on 전체로 보면 25회 중 3회 재현, off 0/3. X4의 `## 풀이` 없음은 **off에서도 재현**(그림 없는 문제라 풀이 섹션을 생략) → 회귀 아님. X4 평가 실행의 빈 답은 off·on 재확인에서 재현되지 않았다(평가 실행의 원문은 저장하지 않아 원인 미확정).
+- **조치**: on 전용으로 `buildSystemPrompt`에 "개념 분류 JSON 줄은 `## 최종 답` 제목 바로 아래에 쓰지 않는다. 최종 답 문장을 모두 쓴 뒤 응답의 가장 마지막 줄에 한 번만 쓴다." 한 줄 추가(off 문자열 불변 — 기준값 테스트 통과). `parseSolveOutput`은 변경 금지라 건드리지 않았다.
+- **수정 확인**: 같은 3문제 on 2회씩(6회) → 태그 위치 문제 0/6, 모두 태그 파싱 성공. 전체 평가(22건)는 비용 원칙에 따라 다시 돌리지 않았다 — 위 도형 지표는 수정 전 프롬프트 기준이다(수정은 답·태그 순서만 바꾼다).
+
+### 6.7 게이트
+
+저장소 루트에서 `pnpm typecheck` → `pnpm lint` → `pnpm test` → `pnpm build` 순서로 실행, **모두 첫 실행 exit 0**(2026-10-24, 프롬프트 수정 이후). test: api 55 파일/697 테스트, web 93 파일/758 테스트. 기존 테스트 삭제·완화 0(수정된 기존 테스트 파일 5개 모두 삭제 줄 0). 평가 스크립트(`apps/api/scripts/`)는 게이트 밖이라 임시 tsconfig로 따로 타입 검사(오류 0)했다.
+
+### 6.8 stage-qa 재현 방법
+
+1. 저장소 루트: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+2. Stage 3 테스트만: `pnpm -F api exec vitest run src/contracts/figuresOff.baseline.test.ts src/contracts/figureCandidate.contract.test.ts src/infrastructure/ai src/modules/figures src/modules/solutions src/modules/resume`, `pnpm -F web exec vitest run src/features/ai-solution src/shared/api src/features/problem-input`.
+3. off 바이트 동일: 기준값 `apps/api/src/contracts/__baseline__/figuresOff.baseline.json`은 Stage 3 코드 변경 **전**에 캡처했다. 독립 확인하려면 `git stash`(또는 커밋 2679651 체크아웃 워크트리)에서 같은 절차를 돌려 비교할 수 있다(캡처 절차는 `figuresOff.baseline.test.ts`와 같다).
+4. 로컬 수동 확인(Fake, 비용 0): `apps/api/.env`에서 `AI_PROVIDER`를 비우고 `FIGURES_ENABLED=true`로 서버 실행 → 풀이 요청 SSE에서 done 뒤 `event: figures`(F07) 확인. `FIGURES_ENABLED`를 지우고 재시작하면 figures·keep-alive 0.
+5. 평가 재현: `EVAL_DRY_RUN=1 pnpm -F api exec tsx scripts/evalFigures.ts`(Fake, 비용 0, `.omc/research/figures-stage3-eval.dryrun.json`). 실제 모델은 `pnpm -F api exec tsx scripts/evalFigures.ts`(약 44회 호출, 오너 승인 필요).
+6. 번들: `pnpm -F web build` 후 `grep -l -e dependency_not_visible -e line_out_of_view apps/web/dist/assets/*.js` → 0건.
+7. 변경 금지 파일: `git diff --stat -- apps/api/src/infrastructure/ai/parseSolveOutput.ts apps/api/src/infrastructure/ai/parseResumeOutput.ts apps/api/src/infrastructure/store apps/api/src/infrastructure/cas apps/api/src/infrastructure/persistence/problemRepository.ts supabase/migrations apps/web/src/pages apps/web/src/shared/ui apps/web/src/features/figure-visualization apps/web/src/features/ai-solution/ResultCard.tsx apps/web/src/features/ai-solution/ResumeResultCard.tsx render.yaml` → 출력 없음.
+
+### 6.9 임시값(결정 필요)
+
+| 항목 | 값 | 이유 / 확정 근거 |
+|---|---|---|
+| 생성 `max_output_tokens` | 8,000 | probe 1건 566토큰, 평가 평균 출력 약 700토큰(22회 15,595). 도형 3개·요소 60개 상한 여유. incomplete 0건 |
+| 보정 `max_output_tokens` | 4,000 | 도형 1개만. 실제 보정 호출 0건이라 실측 없음 |
+| 도형 단계 전체 상한 | 60초 | 호출별 30초 × 2(생성 + 보정). 평가 p95 14~16초 |
+| keep-alive 간격 | 15초 | 프록시 유휴 타임아웃(흔히 30~60초)보다 짧게. 평가 p95가 이보다 길어 대부분 1회 이하 |
+| priorWork 줄 수·길이 | 30줄·300자 | 한 장 풀이 20줄 안팎 가정 |
+| 보정 대상 도형 JSON 길이 | 30,000자 | 요소 60개 도형 직렬화 약 10,000자 가정 |
+| 호출별 타임아웃 | 30초 | 기존 `OPENAI_REQUEST_TIMEOUT_MS` 재사용(D10, 확정) |
+
+
+### 6.10 Stage 3 QA 판정 (stage-qa-agent, 2026-10-24~25, 재작업 0/3)
+
+**판정: PASS** (`Prompt/15` §2.5 기준 PASS — 단, 아래 "운영 플래그 on 전 조건" 2건을 Stage 4 진입 조건으로 이월). 실제 OpenAI는 새로 호출하지 않았다(비용). 실기기·브라우저 화면 검증은 해당 없음(Stage 3은 화면 변경 없음).
+
+#### 6.10.1 독립 검증 방법
+
+- **off 바이트 동일(S3-1·R1)**: 커밋 2679651을 `git worktree`로 scratchpad에 체크아웃(변경 전), 현재 작업 트리를 scratchpad에 복사해 각각 `pnpm install --offline`. 같은 캡처 스크립트(별도 작성, Express+supertest, Fake 어댑터, CAS 스텁)를 양쪽에서 실행해 JSON 40,880바이트를 `cmp`로 비교 → **완전히 동일**. 범위: solve SSE 4옵션 조합, resume SSE own·alternative × CAS 통과/불통과, resume 저장소 내용, `saveSolution` 호출 인자, `buildSystemPrompt` 6학년, `buildResumePrompt` 6학년×2모드, OpenAI solve/resume 요청 본문·이벤트. `FIGURES_ENABLED`를 `false`/`1`/`TRUE`/` true`/빈 값으로 바꿔도 동일, `true`로 두면 **달라짐**(비교가 공허하지 않음). 워크트리는 정리함(`git worktree list` = main만).
+- **on 동작**: 별도 작성한 supertest/실제 HTTP 하니스에서 solve·resume-own·resume-alternative × Fake 시나리오 7종(valid, none, invalid-then-repaired, invalid-twice, throw, malformed, hang) = 21건 + 연결 끊김 2건 + priorWork/stepMarkers 확인 + done 뒤 예외·error 이벤트 + done 전 오류 + concept-only.
+- **실제 SDK 재시도**: 로컬 가짜 HTTP 서버(500/429/무응답)에 실제 `openai` SDK를 붙여 `generateFigures`·`repairFigure` 서버 적중 수를 셈.
+- **변이 시험**: 개발 테스트가 공허하지 않은지 11개 변이를 넣고 실패 여부 확인(아래; M5 "off 문자열 변조"는 패턴 불일치로 미실행 — off 바이트 비교의 민감도는 on/off 출력이 다르게 나오는 것으로 대신 확인).
+- **게이트**: 저장소 루트에서 직접 실행.
+
+#### 6.10.2 AC별 결과
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| S3-1 | PASS | 위 off 바이트 비교. generateFigures·repairFigure 0회, done에 figures 키 없음, `saveSolution`이 done payload 그대로 1회 |
+| S3-2 | PASS | 21건 모두 이벤트 순서 `chunk*→done→(figures)`. done 1회, done 뒤 chunk·error 0, figures는 마지막. done 키 집합이 off와 같고 어댑터 결과·저장 인자와 같음. figures 페이로드 키 `{figures, stepFigureRefs}`만, 재파싱 `rejected` 0·deep-equal |
+| S3-3 | PASS | invalid-then-repaired: 생성 1·보정 1, 도형 2개 유지 / 실제 SDK 하니스: 2개 무효+1개 유효 → 총 호출 3(생성 1+보정 2), figureId를 바꿔 돌려준 보정은 거부 |
+| S3-4 | PASS | invalid-twice: 그 도형만 제외, 나머지·refs 유지, error 0. 보정이 throw해도 나머지 유지 |
+| S3-5 | PASS | throw·malformed·hang → figures 0, error 0, 정상 종료. OpenAI 모의: incomplete·failed·refusal·비JSON·빈 출력·네트워크 오류 모두 `generate_failed` |
+| S3-6 | PASS | malformed(`figures` 비배열) → 보정 0, 호출 1 |
+| S3-7 | PASS | `splitSolutionSteps` 22개 경계(표지 없음·건너뜀·시작 2·중복·역순·0·01·줄 중간·들여쓰기·목록 기호·s99 성공·s100 실패·CRLF·빈 값·null·전각 숫자·코드펜스 안 표지 등) 모두 기대대로. F09에 단계 수 3 → 통과, 2 → `step_out_of_range` 3건 → 보정 1회 → 제외. 분할 실패 → 도형 1개 유지·refs `[]`·보정 0 |
+| S3-8 | PASS | 인젝션 문자열을 키·값·id·라벨·type·kind·schemaVersion·stepId·appearAt·boundingBox·`__proto__`·중첩 키·배열 대신 객체로 넣은 30건 → 보정 user JSON의 `errors`에 문자열 유출 0, 모든 path 조각이 정수 또는 스키마 속성명, `hint`는 서버 상수와 일치. 시스템 메시지(생성·보정)에 문제·풀이·학생 문자열 마커 0 |
+| S3-9 | PASS | `verified`·`style`·최상위 `evil` 키가 든 도형 → `unrecognized_keys`로 거부, 보정이 같은 키를 되풀이해도 제외, 결과 직렬화에 0건. 변이(M3: zod 출력 대신 입력 객체 반환) 시 테스트 실패 |
+| S3-10 | PASS | 실제 HTTP: done 수신 뒤 소켓 파괴 → 도형 호출 signal `aborted=true`, close 후 write 0(solve·resume). 변이(M1: abort 제거) 시 테스트 2개 실패 |
+| S3-11 | PASS | 실제 SDK 적중 수: 500·429에서 생성 1회·보정 1회(자동 재시도 0), 요청 옵션 `{maxRetries:0, timeout:30000, signal}`, 무응답 + 200ms 뒤 abort → `APIUserAbortError` 207ms. 라우터 요청당 생성 정확히 1회. 변이(M6 보정 2회, M8 maxRetries 제거) 시 테스트 실패 |
+| S3-12 | PASS | 두 스키마의 모든 객체가 `additionalProperties:false`·required=전 키(위반 0), 금지 키워드 0, fixture F01~F09의 최상위·요소·제약·interaction 키 집합이 JSON Schema 변형의 required와 1:1(불일치 0). WU0 probe에서 봉투·보정 스키마 모두 실제 API가 수락 |
+| S3-13 | PASS | 웹 관련 29파일 157테스트 통과. 변이 4개 중 3개(요청 세대 가드 제거, done 시점 resolve 제거 → 스트림 종료 시 resolve, done 뒤 error 덮어쓰기)에서 해당 테스트가 실패하고 1개(W4: done 전 figures 병합)는 `prev`가 null이라 동작 동일한 등가 변이. Provider 테스트가 스트림이 열린 채로 추천 질문 요청을 검증. 기존 화면 테스트 5개 파일 `git diff --numstat` 삭제 0 |
+| S3-14 | PASS | 운영 `dist`에 `dependency_not_visible`·`line_out_of_view`·`measure_without_constraint`·`step_out_of_range`·`forward_reference`·`circle_out_of_view`·`not_yet_visible` 0건. 메인 번들 변경 전(워크트리 빌드) 966,991 → 967,760바이트(+769B, +0.08%). `unrecognized_keys`는 zod 라이브러리 문자열 |
+| S3-15 | PASS(주의) | 문서 갱신 확인. 아래 LOW-3: 일부 문서 머리말에 "stage-qa 전/대기" 문구가 남음 |
+| S3-R1 | PASS | S3-1과 같은 비교에 포함(own·alternative 모두) |
+| S3-R2 | PASS | resume 6건: `chunk*→done→figures`, done 키 집합·`verified` 값 off와 동일, `setResumeSolution` 내용 = done payload |
+| S3-R3 | PASS | hang에서 `chunk>done>: keep-alive` (약 400ms 상한 설정), done이 먼저, 저장 내용 불변 |
+| S3-R4 | PASS | throw·malformed·hang·끊김 → error 0, 끊김 시 aborted |
+| S3-R5 | PASS | Fake on: own·alternative 모두 `## 이어풀기`가 s1~s3, own에서도 `lastValidLine` 2와 무관 |
+| S3-R6 | PASS | own: lineNo ≤ lastValidLine & < stallLine인 줄만(`["VALID_LINE_1","VALID_LINE_2"]`), 무효 줄·인젝션 줄 0. 정렬 안 된 입력도 번호순. 100줄·줄당 1,000자 → 30줄·300자. alternative·solve는 null. 변이(M4: 필터 제거) 시 테스트 3개 실패 |
+| S3-R7 | PASS(Fake) | Fake on: `answerMd` = `-1`, 방법·이어풀기 섹션 분리 정확, 표지는 `## 이어풀기` 안에만. 실제 모델은 아래 "텍스트 경로" 참고 |
+| S3-R8 | PASS | 병합·done resolve·추천 질문·깨진 이벤트·모드 재요청 시 이전 figures 무시 테스트 존재, 통과 |
+| S3-INT | PASS(주의) | 아래 6.10.4 |
+| G | PASS | 아래 6.10.5 |
+
+변경 금지 목록 diff 0(`git diff`/`git status` 모두 출력 없음): `parseSolveOutput`·`parseResumeOutput`·`resolveSolutionContext`·`inMemoryProblemStore`·`infrastructure/cas/*`·`problemRepository`·`supabase/migrations/*`·웹 `pages/*`·`shared/ui/*`·`features/figure-visualization/*`·`ResultCard`·`ResumeResultCard`·`render.yaml`. 기존 테스트: 수정된 5개 파일 삭제 줄 0, 추가 줄에 `skip/only/xit/eslint-disable/@ts-ignore/console.log/debugger/TODO` 0. 새 npm 의존성 0(`package.json`·락 파일 diff 없음). `env.ts` 변경은 **주석 4줄뿐**이고 실행 코드 한 줄(`figuresEnabled: process.env["FIGURES_ENABLED"] === "true"`)은 그대로 → 허용 범위로 판단(계획 §7 변경 파일 표에는 `.env.example`만 있었지만, 더는 사실이 아닌 "어떤 실행 경로도 읽지 않는다" 주석을 고친 것). 도형이 클라이언트로 가는 서버 경로는 `streamFiguresPhase`의 `event: figures` 하나뿐이며 입력은 `parseSolutionFigures` 최종 재파싱 결과다(`grep`으로 확인, `done`·저장 경로에 도형 키 없음).
+
+#### 6.10.3 평가 기록(S3-INT) 검토
+
+- **사례 구성**: 계획 §9와 일치(22건: 도형 필요 10 + 불필요 6 + 적대 2 + resume 4, N1~N9는 Prompt/15 Stage 5의 1~9, N10은 좌표기하, resume 4종은 own 높이·own 접선·alternative 중점·own 무효 줄 함정).
+- **독립 기대값 재계산**: 손으로 다시 계산한 값(H(2,0), M(2,3), M(0,4), 접점 (1,±√3), 교점 (2,2), 꼭짓점 (2,−1)·근 1·3, 무게중심 (3,7/3), M(2,0), resume 중점 (1,3), A2의 AB=4, R4의 BH=(25+36−49)/12=1)이 스크립트 리터럴과 모두 같다. 저장된 16개 도형을 **현재 검증기로 다시 통과**시켜 16/16 수용, 기대 점 13/13을 내 코드로 독립 재확인(R4는 H=foot, 좌표 (1,0), AB=5·AC=7 일치).
+- **지표**: 계획 §9의 항목(생성률, 오생성률, 1차 통과율, 보정 성공률, 최종 수용률, 거부 코드 분포, 단계 표지 준수율, `step_out_of_range`, bbox 비율, 핵심 좌표, 추가 시간 p50/p95, 호출 수, 토큰, solve·resume 분리)을 모두 기록. 비용은 공식 단가 확인 불가라 계산하지 않음(올바른 처리).
+- **재현**: `EVAL_DRY_RUN=1`(scratchpad 복사본에서) 22건 실행 성공(코드 경로 확인, Fake라 오생성률 6/6으로 나옴 = 평가 하니스가 오생성을 실제로 잡는다는 방증).
+- **"미검증 도형 전달 0"**: 위 재검증 + 구조적 보장(최종 `parseSolutionFigures` 재파싱, 유일한 전송 경로) + 변이 시험으로 충족.
+
+**보정 경로가 실제 모델에서 한 번도 실행되지 않은 점의 판정 반영**: 보정은 **실패해도 그 도형만 버리는 fail-safe 분기**이며 안전성(미검증 도형 0·텍스트 비차단·호출 상한)은 실제 SDK 하니스·Fake·변이 시험으로 독립 확인했다. 실제 API가 보정 스키마를 수락함도 probe에서 확인(P3: 요청 수락, 출력 토큰 제한으로 incomplete). 따라서 **PASS를 막지 않는다.** 다만 "보정이 실제로 도형을 살려내는가"(보정 성공률)는 **측정되지 않았고 0/0으로 기록**해야 하며, 1차 통과율 16/16은 후보 16개 기준 95% 신뢰구간 하한이 약 80%에 불과하다(표본 작음, 사례당 1회). → 운영 조건 ②로 이월.
+
+**텍스트 경로(on 전용 개념 분류 JSON 위치) 판정**:
+- 문제는 실재한다: `## 최종 답` 바로 아래에 JSON이 오면 `parseSolveOutput`(변경 금지)이 ① JSON 뒤에 답 문장이 있으면 태그를 잃고 `answerMd`에 JSON 줄이 섞이고 ② JSON만 있으면 `answerMd`가 빈 문자열이 된다. 둘 다 현재 코드로 직접 재현함.
+- 수정이 off 문자열에 영향이 없음은 위 바이트 비교로 확인(on 전용 `splice`).
+- **근거의 힘이 약하다**: 수정 전 평가 22건 중 N7·A2가 표시됐으나 같은 문제의 수정 전 on 재호출에서는 N7·A2가 재현되지 않았고(0/2) X4만 재현(그마저 JSON 위치가 아닌 "그림 없는 문제" 사례). 수정 후 0/6은 "수정 전에도 안 나오던 문제 위주"이므로 수정의 효과를 입증하지 못하고, 0/6만으로는 실제 발생률이 10% 안팎이어도 약 53% 확률로 관측된다. 그래서 "텍스트 경로 회귀 0"은 **관측치 0**이지 **입증**이 아니다.
+- **resume**: JSON 위치 문제는 resume에 구조상 없다(resume 출력에는 concept_tags 줄이 없음). `## 최종 답`(CAS 파싱)은 on 프롬프트에 "순수 LaTeX" 문구가 유지되어 있고, 실제 모델 4건의 `answerMd`는 모두 `\[ … \]` 디스플레이 수식만이며 표지·한글 없음. CAS 파서는 `\[…\]`를 벗기므로(`services/cas/app/core/parser.py`) `12`·`2\sqrt{3}`·`1`은 정상 파싱됨을 직접 확인. 단 표본이 4건뿐이고 off 기준 표본이 없다. 참고(범위 밖·기존 한계): `(1,3)` 같은 좌표쌍 답은 CAS가 파싱하지 못해(`None`) 항상 "판정 불가".
+- 남은 위험: on에서 태그 소실 또는 답 칸에 JSON 노출/빈 답 — 운영 플래그 off(D9)라 현재 사용자 영향 0, Stage 4에서 on으로 쓰기 시작할 때 실현.
+
+#### 6.10.4 발견 사항
+
+| 심각도 | 번호 | 내용 | 재현/근거 | 조치 |
+|---|---|---|---|---|
+| BLOCKER | — | 없음 | | |
+| HIGH | — | 없음 | | |
+| MEDIUM | M-1 | on 전용 텍스트 경로 잔여 위험(위 6.10.3). 수정 효과 미입증, 표본 작음 | `parseSolveOutput`에 `## 최종 답\n{"concept_tags":…}\n\boxed{5}`를 넣으면 `answerMd`에 JSON 포함·`conceptTags:[]`, JSON만 있으면 `answerMd:""` | **운영 조건 ①** |
+| MEDIUM | M-2 | 보정 경로 실제 모델 효과 미측정(0/0). 1차 통과 표본 작음 | 평가 기록 `repairSuccessRate 0/0` | **운영 조건 ②** |
+| LOW | L-1 | 도형 단계 전체 상한(60초)이 하드 데드라인이 아니다 — 어댑터가 signal을 무시하고 영원히 대기하면 `generateSolutionFigures`가 반환하지 않아 SSE가 keep-alive만 보내며 열려 있다. 현재 어댑터(OpenAI는 30초 타임아웃+signal, Fake hang은 signal 준수)는 안전함 | `adapter.generateFigures`가 `new Promise(()=>{})`, `totalBudgetMs:100` → 1,500ms 뒤에도 pending | Stage 4/5에서 `Promise.race` 고려 |
+| LOW | L-2 | 전체 상한이 보정 중 만료되면 이미 검증된 1차 통과 도형까지 버려짐(`outcome: aborted`). 보정이 일반 실패(throw)면 나머지 유지됨. 현재 상수(30초×2 ≤ 60초)에선 사실상 도달 불가 | 1차 통과 1+무효 1, 보정 hang, 상한 200ms → `[]` | 상수 변경 시 재검토 |
+| LOW | L-3 | 문서 문구 지연: `docs/FIGURE_SPEC.md` 머리말 "Stage 3 … 구현 기준(stage-qa 전)", `docs/PROJECT_STATUS.md` §3.41 "stage-qa 대기" | | 이 판정 반영해 갱신 필요(제품 문서라 QA가 수정하지 않음) |
+| LOW | L-4 | 웹이 스트림에 `AbortController`를 쓰지 않아 화면을 떠나거나 `reset()`해도 서버의 도형 호출이 끝(최대 60초)까지 계속된다(기존 풀이 스트림에도 있던 성질이나 이제 추가 OpenAI 호출 비용이 붙음) | 코드 읽기(`solveProblemStream`에 signal 없음, 루프는 다음 이벤트가 와야 세대 불일치를 감지) | Stage 4에서 중단 신호 고려 |
+| LOW | L-5 | `FakeLLMAdapter`(운영 `resolve-adapter`가 정적 import)가 `validation/fixtures`(테스트 전용 주석)를 import — 운영 기동에 fixture 모듈이 로드됨. `tsx` 기동은 동작(테스트·빌드 통과) | `fake-adapter.ts` import | 선택: 지연 import 또는 Fake용 별도 상수 |
+| LOW | L-6 | 평가의 R4 "무효 줄 함정" 자동 검사가 `equalLength(AB, AC)` 부재만 본다(H가 중점 같은 자유 점으로 오작도되는 경우는 못 잡음). 이번 기록에서는 내가 H=foot (1,0)임을 수동 확인 | `evalFigures.ts` R4 `checks` | 후속 평가 시 기대 좌표 추가 |
+| LOW | L-7 | `buildPriorWork`의 `slice(0, 300)`이 서러게이트 쌍 중간을 자를 수 있음(JSON 직렬화는 안전하게 이스케이프) | 코드 읽기 | 무시 가능 |
+
+#### 6.10.5 게이트(저장소 루트 직접 실행)
+
+| 단계 | 결과 |
+|---|---|
+| typecheck | exit 0 |
+| lint | exit 0 |
+| test | **첫 실행** exit 0 — api 55 파일/697 테스트, web 93 파일/758 테스트 |
+| build | exit 0 (web 메인 번들 967,760B, 기존 chunk size 경고만) |
+
+#### 6.10.6 변이 시험(개발 테스트가 공허하지 않은지, scratchpad 복사본에서 수행·복원 확인)
+
+| 변이 | 결과 |
+|---|---|
+| M1 연결 끊김 abort 제거 | 테스트 2개 실패 |
+| M2 보정 오류 path 정제 제거 | 테스트 1개 실패 |
+| M3 zod 출력 대신 입력 객체 반환 | 테스트 1개 실패 |
+| M4 priorWork 필터 제거 | 테스트 3개 실패 |
+| M6 보정 2회 호출 | 테스트 5개 실패 |
+| M7 done 뒤 error 허용 | 테스트 1개 실패 |
+| M8 `maxRetries:0` 제거 | 테스트 2개 실패 |
+| W1~W3 웹 훅 변이 | 각각 해당 테스트 실패(W4는 등가 변이) |
+
+#### 6.10.7 키 노출 검사
+
+`.omc/research/*.json` 3개, 문서 전부, `evalFigures.ts`, 소스에서 `apps/api/.env`의 실제 키 값을 고정 문자열로 검색 → **0건**(값은 출력하지 않음). 일반 비밀 패턴(`sk-…`, Bearer 토큰) 0건. `apps/api/.env`는 `.gitignore:7`로 제외됨.
+
+#### 6.10.8 운영 플래그 on 전 조건(Stage 4 진입 시 이월 — 구현 결함이 아니라 증거 부족)
+
+① **텍스트 회귀 대표본 또는 파서 보강**: `FIGURES_ENABLED`를 로컬 개발 외 환경에서 켜기 전에, (a) on 상태 텍스트만 호출을 최소 30회(solve 사례 다양화 + resume own·alternative 포함, 도형 호출 없음, 사전 오너 비용 승인) 돌려 태그 위치·빈 답 발생률을 기록하거나, (b) Stage 4 계획에서 `parseSolveOutput`이 `## 최종 답` 바로 아래의 개념 분류 JSON도 처리하도록 보강한다(이번 Stage에서는 변경 금지 파일이라 손대지 않음).
+② **보정 효과 측정**: 오너가 승인하는 소수(≤4회) 호출로 일부러 망가뜨린 도형을 실제 모델에 보정시켜 성공/실패를 기록한다(현재 0/0). 못 하면 "보정은 안전 장치일 뿐 효과 미검증"으로 문서에 남긴다.
+③ (Stage 4 design 인계, 이미 §6.3) done 이후 "도형 준비 중/없음" 표시, `**N단계**` 별표 처리.
+
+#### 6.10.9 NOT VERIFIED
+
+- 실제 OpenAI 새 호출(지시에 따라 금지): 보정 효과, on 텍스트 대표본, 최종 프롬프트로 22건 재평가.
+- 운영 환경(Render) 프록시의 SSE keep-alive 동작과 실제 유휴 타임아웃.
+- 물리 iPad 및 브라우저 UI(해당 변경 없음).

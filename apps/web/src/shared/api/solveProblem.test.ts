@@ -167,3 +167,40 @@ describe("solveProblemStream — 도형 시각화 필드(PRD §4.12 FIG) 하위 
     vi.unstubAllGlobals();
   });
 });
+
+describe("solveProblemStream — Stage 3 figures 이벤트(S3-13)", () => {
+  const done =
+    'event: done\ndata: {"conceptMd":null,"solutionMd":"풀이","answerMd":"답","conceptTags":[],"aiProvider":"openai","aiModel":"m"}\n\n';
+  const figure = F01_TRIANGLE_ANGLE.raw;
+
+  function mockFetch(sse: string) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, body: streamFrom(sse), json: () => Promise.resolve(null) }),
+    );
+  }
+
+  it("done 뒤 figures 이벤트를 figures 타입으로 산출하고 keep-alive 주석은 무시한다", async () => {
+    const refs = [{ stepId: "s1", figureId: "fig-f01" }];
+    mockFetch(
+      `event: chunk\ndata: {"delta":"a"}\n\n${done}: keep-alive\n\n` +
+        `event: figures\ndata: ${JSON.stringify({ figures: [figure], stepFigureRefs: refs })}\n\n`,
+    );
+    const events = await collect(solveProblemStream({ problemId: "p", options: { concept: true, solution: true } }));
+    expect(events.map((e) => e.type)).toEqual(["chunk", "done", "figures"]);
+    expect(events[2]).toEqual({ type: "figures", figures: [figure], stepFigureRefs: refs });
+  });
+
+  it("깨진 figures 이벤트(비JSON·비배열·빈 배열)는 무시하고 stepFigureRefs가 배열이 아니면 []", async () => {
+    mockFetch(
+      `${done}event: figures\ndata: {not json\n\n` +
+        'event: figures\ndata: {"figures":"x"}\n\n' +
+        'event: figures\ndata: {"figures":[]}\n\n' +
+        "event: figures\ndata: [1,2]\n\n" +
+        `event: figures\ndata: ${JSON.stringify({ figures: [figure], stepFigureRefs: "x" })}\n\n`,
+    );
+    const events = await collect(solveProblemStream({ problemId: "p", options: { concept: true, solution: true } }));
+    expect(events.map((e) => e.type)).toEqual(["done", "figures"]);
+    expect(events[1]).toEqual({ type: "figures", figures: [figure], stepFigureRefs: [] });
+  });
+});

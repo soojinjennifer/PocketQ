@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
-import type { Grade, RecognizedProblem } from "shared-types";
+import type { Grade, RecognizedProblem, Solution } from "shared-types";
 import { solveRequestSchema, type SolveRequestDto } from "validation";
 import { authenticate } from "../../middleware/authenticate";
 import { rateLimiter } from "../../middleware/rate-limiter";
@@ -10,6 +10,9 @@ import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
 import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
+import { env } from "../../config/env";
+import { generateSolutionFigures } from "../figures/generateSolutionFigures";
+import { abortOnClientClose, streamFiguresPhase, type FiguresRouteOptions } from "../figures/streamFigures";
 
 interface ResolvedProblem {
   problem: RecognizedProblem;
@@ -40,7 +43,7 @@ function resolveProblem(
   return { problem, grade: stored.grade };
 }
 
-function createHandleSolve(adapter: LLMAdapter) {
+function createHandleSolve(adapter: LLMAdapter, figures: Required<Pick<FiguresRouteOptions, "figuresEnabled">> & FiguresRouteOptions) {
   return async function handleSolve(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { problemId } = req.params as { problemId: string };
     const { options, confirmedText } = req.body as SolveRequestDto;
@@ -65,11 +68,16 @@ function createHandleSolve(adapter: LLMAdapter) {
       Connection: "keep-alive",
     });
 
+    // 도형 시각화 off면 아래 figures 관련 분기는 모두 건너뛴다 — 요청·SSE 바이트가 기존과 같다(S3-1).
+    const figureAbort = figures.figuresEnabled ? abortOnClientClose(res) : null;
+    let doneResult: Solution | null = null;
+
     try {
       for await (const event of adapter.solve({
         problem: resolved.problem,
         options,
         grade: resolved.grade,
+        ...(figures.figuresEnabled ? { stepMarkers: true } : {}),
       })) {
         if ("delta" in event) {
           res.write(`event: chunk\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`);
@@ -79,20 +87,52 @@ function createHandleSolve(adapter: LLMAdapter) {
           // 아래 catch(어댑터 에러용)에 걸려 error 이벤트를 오발생시키지 않는다.
           await problemRepository.saveSolution({ problemId, solution: event.result });
           res.write(`event: done\ndata: ${JSON.stringify(event.result)}\n\n`);
+          doneResult = event.result;
         }
       }
+
+      // done 이후 도형 단계(on 전용). 텍스트 풀이는 이미 전달·저장됐다 — 도형 실패는 error 이벤트 없이 끝난다.
+      const solved = doneResult;
+      if (figureAbort && solved) {
+        await streamFiguresPhase(
+          res,
+          () =>
+            generateSolutionFigures({
+              adapter,
+              source: "solve",
+              mode: null,
+              grade: resolved.grade,
+              problemText: resolved.problem.recognizedText,
+              priorWork: null,
+              solutionMd: solved.solutionMd,
+              answerMd: solved.answerMd,
+              signal: figureAbort.signal,
+              ...(figures.figuresTotalBudgetMs !== undefined ? { totalBudgetMs: figures.figuresTotalBudgetMs } : {}),
+            }),
+          figures.keepAliveMs,
+        );
+      }
     } catch {
-      res.write(
-        `event: error\ndata: ${JSON.stringify({ code: "provider_error", message: "풀이 생성 중 오류가 발생했습니다." })}\n\n`,
-      );
+      // on에서 done을 이미 보냈다면 error를 보내지 않는다(done 뒤 error 금지). off는 기존 동작 그대로.
+      if (!(figureAbort && doneResult)) {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ code: "provider_error", message: "풀이 생성 중 오류가 발생했습니다." })}\n\n`,
+        );
+      }
     } finally {
       res.end();
     }
   };
 }
 
-/** `createRecognitionRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. */
-export function createSolutionsRouter(adapter: LLMAdapter = resolveAdapter()): Router {
+/**
+ * `createRecognitionRouter`와 동일한 이유로 adapter를 주입 가능하게 한다. `options.figuresEnabled`는
+ * 기본 `env.figuresEnabled`(운영 기본 off)이며 테스트가 on/off를 직접 주입한다.
+ */
+export function createSolutionsRouter(
+  adapter: LLMAdapter = resolveAdapter(),
+  { figuresEnabled = env.figuresEnabled, ...figureOptions }: FiguresRouteOptions = {},
+): Router {
   const router = Router();
 
   router.post(
@@ -100,7 +140,7 @@ export function createSolutionsRouter(adapter: LLMAdapter = resolveAdapter()): R
     authenticate,
     rateLimiter,
     validateRequest(solveRequestSchema),
-    createHandleSolve(adapter),
+    createHandleSolve(adapter, { figuresEnabled, ...figureOptions }),
   );
 
   return router;

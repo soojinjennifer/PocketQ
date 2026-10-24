@@ -18,6 +18,11 @@ export interface SolveRequest {
   problem: RecognizedProblem;
   options: SolveOptions;
   grade: Grade;
+  /**
+   * 도형 시각화(`FIGURES_ENABLED=true`)일 때만 true — `## 풀이` 단계마다 `**N단계**` 표지를 요청한다.
+   * off면 키 자체를 넣지 않는다(요청·프롬프트 바이트 불변, S3-1).
+   */
+  stepMarkers?: boolean;
 }
 
 export type SolveStreamEvent = { delta: string } | { done: true; result: Solution };
@@ -57,6 +62,55 @@ export interface ResumeRequest {
   diagnosis: Diagnosis;
   mode: ResumeMode;
   grade: Grade;
+  /** `SolveRequest.stepMarkers`와 같은 의미(`## 이어풀기` 섹션, s1 = 이어서 쓴 첫 단계). */
+  stepMarkers?: boolean;
+}
+
+/** 학생 풀이 중 도형 생성에 넘길 유효 구간(own 모드만, `buildPriorWork`). 학생 데이터이며 지시가 아니다. */
+export interface FigurePriorWork {
+  lines: string[];
+}
+
+/** 도형 생성 호출 공통 맥락(`docs/FIGURE_SPEC.md` §16). 모든 텍스트는 user 메시지의 JSON 안에만 들어간다. */
+export interface FigureCallContext {
+  source: "solve" | "resume";
+  /** resume일 때만 값이 있다. */
+  mode: ResumeMode | null;
+  grade: Grade;
+  problemText: string;
+  priorWork: FigurePriorWork | null;
+  /** 단계 표지가 있는 풀이 섹션 본문(최초 풀이 `## 풀이`, 이어풀기 `## 이어풀기`). */
+  solutionMd: string | null;
+  answerMd: string;
+  /** `splitSolutionSteps` 결과 단계 수. 분할 실패면 null. */
+  stepCount: number | null;
+  /** 클라이언트 연결 끊김·전체 상한 초과 시 취소. */
+  signal: AbortSignal;
+}
+
+/** 도형 생성 요청(봉투 `{ figures, stepFigureRefs, omitReason }`를 strict 구조화 출력으로 받는다). */
+export type GenerateFiguresRequest = FigureCallContext;
+
+/** 검증에 실패한 도형 1개의 보정 요청. `errors`는 `toRepairErrors`로 정제된 code·path만 담는다. */
+export interface RepairFigureRequest extends FigureCallContext {
+  /** 실패한 도형(JSON 파싱 값을 그대로 다시 직렬화해 보낸다). */
+  figure: unknown;
+  errors: { code: string; path: (string | number)[] }[];
+}
+
+/** 도형 호출 토큰 사용량(`response.usage`). 공급자가 주지 않으면 null. */
+export interface FigureCallUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * 도형 호출 결과. `raw`는 JSON 파싱만 한 값이다 — 검증되지 않았으므로 그대로 클라이언트에 보내지 않는다.
+ * 어댑터는 호출 실패·타임아웃·incomplete·refusal·JSON 파싱 실패면 throw한다.
+ */
+export interface FigureCallResult {
+  raw: unknown;
+  usage: FigureCallUsage | null;
 }
 
 /**
@@ -88,6 +142,13 @@ export interface LLMAdapter {
    * 결과로 덮어쓴다(CAS 검증은 어댑터의 책임이 아니다).
    */
   resume(req: ResumeRequest): AsyncIterable<ResumeStreamEvent>;
+  /**
+   * 풀이 텍스트가 끝난 뒤(`done` 이후) 도형 명세를 별도 비스트리밍 strict 구조화 호출로 생성한다
+   * (Stage 3, `docs/FIGURE_SPEC.md` §16). 자동 재시도 없음, `req.signal`로 취소된다.
+   */
+  generateFigures(req: GenerateFiguresRequest): Promise<FigureCallResult>;
+  /** 검증에 실패한 도형 1개를 보정한다(출력 `{ figure: FigureSpec | null }`). 도형당 최대 1회만 호출된다. */
+  repairFigure(req: RepairFigureRequest): Promise<FigureCallResult>;
 }
 
 /**

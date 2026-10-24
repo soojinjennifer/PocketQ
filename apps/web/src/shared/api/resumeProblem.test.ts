@@ -110,3 +110,21 @@ describe("resumeProblemStream", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("resumeProblemStream — Stage 3 figures 이벤트(S3-R8)", () => {
+  it("done 뒤 figures를 산출하고 깨진 figures·keep-alive는 무시한다", async () => {
+    const figure = { schemaVersion: 1, figureId: "fig-a" };
+    const sse =
+      'event: done\ndata: {"mode":"own","methodName":"2번째 줄부터 이어가기","solutionMd":"s","answerMd":"-1","verified":true}\n\n' +
+      ": keep-alive\n\n" +
+      "event: figures\ndata: oops\n\n" +
+      `event: figures\ndata: ${JSON.stringify({ figures: [figure], stepFigureRefs: [] })}\n\n`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, body: streamFrom(sse), json: () => Promise.resolve(null) }),
+    );
+    const events = await collect(resumeProblemStream({ problemId: "p", mode: "own" }));
+    expect(events.map((e) => e.type)).toEqual(["done", "figures"]);
+    expect(events[1]).toEqual({ type: "figures", figures: [figure], stepFigureRefs: [] });
+  });
+});

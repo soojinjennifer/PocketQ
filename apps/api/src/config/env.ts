@@ -37,8 +37,9 @@ export const env = {
   casServiceUrl: process.env["CAS_SERVICE_URL"] ?? "",
   /**
    * 도형 시각화(PRD §4.12 FIG) 기능 플래그. 정확히 문자열 "true"일 때만 켜진다(기본 off).
-   * Stage 1에서는 값만 정의하고 어떤 실행 경로도 이 값을 읽지 않는다 — Stage 3부터 풀이 API가
-   * 이 값이 true일 때만 figures를 생성·반환한다. 끄면 기존 텍스트 풀이 흐름 그대로다.
+   * Stage 3부터 solve·resume 라우터가 읽는다(`createSolutionsRouter`/`createResumeRouter`의
+   * `figuresEnabled` 기본값): on이면 `**N단계**` 표지를 요청하고 done 뒤 도형을 생성해 `event: figures`로
+   * 보낸다. 끄면 프롬프트·SSE가 기존과 바이트 단위로 같다(`docs/API_SPEC.md`).
    */
   figuresEnabled: process.env["FIGURES_ENABLED"] === "true",
   rateLimitMax: readNumber(process.env["RATE_LIMIT_MAX"], 30),

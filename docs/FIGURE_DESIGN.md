@@ -286,6 +286,8 @@ JSXGraph: `face: 'o'`, `size`(원 반지름 px), `fillColor`, `strokeColor`, `st
 ## 9. 로딩 상태
 
 - Stage 2에서는 fixture가 동기 데이터라 "도형 생성 대기"는 없다. 생기는 것은 **JSXGraph 청크 지연 로딩**(번들 분리 시) 시간뿐이다. 풀이 생성 대기는 기존 `LoadingMark`(풀이 로딩)가 이미 담당하고, figures는 SSE `done`과 함께 오므로 Stage 3에서도 도형 전용 대기는 없다.
+
+> **사실 정정(Stage 3, 2026-10-24)**: 위 문단의 "figures는 SSE `done`과 함께 오므로 Stage 3에서도 도형 전용 대기는 없다"는 더 이상 사실이 아니다. 승인된 Stage 3 설계(D1)에서 서버는 `done`을 **도형 없이 먼저** 보내고, 별도 구조화 호출이 끝난 뒤 `event: figures`를 따로 보낸다(받아들인 도형이 없으면 figures 이벤트 자체가 없다, `docs/API_SPEC.md`). 따라서 텍스트 풀이가 끝난 뒤 수 초 동안 "도형 준비 중" 구간이 생기고, 그 뒤 "도형 없음"으로 끝날 수도 있다. 이 상태의 표시 방식은 **Stage 4 design-agent 결정 항목**이다(`docs/FIGURES_WORKFLOW_STATE.md` §6.3). Stage 3은 화면을 바꾸지 않았다.
 - **권장**: §7.3 규칙으로 계산한 높이의 보드 상자를 **먼저 자리 잡아 두고**(레이아웃 이동 없음, 높이 계산에는 JSXGraph가 필요 없음) 가운데에 `shared/ui/spinner/Spinner`를 `label="그림을 준비하는 중"`으로 재사용한다. `<figure aria-busy="true">`.
 - `LoadingMark`는 쓰지 않는다. 브랜드 마스코트 맥동은 "풀이를 만드는 중"의 의미로 쓰고 있어서, 한 화면에 최대 3개 도형에서 동시에 맥동하면 과하다.
 - 알려진 기존 문제(이번 범위 밖, P2): `Spinner`의 표시 문구 색 `text-label-secondary`는 3.38:1로 AA 미달이다. 이번 작업에서 Spinner를 고치지 않는다.

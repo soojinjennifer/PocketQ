@@ -31,6 +31,8 @@ export * from "./figures/expr";
 export * from "./figures/sampleFunction";
 export * from "./figures/format";
 export * from "./figures/semantics";
+export * from "./figures/steps";
+export * from "./figures/candidate";
 
 /* ---------------------------------------------------------------------------------------------
  * 상한 상수

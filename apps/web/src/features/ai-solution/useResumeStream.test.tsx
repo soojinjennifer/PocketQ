@@ -114,3 +114,63 @@ describe("useResumeStream", () => {
     expect(result.current.result?.mode).toBe("alternative");
   });
 });
+
+function gatedResumeStream(before: ResumeStreamEvent[], after: ResumeStreamEvent[]) {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  async function* generate(): AsyncGenerator<ResumeStreamEvent> {
+    await Promise.resolve();
+    for (const event of before) yield event;
+    await gate;
+    for (const event of after) yield event;
+  }
+  return { stream: generate(), release: () => release() };
+}
+
+const RESUME_FIGURE = { schemaVersion: 1, figureId: "fig-r" } as unknown as import("shared-types").FigureSpec;
+
+describe("useResumeStream — Stage 3 figures(S3-R8)", () => {
+  it("done에서 resolve하고 이후 figures를 병합한다", async () => {
+    const { stream, release } = gatedResumeStream(
+      [{ type: "done", result: RESUME_SOLUTION }],
+      [{ type: "figures", figures: [RESUME_FIGURE], stepFigureRefs: [{ stepId: "s1", figureId: "fig-r" }] }],
+    );
+    vi.mocked(resumeProblemStream).mockReturnValue(stream);
+    const { result } = renderHook(() => useResumeStream());
+    let resolved: unknown = "pending";
+    await act(async () => {
+      resolved = await result.current.resume({ problemId: "p", mode: "own" });
+    });
+    expect(resolved).toEqual(RESUME_SOLUTION);
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.result?.figures).toEqual([RESUME_FIGURE]));
+    expect(result.current.result?.verified).toBe(true);
+  });
+
+  it("모드를 바꿔 다시 요청하면 이전 요청의 figures는 무시한다", async () => {
+    const own = gatedResumeStream(
+      [{ type: "done", result: RESUME_SOLUTION }],
+      [{ type: "figures", figures: [RESUME_FIGURE], stepFigureRefs: [] }],
+    );
+    const alternative = { ...RESUME_SOLUTION, mode: "alternative" as const };
+    vi.mocked(resumeProblemStream).mockReturnValueOnce(own.stream).mockReturnValueOnce(eventsOf([{ type: "done", result: alternative }]));
+    const { result } = renderHook(() => useResumeStream());
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "own" });
+    });
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "alternative" });
+    });
+    await act(async () => {
+      own.release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(result.current.result).toEqual(alternative);
+    expect(result.current.mode).toBe("alternative");
+  });
+});

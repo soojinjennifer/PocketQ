@@ -23,16 +23,34 @@ export const RESUME_HEADERS = {
   answer: "## 최종 답",
 } as const;
 
+/** `buildSystemPrompt`/`buildResumePrompt` 선택 옵션. */
+export interface StepMarkerOptions {
+  /**
+   * 도형 시각화(`FIGURES_ENABLED=true`)일 때만 true. 풀이 섹션의 각 단계를 줄 맨 앞 `**N단계**`
+   * 표지로 시작하도록 요청한다(`docs/FIGURE_SPEC.md` §4, `splitSolutionSteps`). 기본 false — 문자열 불변.
+   */
+  stepMarkers?: boolean;
+}
+
+/** 최초 풀이 단계 표지 지시(`## 풀이` 섹션 안에서만). */
+const SOLVE_STEP_MARKER_INSTRUCTION = `"${SOLVE_HEADERS.solution}" 섹션의 각 단계는 목록 기호나 들여쓰기 없이 줄 맨 앞에 "**1단계**", "**2단계**"처럼 굵은 단계 표지로 시작하고, 1부터 빠짐없이 차례로 번호를 매긴다. 단계 표지는 "${SOLVE_HEADERS.solution}" 섹션에만 쓰고 "${SOLVE_HEADERS.concept}"과 "${SOLVE_HEADERS.answer}"에는 쓰지 않는다.`;
+
+/** 표지 on일 때만 덧붙이는 개념 분류 JSON 위치 지시(평가에서 발견한 순서 뒤바뀜 방지). */
+const SOLVE_CONCEPT_TAGS_POSITION_INSTRUCTION = `개념 분류 JSON 줄은 "${SOLVE_HEADERS.answer}" 제목 바로 아래에 쓰지 않는다. 최종 답 문장을 모두 쓴 뒤 응답의 가장 마지막 줄에 한 번만 쓴다.`;
+
+/** 이어풀기 단계 표지 지시(`## 이어풀기` 섹션 안에서만, s1 = 이어서 쓰는 첫 단계). */
+const RESUME_STEP_MARKER_INSTRUCTION = `"${RESUME_HEADERS.solution}" 섹션의 각 단계는 목록 기호나 들여쓰기 없이 줄 맨 앞에 "**1단계**", "**2단계**"처럼 굵은 단계 표지로 시작하고, 1부터 빠짐없이 차례로 번호를 매긴다. 이 섹션에서 새로 쓰는 첫 단계가 "**1단계**"다(학생 풀이의 줄 번호와 무관하다). 단계 표지는 "${RESUME_HEADERS.method}"과 "${RESUME_HEADERS.answer}"에는 쓰지 않는다 — "${RESUME_HEADERS.answer}"은 계속 순수 LaTeX 수식 한 줄만 쓴다.`;
+
 /**
  * PRD §8.1 시스템 프롬프트 핵심 지침. 제공자(OpenAI/Claude)와 무관한 단일 소스이며,
  * 각 어댑터가 제공자별 API 형식(system 파라미터 vs system 메시지)에 맞게 변환해 사용한다.
  * 헤더 구조를 명시적으로 지시해 스트리밍 종료 후 `parseSolveOutput`이 안정적으로 섹션을
  * 분리할 수 있게 한다(PRD의 "마지막에 최종 답을 명확히 표기"를 헤더로 구체화).
  */
-export function buildSystemPrompt(grade: Grade): string {
+export function buildSystemPrompt(grade: Grade, { stepMarkers = false }: StepMarkerOptions = {}): string {
   const gradeLabel = GRADE_LABELS[grade];
 
-  return [
+  const lines = [
     `너는 한국 중·고등학생을 위한 수학 개념 튜터다. 학생의 학년은 ${gradeLabel}이며, 해당 교육과정 범위의 용어와 방법으로 설명한다.`,
     `풀이에 ${gradeLabel} 교육과정 범위를 벗어나는 개념이 꼭 필요하면, 그 개념을 쓰기 직전에 "(참고: 이 개념은 ${gradeLabel} 범위를 넘어서지만, 이 문제를 풀려면 필요해요)"처럼 짧게 안내한 뒤 설명을 이어간다. 범위 안에서 풀 수 있으면 이런 안내를 하지 않는다.`,
     `"개념설명해주기"가 요청된 경우 "${SOLVE_HEADERS.concept}" 제목으로 시작해서, 문제에 필요한 개념의 정의·핵심 원리·이 문제에서 왜 쓰이는지를 설명한다. 공식은 유도 배경과 함께 제시한다.`,
@@ -40,7 +58,17 @@ export function buildSystemPrompt(grade: Grade): string {
     `요청된 옵션과 무관하게 응답 마지막은 반드시 "${SOLVE_HEADERS.answer}" 제목으로 시작해 최종 답을 명확히 표기한다.`,
     '그 다음 줄에 이 문제의 개념 분류를 JSON으로 출력한다: {"concept_tags": ["이차함수 > 최대·최소"]} (파싱 후 저장, 화면에는 미표시).',
     "후속 질문에는 문제와 이전 대화 맥락을 유지하며, 학생의 궁금증이 풀릴 때까지 답한다. 이해를 확인하는 짧은 되물음은 허용하되 답변 회피는 금지.",
-  ].join("\n");
+  ];
+
+  // 도형 시각화(FIGURES_ENABLED=true)일 때만 단계 표지를 요청한다. off면 위 줄만 그대로 — 문자열 불변(S3-1).
+  if (stepMarkers) {
+    lines.splice(4, 0, SOLVE_STEP_MARKER_INSTRUCTION);
+    // Stage 3 평가에서 표지 on일 때 개념 분류 JSON을 "## 최종 답" 바로 아래에 쓰는 사례가 나와
+    // (parseSolveOutput이 태그를 잃고 답에 JSON이 섞임) 위치를 한 번 더 못박는다. off 문자열은 그대로다.
+    lines.splice(7, 0, SOLVE_CONCEPT_TAGS_POSITION_INSTRUCTION);
+  }
+
+  return lines.join("\n");
 }
 
 /**
@@ -139,7 +167,11 @@ export function buildDiagnosePrompt(grade: Grade): string {
  * mode==="own"이면 학생의 기존 유효 구간을 존중해 그 이후만 이어 쓰고, mode==="alternative"면
  * 학생의 기존 해법을 언급하지 않고 대안 해법으로 처음부터 새로 전개한다.
  */
-export function buildResumePrompt(grade: Grade, mode: ResumeMode): string {
+export function buildResumePrompt(
+  grade: Grade,
+  mode: ResumeMode,
+  { stepMarkers = false }: StepMarkerOptions = {},
+): string {
   const gradeLabel = GRADE_LABELS[grade];
 
   const modeInstruction: string =
@@ -147,10 +179,17 @@ export function buildResumePrompt(grade: Grade, mode: ResumeMode): string {
       ? "학생은 자신이 쓰던 방법을 그대로 이어가길 원한다(RESUME-1) — user 메시지에 주어진 마지막으로 유효했던 줄(lastValidLine) 바로 다음 단계부터 이어서 풀이를 전개한다. 학생이 이미 정확하게 쓴 구간(1번째 줄부터 lastValidLine까지)의 내용은 다시 설명하거나 반복하지 않는다(RESUME-2)."
       : "학생은 다른 방법으로 풀기를 원한다 — 학생이 기존에 쓴 풀이나 그 방법을 언급하거나 비교하지 않고, identifiedMethod와는 다른 대안 해법으로 문제 처음부터 새로 전개한다.";
 
-  return [
+  const lines = [
     `너는 한국 ${gradeLabel} 학생의 이어풀기(RESUME)를 도와주는 튜터다. 학생의 학년은 ${gradeLabel}이며, 해당 교육과정 범위의 용어와 방법으로 설명한다.`,
     modeInstruction,
     "이어지는 각 단계마다 무엇을 하는지와 왜 그렇게 하는지를 함께 서술한다(RESUME-3) — 결과 식만 나열하지 않는다.",
     `반드시 다음 헤더 구조로만 응답한다. 먼저 "${RESUME_HEADERS.method}" 제목 아래 이어가는 지점을 요약하는 한 줄을 쓴다 — 해법의 이름을 나열하지 않는다(own 모드면 "n번째 줄부터 이어가기"처럼 학생이 이어가는 지점을 짧게 요약, alternative 모드면 "새로운 방법으로 처음부터 풀기"처럼 새로 시작함을 요약). 그다음 "${RESUME_HEADERS.solution}" 제목으로 단계별 풀이를 쓴다. 마지막은 "${RESUME_HEADERS.answer}" 제목 아래, "최솟값은 -1입니다" 같은 설명 문장 없이 순수 LaTeX 수식만 한 줄로 쓴다(예: "-1" 또는 "x=3") — 이 값은 CAS가 자동으로 파싱해 정답과 대조하므로(RESUME-5), 파싱 가능한 수식이 아니면 검증에 실패한다.`,
-  ].join("\n");
+  ];
+
+  // buildSystemPrompt와 같은 규칙 — off면 문자열 불변(S3-R1).
+  if (stepMarkers) {
+    lines.push(RESUME_STEP_MARKER_INSTRUCTION);
+  }
+
+  return lines.join("\n");
 }

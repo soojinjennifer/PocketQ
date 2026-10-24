@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
-import type { Diagnosis, Grade, ResumeMode, WorkLine } from "shared-types";
+import type { Diagnosis, Grade, ResumeMode, ResumeSolution, WorkLine } from "shared-types";
 import { resumeRequestSchema, type ResumeRequestDto } from "validation";
 import { authenticate } from "../../middleware/authenticate";
 import { rateLimiter } from "../../middleware/rate-limiter";
@@ -11,6 +11,10 @@ import type { CasClient } from "../../infrastructure/cas/casClient";
 import { resolveCasClient } from "../../infrastructure/cas/resolveCasClient";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
+import { env } from "../../config/env";
+import { buildPriorWork } from "../../infrastructure/ai/prompts/figures";
+import { generateSolutionFigures } from "../figures/generateSolutionFigures";
+import { abortOnClientClose, streamFiguresPhase, type FiguresRouteOptions } from "../figures/streamFigures";
 
 interface ResolvedResumeContext {
   problemText: string;
@@ -57,7 +61,11 @@ function resolveResumeContext(problemId: string, userId: string, mode: ResumeMod
   };
 }
 
-function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
+function createHandleResume(
+  adapter: LLMAdapter,
+  casClient: CasClient,
+  figures: Required<Pick<FiguresRouteOptions, "figuresEnabled">> & FiguresRouteOptions,
+) {
   return async function handleResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { problemId } = req.params as { problemId: string };
     const { mode } = req.body as ResumeRequestDto;
@@ -82,6 +90,10 @@ function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
       Connection: "keep-alive",
     });
 
+    // 도형 시각화 off면 아래 figures 관련 분기는 모두 건너뛴다 — 요청·SSE 바이트가 기존과 같다(S3-R1).
+    const figureAbort = figures.figuresEnabled ? abortOnClientClose(res) : null;
+    let doneResult: ResumeSolution | null = null;
+
     try {
       for await (const event of adapter.resume({
         problem: resolved.problemText,
@@ -89,6 +101,7 @@ function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
         diagnosis: resolved.diagnosis,
         mode,
         grade: resolved.grade,
+        ...(figures.figuresEnabled ? { stepMarkers: true } : {}),
       })) {
         if ("delta" in event) {
           res.write(`event: chunk\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`);
@@ -104,14 +117,40 @@ function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
           const result = { ...event.result, verified };
           inMemoryProblemStore.setResumeSolution(problemId, result);
           res.write(`event: done\ndata: ${JSON.stringify(result)}\n\n`);
-        } else {
+          doneResult = result;
+        } else if (!(figureAbort && doneResult)) {
           res.write(`event: error\ndata: ${JSON.stringify({ code: "provider_error", message: event.error })}\n\n`);
         }
       }
+
+      // done 이후 도형 단계(on 전용). priorWork는 own 모드의 학생 유효 구간만(alternative는 null).
+      const resumed = doneResult;
+      if (figureAbort && resumed) {
+        await streamFiguresPhase(
+          res,
+          () =>
+            generateSolutionFigures({
+              adapter,
+              source: "resume",
+              mode,
+              grade: resolved.grade,
+              problemText: resolved.problemText,
+              priorWork: buildPriorWork(mode, resolved.workLines, resolved.diagnosis),
+              solutionMd: resumed.solutionMd,
+              answerMd: resumed.answerMd,
+              signal: figureAbort.signal,
+              ...(figures.figuresTotalBudgetMs !== undefined ? { totalBudgetMs: figures.figuresTotalBudgetMs } : {}),
+            }),
+          figures.keepAliveMs,
+        );
+      }
     } catch {
-      res.write(
-        `event: error\ndata: ${JSON.stringify({ code: "provider_error", message: "이어풀기 생성 중 오류가 발생했습니다." })}\n\n`,
-      );
+      // on에서 done을 이미 보냈다면 error를 보내지 않는다(done 뒤 error 금지). off는 기존 동작 그대로.
+      if (!(figureAbort && doneResult)) {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ code: "provider_error", message: "이어풀기 생성 중 오류가 발생했습니다." })}\n\n`,
+        );
+      }
     } finally {
       res.end();
     }
@@ -125,6 +164,7 @@ function createHandleResume(adapter: LLMAdapter, casClient: CasClient) {
 export function createResumeRouter(
   adapter: LLMAdapter = resolveAdapter(),
   casClient: CasClient = resolveCasClient(),
+  { figuresEnabled = env.figuresEnabled, ...figureOptions }: FiguresRouteOptions = {},
 ): Router {
   const router = Router();
 
@@ -133,7 +173,7 @@ export function createResumeRouter(
     authenticate,
     rateLimiter,
     validateRequest(resumeRequestSchema),
-    createHandleResume(adapter, casClient),
+    createHandleResume(adapter, casClient, { figuresEnabled, ...figureOptions }),
   );
 
   return router;

@@ -343,3 +343,65 @@ describe("ProblemInputProvider — startResume 후 질문 추천 재요청", () 
     expect(getSuggestedQuestions).not.toHaveBeenCalled();
   });
 });
+
+/** done 뒤에도 `release()` 전까지 열려 있는 스트림(서버가 도형을 만드는 동안, Stage 3). */
+function openAfterDone<T>(events: T[]) {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let ended = false;
+  async function* generate(): AsyncGenerator<T> {
+    await Promise.resolve();
+    for (const event of events) yield event;
+    await gate;
+    ended = true;
+  }
+  return { stream: generate(), release: () => release(), isEnded: () => ended };
+}
+
+describe("ProblemInputProvider — Stage 3 추천 질문은 done 직후 요청(S3-13·S3-R8)", () => {
+  async function reachProblemId() {
+    vi.mocked(recognizeProblem).mockResolvedValue({
+      problemId: "problem-1",
+      recognizedText: "1+1=?",
+      recognizedLatex: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+    });
+    vi.mocked(getSuggestedQuestions).mockReset();
+    vi.mocked(getSuggestedQuestions).mockResolvedValue({ questions: ["왜 그런가요?"] });
+    renderProvider();
+    fireEvent.click(screen.getByText("사진설정"));
+    fireEvent.click(screen.getByText("인식하기"));
+    await waitFor(() => expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1"));
+  }
+
+  it("풀이 스트림이 done 뒤 아직 열려 있어도(도형 대기) 추천 질문을 바로 요청한다", async () => {
+    const solveStream = openAfterDone<SolveStreamEvent>([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockReturnValue(solveStream.stream);
+    await reachProblemId();
+
+    fireEvent.click(screen.getByText("풀이생성"));
+    await waitFor(() => expect(screen.getByTestId("solveStatus")).toHaveTextContent("success"));
+    await waitFor(() => expect(getSuggestedQuestions).toHaveBeenCalledWith("problem-1"));
+    expect(solveStream.isEnded()).toBe(false);
+    solveStream.release();
+  });
+
+  it("이어풀기 스트림도 done 직후 추천 질문을 요청한다", async () => {
+    vi.mocked(diagnoseProblem).mockResolvedValue(DIAGNOSIS);
+    await reachProblemId();
+    fireEvent.click(screen.getByText("진단하기"));
+    await waitFor(() => expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("success"));
+    await waitFor(() => expect(getSuggestedQuestions).toHaveBeenCalled());
+    vi.mocked(getSuggestedQuestions).mockClear();
+
+    const resumeStream = openAfterDone<ResumeStreamEvent>([{ type: "done", result: RESUME_SOLUTION }]);
+    vi.mocked(resumeProblemStream).mockReturnValue(resumeStream.stream);
+    fireEvent.click(screen.getByText("이어풀기하기"));
+    await waitFor(() => expect(screen.getByTestId("resumeStatus")).toHaveTextContent("success"));
+    await waitFor(() => expect(getSuggestedQuestions).toHaveBeenCalledWith("problem-1"));
+    expect(resumeStream.isEnded()).toBe(false);
+    resumeStream.release();
+  });
+});

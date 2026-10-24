@@ -53,6 +53,7 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `AI_MODEL` | 로컬 `apps/api/.env`의 `AI_MODEL` 값과 동일 | **비워두면 서버가 기동 즉시 에러로 종료합니다**(이번 세션에 직접 재현·확인) |
 | `OPENAI_API_KEY` | 운영용 OpenAI API 키 | 로컬 개발 키와 분리 권장(사용량 추적) |
 | `CAS_SERVICE_URL` | `pocketq-cas`의 Internal Address | 비워두면 CAS는 결정론적 스텁으로 자동 폴백(`resolveCasClient.ts`) — RESUME/DIAG 검증이 실제 SymPy가 아니라 스텁으로 동작하니 운영에서는 반드시 채울 것 |
+| `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 기능 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **Stage 4(화면 표시) 전까지 운영에서는 켜지 않는다**(D9) — 켜면 결과 카드에 `**1단계**` 별표가 그대로 보인다. 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 아직 넣지 않았다 |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000` | render.yaml 기본값 그대로 두면 됨(버스트 방지용, §3.37 소프트 캡과는 별개) |
 
 ### `pocketq-web` (Static Site)

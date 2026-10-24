@@ -20,12 +20,16 @@ import { AppError } from "../../shared/errors/AppError";
 import type {
   ChatRequest,
   DiagnoseRequest,
+  FigureCallResult,
+  GenerateFiguresRequest,
   LLMAdapter,
+  RepairFigureRequest,
   ResumeRequest,
   SolveRequest,
   SolveStreamEvent,
   SuggestQuestionsRequest,
 } from "./adapter";
+import { FIGURE_REPAIR_JSON_SCHEMA, FIGURES_ENVELOPE_JSON_SCHEMA } from "./figuresJsonSchema";
 import { parseResumeOutput } from "./parseResumeOutput";
 import { parseSolveOutput } from "./parseSolveOutput";
 import {
@@ -37,6 +41,12 @@ import {
   buildSuggestQuestionsPrompt,
   buildSystemPrompt,
 } from "./prompts/system";
+import {
+  buildFigureRepairSystemPrompt,
+  buildFigureRepairUserMessage,
+  buildFiguresSystemPrompt,
+  buildFiguresUserMessage,
+} from "./prompts/figures";
 
 /**
  * OpenAI Responses API로 recognizeProblem/solve를 강제하는 JSON Schema(Structured Outputs).
@@ -147,6 +157,14 @@ const DIAGNOSIS_JSON_SCHEMA = {
 const OPENAI_REQUEST_TIMEOUT_MS = 30_000;
 
 /**
+ * 도형 생성 호출의 `max_output_tokens`(추론 토큰 포함). **결정 필요(임시값)** — WU0 probe에서 F07급 함수
+ * 도형 1개가 출력 566토큰(추론 83)이었다. 기하 도형 3개·요소 60개 상한을 고려해 넉넉히 두고, 평가 p95 후 확정한다.
+ */
+const FIGURES_MAX_OUTPUT_TOKENS = 8_000;
+/** 도형 보정 호출의 `max_output_tokens`. **결정 필요(임시값)** — 도형 1개만 다시 받으므로 생성의 절반. */
+const FIGURE_REPAIR_MAX_OUTPUT_TOKENS = 4_000;
+
+/**
  * `openai` SDK를 참조하는 유일한 파일이다 — 다른 어떤 파일도 이 패키지의 타입을 직접
  * import하지 않는다. `LLMAdapter` interface(shared-types 도메인 타입만 사용)만 노출한다.
  * OpenAI Responses API(Chat Completions 아님)를 사용한다.
@@ -206,7 +224,7 @@ export class OpenAIAdapter implements LLMAdapter {
       model: this.model,
       stream: true,
       input: [
-        { role: "system", content: buildSystemPrompt(req.grade) },
+        { role: "system", content: buildSystemPrompt(req.grade, { stepMarkers: req.stepMarkers === true }) },
         { role: "user", content: buildSolveUserMessage(req.problem, req.options) },
       ],
     });
@@ -368,7 +386,7 @@ export class OpenAIAdapter implements LLMAdapter {
       model: this.model,
       stream: true,
       input: [
-        { role: "system", content: buildResumePrompt(req.grade, req.mode) },
+        { role: "system", content: buildResumePrompt(req.grade, req.mode, { stepMarkers: req.stepMarkers === true }) },
         { role: "user", content: buildResumeUserMessage(req) },
       ],
     });
@@ -391,6 +409,85 @@ export class OpenAIAdapter implements LLMAdapter {
     };
 
     yield { done: true, result };
+  }
+
+  /**
+   * 도형 생성(Stage 3) — 비스트리밍 strict 구조화 호출. 자동 재시도 없음(`maxRetries: 0`), 호출별
+   * 타임아웃, `req.signal`로 취소. 결과는 JSON 파싱만 한 값이며 검증은 호출부(`generateSolutionFigures`)가 한다.
+   */
+  async generateFigures(req: GenerateFiguresRequest): Promise<FigureCallResult> {
+    return this.runFigureCall({
+      name: "solution_figures",
+      schema: FIGURES_ENVELOPE_JSON_SCHEMA,
+      system: buildFiguresSystemPrompt(req.source),
+      user: buildFiguresUserMessage(req),
+      maxOutputTokens: FIGURES_MAX_OUTPUT_TOKENS,
+      signal: req.signal,
+    });
+  }
+
+  /** 검증에 실패한 도형 1개 보정 — `generateFigures`와 같은 호출 규칙, 출력 `{ figure: FigureSpec | null }`. */
+  async repairFigure(req: RepairFigureRequest): Promise<FigureCallResult> {
+    return this.runFigureCall({
+      name: "figure_repair",
+      schema: FIGURE_REPAIR_JSON_SCHEMA,
+      system: buildFigureRepairSystemPrompt(req.source),
+      user: buildFigureRepairUserMessage(req),
+      maxOutputTokens: FIGURE_REPAIR_MAX_OUTPUT_TOKENS,
+      signal: req.signal,
+    });
+  }
+
+  /**
+   * 도형 호출 공통부. 다음은 모두 throw한다(호출부가 도형 없음으로 처리): 네트워크·HTTP 오류, 타임아웃,
+   * 취소, `status: "incomplete"`(예: max_output_tokens), 완료가 아닌 상태, 모델 거부(refusal), JSON 파싱 실패.
+   */
+  private async runFigureCall(call: {
+    name: string;
+    schema: Record<string, unknown>;
+    system: string;
+    user: string;
+    maxOutputTokens: number;
+    signal: AbortSignal;
+  }): Promise<FigureCallResult> {
+    const response = await this.client.responses.create(
+      {
+        model: this.model,
+        stream: false,
+        max_output_tokens: call.maxOutputTokens,
+        input: [
+          { role: "system", content: call.system },
+          { role: "user", content: call.user },
+        ],
+        text: { format: { type: "json_schema", name: call.name, schema: call.schema, strict: true } },
+      },
+      { maxRetries: 0, timeout: OPENAI_REQUEST_TIMEOUT_MS, signal: call.signal },
+    );
+
+    if (response.status === "incomplete") {
+      throw new AppError("provider_error", "도형 응답이 완료되지 않았습니다.", 502);
+    }
+    if (response.status !== undefined && response.status !== "completed") {
+      throw new AppError("provider_error", "도형 응답 상태가 완료가 아닙니다.", 502);
+    }
+    const refused = response.output.some(
+      (item) => item.type === "message" && item.content.some((part) => part.type === "refusal"),
+    );
+    if (refused) {
+      throw new AppError("provider_error", "도형 생성이 거부되었습니다.", 502);
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(response.output_text);
+    } catch {
+      throw new AppError("provider_error", "도형 응답을 해석하지 못했습니다.", 502);
+    }
+
+    const usage = response.usage
+      ? { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+      : null;
+    return { raw, usage };
   }
 }
 

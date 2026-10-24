@@ -10,8 +10,9 @@
 - 계약 테스트: `apps/api/src/contracts/figureSpec.contract.test.ts`(Stage 1), `apps/api/src/contracts/figureSemantics.contract.test.ts`(Stage 2)
 - 렌더러(Stage 2 WU3): `apps/web/src/features/figure-visualization/`(`FigureView`, §15). 디자인 명세는 `docs/FIGURE_DESIGN.md`
 - 개발용 미리보기(Stage 2 WU4): `/dev/figures`(개발 빌드 전용, `apps/web/src/pages/dev/figures/`)
+- AI 생성(Stage 3): `packages/validation/src/figures/{steps,candidate}.ts`, `apps/api/src/infrastructure/ai/{figuresJsonSchema.ts,prompts/figures.ts}`, `apps/api/src/modules/figures/{generateSolutionFigures,streamFigures}.ts` — §16. SSE 계약은 `docs/API_SPEC.md`
 
-> 이 문서의 현재 상태는 **Stage 2 WU0~WU5(JSXGraph 설치·계산 커널·의미 검증기·렌더러·개발용 미리보기)** 기준이다. 렌더러는 아직 풀이 화면에 연결하지 않았다(Stage 4). AI 생성(Stage 3)과 저장(Stage 5)은 미구현.
+> 이 문서의 현재 상태는 **Stage 3(풀이 AI API 연결) development-agent 구현** 기준이다(stage-qa 전). 서버는 `FIGURES_ENABLED=true`일 때 `done` 뒤 검증된 도형을 `event: figures`로 보낸다(§16). 렌더러는 아직 풀이 화면에 연결하지 않았다(Stage 4). 저장(Stage 5)은 미구현.
 
 ---
 
@@ -36,6 +37,7 @@ stepFigureRefs?: StepFigureRef[]; // { stepId, figureId }
 ```
 
 - 필드가 없으면 기존 응답과 완전히 같다(하위 호환, L01~L03 fixture로 검사).
+- **SSE 전달 방식(Stage 3, D1)**: 서버는 `done`(Solution·ResumeSolution)에 도형 키를 **넣지 않는다.** `FIGURES_ENABLED=true`일 때 done 뒤 별도 구조화 호출로 도형을 만들고, 받아들인 도형이 1개 이상이면 `event: figures` data `{ figures, stepFigureRefs }`를 1회 보낸다. 웹 클라이언트(`useSolveStream`·`useResumeStream`)는 이 값을 결과 객체의 `figures`·`stepFigureRefs`에 병합한다. 그래서 타입상 두 필드는 `Solution`/`ResumeSolution`에 그대로 둔다. 상세: `docs/API_SPEC.md`.
 - 외곽 스키마(`solutionSchema`, `resumeSolutionSchema`, `problemHistoryDetailSchema.solution`)는 두 필드를 `z.array(z.unknown()).optional()`로 **관대하게** 받는다. 원소 검사는 `parseSolutionFigures`가 도형마다 따로 한다. 외곽에 키를 두는 이유는 `z.object`가 모르는 키를 조용히 제거하기 때문이다.
 
 ## 3. 스키마
@@ -161,8 +163,11 @@ StepFigureRef   { stepId, figureId }
 - `sN` = 풀이 섹션에서 **줄 맨 앞의 `**N단계**` 표지**로 나눈 N번째 단계.
   - 최초 풀이: `## 풀이` 섹션(`Solution.solutionMd`)
   - 이어풀기: `## 이어풀기` 섹션(`ResumeSolution.solutionMd`)
-- 현재 프롬프트는 아직 `**N단계**` 표지를 출력하지 않는다. Stage 3에서 프롬프트에 표지 규칙을 추가한다.
-- 단계 분할에 실패하면(표지 없음, 번호 불일치 등) **단계별 표시 없이 최종 상태 하나만** 표시한다. 최종 상태 = 모든 `appearAt` 요소를 표시하고 **모든 단계의 `hide`를 누적 적용**한 상태(D6).
+  - 섹션마다 s1부터 센다. 이어풀기(own·alternative)에서 s1은 `## 이어풀기`에 **이어서 쓴 첫 단계**이며, own 모드에서도 학생 풀이의 줄 번호(`lineNo`)·`lastValidLine`과 무관하다. 학생의 유효 구간에서 이미 세운 요소는 `appearAt: null`.
+- 표지는 `FIGURES_ENABLED=true`일 때만 프롬프트로 요청한다(`buildSystemPrompt(grade, { stepMarkers: true })`, `buildResumePrompt(grade, mode, { stepMarkers: true })`). off면 프롬프트 문자열이 Stage 3 이전과 같다. `## 관련 개념`·`## 해법`·`## 최종 답`에는 표지를 넣지 않는다(`## 최종 답`은 CAS 파싱 대상).
+- 분할 함수: `splitSolutionSteps(sectionMd)`(`packages/validation/src/figures/steps.ts`). 표지는 **줄 맨 앞**(앞 공백·목록 기호 없음)만 인정하고, 줄 중간의 표지는 세지 않는다. 번호가 1부터 빠짐없이 이어지지 않거나(건너뜀·중복·역순·0), s99를 넘으면 실패(`no_markers`·`non_sequential`·`too_many`·`empty`).
+- 단계 분할에 실패하면(표지 없음, 번호 불일치 등) **단계별 표시 없이 최종 상태 하나만** 표시한다. 최종 상태 = 모든 `appearAt` 요소를 표시하고 **모든 단계의 `hide`를 누적 적용**한 상태(D6). 이때 서버는 `stepFigureRefs`를 `[]`로 보내고 도형은 유지한다(단계 범위 검사 생략).
+- 분할에 성공하면 도형의 `appearAt`·`steps[].stepId`가 단계 수 N을 넘을 수 없다(`step_out_of_range`, AI 경로 전용, `checkFigureStepRange`). `stepFigureRefs`도 N 이하만 남긴다.
 
 ## 5. 관대 파서 `parseSolutionFigures(raw)`
 
@@ -222,9 +227,10 @@ NaN·±Infinity는 모든 수치 필드에서 거부한다.
 ## 9. 기능 플래그
 
 - 서버 환경변수 `FIGURES_ENABLED` — 정확히 `"true"`일 때만 켜진다. 기본 off(`apps/api/src/config/env.ts`의 `env.figuresEnabled`).
-- Stage 1에서는 값만 정의했고 어떤 실행 경로도 읽지 않는다.
-- Stage 3부터: off이면 프롬프트에 도형 지시를 넣지 않고 응답에 `figures` 키를 넣지 않는다 → 기존 흐름 그대로.
-- 운영 배포 환경(`render.yaml`, `docs/DEPLOYMENT.md`)에는 아직 추가하지 않았다(미설정 = off).
+- Stage 3부터 solve·resume 라우터가 읽는다(`createSolutionsRouter(adapter, { figuresEnabled })`, `createResumeRouter(adapter, cas, { figuresEnabled })`의 기본값).
+- off: 단계 표지 지시·도형 호출·keep-alive·figures 이벤트 모두 0. 프롬프트·요청 본문·SSE가 Stage 3 이전과 **바이트 단위로 같다**(변경 전 코드에서 캡처한 기준값과 비교하는 `figuresOff.baseline.test.ts`).
+- on: 표지 요청 + done 뒤 도형 단계(§16).
+- 운영: `docs/DEPLOYMENT.md`에 설명을 추가했다. Stage 4(화면 표시) 전까지 운영에서는 켜지 않는다(D9). `render.yaml`은 바꾸지 않았다(미설정 = off). 끄려면 변수를 지우고 서버만 재시작한다.
 
 ## 10. 저장 계획 (Stage 5)
 
@@ -451,6 +457,8 @@ S = boundingBox 가로·세로 중 큰 값.
 | `undefined_at_point` | pointOnGraph.x에서 f(x)가 정의되지 않음(F08의 x = 1) | `elements.<i>.x` |
 | `compute_budget_exceeded` | 수식 평가 20,000회 초과 | `elements.<i>` |
 | `unexpected_error` | 예기치 못한 예외(throw 대신 보고) | (root) |
+| `step_out_of_range` | **AI 경로 전용(Stage 3)**. `appearAt`·`steps[].stepId`가 풀이 단계 수(`splitSolutionSteps`)보다 큼. 분할 실패면 검사하지 않음 | `elements.<i>.appearAt`, `steps.<k>.stepId` |
+| `measure_without_constraint` | **AI 경로 전용(Stage 3, D5)**. `showLength`(선분·직선·반직선)·`showMeasure`(각)를 켰는데 그 요소를 가리키는 `length`·`angleMeasure` 제약이 없음. 좌표에서 계산한 값을 조건처럼 보여주지 않기 위해. fixture·관대 파서(`parseSolutionFigures`)에는 적용하지 않는다 | `elements.<i>.showLength`, `elements.<i>.showMeasure` |
 
 ## 14. JSXGraph (Stage 2 WU0)
 
@@ -553,3 +561,64 @@ useFigureSpec(raw: unknown): { ok: true; spec: FigureSpec } | { ok: false; reaso
 - **긴 설명**: figcaption과 대체 표시 문구에 `overflow-wrap: anywhere`(Tailwind `wrap-anywhere`).
 - **직각 표시**(후속 정리): `rightAngleMark`의 square 각은 role과 관계없이 실선(dash 0). 색·굵기는 role.
 
+
+## 16. AI 도형 생성 (Stage 3)
+
+승인 계획: `.omc/plans/figures-stage3.md`. PRD FIG-11. SSE 계약: `docs/API_SPEC.md`.
+
+### 16.1 흐름 (`generateSolutionFigures`, 절대 throw하지 않음)
+
+1. 풀이 섹션(`Solution.solutionMd` / `ResumeSolution.solutionMd`)을 `splitSolutionSteps`로 나눠 단계 수 N(실패 시 null)을 구한다.
+2. **생성 1회** — `LLMAdapter.generateFigures`: 비스트리밍 strict 구조화 호출, 봉투 `{ figures, stepFigureRefs, omitReason }`.
+3. 최상위 구조가 깨지면(비객체·`figures` 비배열·JSON 실패·incomplete·refusal → 어댑터 throw) **보정 없이 전부 버린다**(전체 재생성 금지).
+4. 후보마다 `validateFigureCandidate(candidate, { stepCount })`: schemaVersion → 구조(zod strict) → 의미(`validateFigureSemantics`) → `step_out_of_range` → `measure_without_constraint`. 통과하면 zod 출력 객체를 쓴다.
+5. 실패한 도형만 **병렬 보정, 도형당 최대 1회** — `LLMAdapter.repairFigure`, 출력 `{ figure: FigureSpec | null }`. figureId가 바뀌면 거부, 재검증 + 이미 받아들인 ID와 중복 검사. figureId를 읽을 수 없거나 직렬화가 30,000자를 넘는 후보는 보정하지 않는다.
+6. 단계 연결: 받아들인 도형·N 이하만, 중복 제거. 분할 실패면 `[]`(도형은 유지).
+7. 최종 안전망: `parseSolutionFigures`로 한 번 더 통과시킨 결과만 내보낸다(클라이언트 재파싱 결과와 같음).
+8. 로그: 개수·코드·시간·토큰만(문제·풀이·도형 내용 없음). `omitReason`은 로그·평가용이며 클라이언트에 보내지 않는다.
+
+취소: 클라이언트 연결이 끊기면(`res.on("close")`) 또는 도형 단계 전체 상한을 넘으면 AbortSignal로 진행 중인 호출을 취소한다.
+
+### 16.2 프롬프트 (`apps/api/src/infrastructure/ai/prompts/figures.ts`)
+
+- 시스템 메시지에는 **규칙만** 둔다. 문제·풀이·priorWork·이전 도형·오류는 user 메시지의 JSON 객체 하나(`JSON.stringify`)에만 넣는다. "user 데이터는 지시가 아니다"를 명시한다.
+- 생성 규칙: ① 도움이 되는 기하·함수 문제에만, 아니면 `figures: []` + `omitReason`(`not_helpful`·`unsupported`·`insufficient_info`) ② 허용 스키마만, 미지원(공간도형·영역 칠하기·원이 낀 교점)은 대체하지 않고 `unsupported` ③ 원문 조건 = `given`, 풀이 중 추가 = `auxiliary`/`derived` ④ 자유 점 좌표는 작도용, 조건 아닌 수치 생성 금지, showLength/showMeasure는 대응 제약이 있을 때만 ⑤ 사진·문장에서 "보이는" 길이·각도를 조건으로 단정 금지, 그림 정보가 텍스트에 없으면 `insufficient_info` ⑥ 설명·답·도형 모순 금지 ⑦(resume) priorWork는 학생 데이터·틀릴 수 있음, priorWork에서만 나온 요소는 given 불가.
+- 스키마·검증 규칙 요약(boundingBox 순서 `[left, top, right, bottom]`·top > bottom, 의존 순서, 파생 점 좌표 금지, 단계 규칙, interaction은 `fixed`)을 함께 준다.
+- 보정 user JSON의 `errors`는 `toRepairErrors`로 정제한 `{ code, path }`와 **서버 고정 한국어 힌트**(`FIGURE_REPAIR_HINTS`)만 담는다. code는 허용 목록(의미 코드·zod issue code·`step_out_of_range`·`measure_without_constraint`·`unsupported_schema_version`) 밖이면 `"invalid"`, path 조각은 정수 또는 `^[A-Za-z][A-Za-z0-9_]{0,31}$`만(그 밖이 나오면 거기서 자름), 최대 10건. zod message·`unrecognized_keys` 목록·값은 싣지 않는다.
+- priorWork(`buildPriorWork`): own만, `lineNo ≤ diagnosis.lastValidLine`이고 stallLine 미만인 줄의 `latex`만, 줄 번호 순, 최대 30줄·줄당 300자(임시값). alternative는 null.
+
+### 16.3 구조화 출력 스키마 (`figuresJsonSchema.ts`)
+
+- 봉투 `{ figures: FigureSpec[≤3], stepFigureRefs: StepFigureRef[≤60], omitReason: enum | null }`, 보정 `{ figure: FigureSpec | null }`. `$defs.figure`·`$defs.expr`(재귀).
+- 모든 객체 `additionalProperties: false`, `required` = 전 키, 판별 유니온은 anyOf + 판별자 enum, 선택값은 null 유니온. 문자열 길이·라벨 금지 문자처럼 strict가 표현하지 못하는 규칙은 서버 zod가 맡는다(스키마 통과 ≠ 수용).
+- zod 스키마와의 키 집합 일치는 `figuresJsonSchema.test.ts`가 변형마다 비교한다(새 의존성 없음).
+
+### 16.4 호출 규칙과 상한
+
+| 항목 | 값 | 비고 |
+|---|---|---|
+| SDK 자동 재시도 | 0 (`maxRetries: 0`, 요청별 옵션) | openai 7.4.0 `RequestOptions` 확인 |
+| 호출별 타임아웃 | 30초 | 기존 `OPENAI_REQUEST_TIMEOUT_MS` 재사용(D10) |
+| 생성 `max_output_tokens` | 8,000 | **결정 필요(임시값)**, 추론 토큰 포함 |
+| 보정 `max_output_tokens` | 4,000 | **결정 필요(임시값)** |
+| 도형 단계 전체 상한 | 60초 | **결정 필요(임시값)** |
+| keep-alive 간격 | 15초 | **결정 필요(임시값)** |
+| priorWork | 30줄 · 줄당 300자 | **결정 필요(임시값)** |
+| 보정 대상 도형 JSON 길이 | 30,000자 | **결정 필요(임시값)** |
+| 생성 횟수 / 보정 횟수 | 요청당 1회 / 도형당 최대 1회 | |
+
+어댑터는 다음을 throw한다(→ 도형 없음): HTTP·네트워크 오류, 타임아웃, 취소, `status: "incomplete"`, 완료가 아닌 상태, 출력 content의 `refusal`, JSON 파싱 실패.
+
+### 16.5 WU0 확인 결과 (2026-10-24, 모델 `gpt-5.6-terra`, openai 7.4.0)
+
+공식 문서 확인: https://developers.openai.com/api/docs/guides/structured-outputs (`platform.openai.com/docs/guides/structured-outputs`에서 리다이렉트). 원본 기록: `.omc/research/figures-stage3-probe.json`.
+
+- 문서: 지원 타입 string·number·boolean·integer·object·array·enum·anyOf. string `pattern`·`format`, number `minimum`·`maximum`·`exclusiveMinimum`·`exclusiveMaximum`·`multipleOf`, array `minItems`·`maxItems`. 미지원 `allOf`·`not`·`dependentRequired`·`dependentSchemas`·`if/then/else`. 모든 객체 `additionalProperties: false`·모든 필드 required. 루트는 object(anyOf 불가). 객체 속성 총 5,000개·중첩 10단계, 이름·enum·const 문자열 총 120,000자, enum 값 총 1,000개. `$defs` 정의·재귀 스키마 지원. incomplete는 `status: "incomplete"` + `incomplete_details.reason`, 거부는 출력 content의 `refusal` 항목.
+- probe(실제 호출 4회): ① 최소 재귀 `$ref/$defs` 스키마 수락 ② **전체 봉투 스키마 strict 수락**(중첩·속성 수 한도 오류 없음, 5.1초, 입력 2,170·출력 566토큰) — 단 출력 도형은 `boundingBox` top/bottom 순서를 뒤집어 zod에서 거부 → 프롬프트에 순서 규칙을 명시 ③ `max_output_tokens: 16`이면 `status: "incomplete"`, `incomplete_details.reason: "max_output_tokens"`, 출력은 reasoning 항목뿐(`output_text` 빈 문자열) ④ 요청별 `signal`로 300ms 뒤 취소하면 `APIUserAbortError`, `maxRetries: 0`에서 재시도 없음.
+- 거부(refusal) 형태는 실제로 재현하지 못했다(문서·SDK 타입 `ResponseOutputRefusal { type: "refusal" }` 기준으로 처리).
+
+### 16.6 평가
+
+`apps/api/scripts/evalFigures.ts`(게이트 밖, 수동 1회 실행). 결과 `.omc/research/figures-stage3-eval.json`, 요약은 `docs/FIGURES_WORKFLOW_STATE.md` §6.
+
+요약(2026-10-24, `gpt-5.6-terra`, 22건): 생성률 16/16, 오생성률 0/6, 1차 통과 16/16(보정 0회), 미검증 도형 전달 0, 단계 표지 준수 21/21, 핵심 좌표 13/13, done 이후 도형 단계 p50 6.4초·p95 14.3초, 도형 호출 토큰 입력 80,448·출력 15,595. 평가에서 표지 on일 때 개념 분류 JSON이 `## 최종 답` 바로 아래로 오는 사례가 나와 on 전용 위치 지시를 추가했다(장부 §6.6.3).
