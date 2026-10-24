@@ -6,6 +6,19 @@
  */
 import { z } from "zod";
 
+export * from "./figures";
+
+/**
+ * 풀이·이어풀기 응답과 이력 상세의 도형 필드(선택). 외곽에서는 원소를 검사하지 않고 관대하게
+ * 받는다 — 도형 하나가 잘못됐다고 풀이 전체 파싱이 실패하면 안 되기 때문이다. 원소 단위 검증은
+ * `parseSolutionFigures`(./figures)가 도형마다 따로 수행한다. 이 키를 스키마에 두는 이유는
+ * `z.object`가 모르는 키를 제거해 도형이 조용히 사라지는 것을 막기 위해서다.
+ */
+const optionalFiguresShape = {
+  figures: z.array(z.unknown()).optional(),
+  stepFigureRefs: z.array(z.unknown()).optional(),
+};
+
 const gradeSchema = z.enum(["M1", "M2", "M3", "H1", "H2", "H3"]);
 
 /**
@@ -87,6 +100,36 @@ export const suggestedQuestionsResponseSchema = z.object({
 });
 export type SuggestedQuestionsResponseDto = z.infer<typeof suggestedQuestionsResponseSchema>;
 
+/**
+ * 풀이 결과(`shared-types.Solution`) 스키마 — SSE `done` 이벤트 payload 모양.
+ * Stage 1(도형 시각화 데이터 계약)에서 신설했으며, 아직 어떤 라우터·클라이언트도 이 스키마로
+ * 실제 응답을 파싱하지 않는다(실행 동작 불변). 하위 호환 검사와 이후 Stage의 기준으로 쓴다.
+ */
+export const solutionSchema = z.object({
+  conceptMd: z.string().nullable(),
+  solutionMd: z.string().nullable(),
+  answerMd: z.string(),
+  conceptTags: z.array(z.string()),
+  aiProvider: z.enum(["openai", "claude"]),
+  aiModel: z.string(),
+  ...optionalFiguresShape,
+});
+export type SolutionDto = z.infer<typeof solutionSchema>;
+
+/**
+ * 이어풀기 결과(`shared-types.ResumeSolution`) 스키마. `solutionSchema`와 같은 이유로 신설했고
+ * 아직 실행 경로에서 쓰지 않는다.
+ */
+export const resumeSolutionSchema = z.object({
+  mode: z.enum(["own", "alternative"]),
+  methodName: z.string(),
+  solutionMd: z.string(),
+  answerMd: z.string(),
+  verified: z.boolean(),
+  ...optionalFiguresShape,
+});
+export type ResumeSolutionDto = z.infer<typeof resumeSolutionSchema>;
+
 /** GET /api/problems 응답의 개별 이력 항목 */
 export const problemHistoryListItemSchema = z.object({
   problemId: z.string(),
@@ -120,6 +163,7 @@ export const problemHistoryDetailSchema = z.object({
       conceptTags: z.array(z.string()),
       aiProvider: z.enum(["openai", "claude"]),
       aiModel: z.string(),
+      ...optionalFiguresShape,
     })
     .nullable(),
   chatMessages: z.array(

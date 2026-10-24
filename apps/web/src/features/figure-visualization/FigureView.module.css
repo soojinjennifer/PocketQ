@@ -1,0 +1,48 @@
+/*
+ * JSXGraph가 만든 SVG 내부 노드 스타일 — `docs/FIGURE_DESIGN.md` §6.2.
+ * Tailwind 클래스로 붙이기 어려운 SVG 텍스트 halo(`paint-order`)·글꼴 상속이라 CSS Module로 제한한다
+ * (`.claude/rules/frontend.md` §3-4). 색은 CSS 변수(디자인 토큰)만 참조한다.
+ */
+.board {
+  font-family: inherit;
+}
+
+.board :global(svg) {
+  display: block;
+}
+
+.element,
+.measure,
+.tick,
+.axisName {
+  font-family: inherit;
+  paint-order: stroke;
+  stroke: var(--color-bg-canvas);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* Subheadline Semibold 15/20 590 — 점·요소 라벨(정체). */
+.element {
+  font-weight: 590;
+}
+
+/* Caption 1 12/16 Regular — 수치 라벨, 숫자 폭 고정. */
+.measure {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Caption 2 11/13 Regular — 눈금 숫자. */
+.tick {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footnote 13/18 Regular — 축 이름(이탤릭 아님, 오너 결정). */
+.axisName {
+  font-weight: 400;
+  font-style: normal;
+}

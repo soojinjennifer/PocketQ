@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { F01_TRIANGLE_ANGLE } from "validation/src/figures/fixtures";
 import { ApiError } from "./ApiError";
 
 vi.mock("../lib/supabase/client", () => ({
@@ -113,6 +114,55 @@ describe("solveProblemStream", () => {
     await expect(collect(iterable)).rejects.toMatchObject(
       new ApiError("validation_error", "문제를 찾을 수 없습니다.", 404),
     );
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("solveProblemStream — 도형 시각화 필드(PRD §4.12 FIG) 하위 호환", () => {
+  const BASE_RESULT = {
+    conceptMd: null,
+    solutionMd: "풀이",
+    answerMd: "답",
+    conceptTags: [],
+    aiProvider: "openai",
+    aiModel: "gpt-5.6-terra",
+  };
+
+  function sseResponse(sse: string) {
+    return { ok: true, status: 200, body: streamFrom(sse), json: () => Promise.resolve(null) };
+  }
+
+  it("done payload에 figures/stepFigureRefs가 있으면 그대로 보존해 산출한다", async () => {
+    const result = {
+      ...BASE_RESULT,
+      figures: [F01_TRIANGLE_ANGLE.raw],
+      stepFigureRefs: [{ stepId: "s1", figureId: "fig-f01" }],
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse(`event: done\ndata: ${JSON.stringify(result)}\n\n`)));
+
+    const events = await collect(
+      solveProblemStream({ problemId: "problem-1", options: { concept: true, solution: true } }),
+    );
+
+    expect(events).toEqual([{ type: "done", result }]);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("figures가 없는 기존 done payload는 키를 새로 만들지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(sseResponse(`event: done\ndata: ${JSON.stringify(BASE_RESULT)}\n\n`)),
+    );
+
+    const events = await collect(
+      solveProblemStream({ problemId: "problem-1", options: { concept: true, solution: true } }),
+    );
+
+    expect(events).toEqual([{ type: "done", result: BASE_RESULT }]);
+    const [event] = events;
+    expect(event?.type === "done" ? event.result : null).not.toHaveProperty("figures");
 
     vi.unstubAllGlobals();
   });

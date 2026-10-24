@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { F01_TRIANGLE_ANGLE } from "validation/src/figures/fixtures";
 import { ApiError } from "./ApiError";
 
 vi.mock("../lib/supabase/client", () => ({
@@ -209,6 +210,36 @@ describe("bulkDeleteProblemHistory", () => {
       status: 404,
       message: "삭제할 풀이 기록을 찾을 수 없습니다.",
     });
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("getProblemHistoryDetail — 도형 시각화 필드(PRD §4.12 FIG) 하위 호환", () => {
+  it("solution에 figures/stepFigureRefs가 있으면 제거하지 않고 그대로 보존한다", async () => {
+    const figures = [F01_TRIANGLE_ANGLE.raw];
+    const stepFigureRefs = [{ stepId: "s1", figureId: "fig-f01" }];
+    const body = { ...DETAIL_BODY, solution: { ...DETAIL_BODY.solution, figures, stepFigureRefs } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, body)));
+
+    const result = await getProblemHistoryDetail("problem-1");
+
+    expect(result).toEqual(body);
+    expect(result.solution?.figures).toEqual(figures);
+    expect(result.solution?.stepFigureRefs).toEqual(stepFigureRefs);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("figures가 없는 기존 응답은 키를 새로 만들지 않고 입력과 동일하게 파싱된다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, DETAIL_BODY)));
+
+    const result = await getProblemHistoryDetail("problem-1");
+
+    expect(result).toEqual(DETAIL_BODY);
+    expect(JSON.stringify(result)).toBe(JSON.stringify(DETAIL_BODY));
+    expect(result.solution).not.toHaveProperty("figures");
+    expect(result.solution).not.toHaveProperty("stepFigureRefs");
 
     vi.unstubAllGlobals();
   });

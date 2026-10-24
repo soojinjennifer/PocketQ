@@ -78,6 +78,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.111.0
         version: 2.111.0
+      jsxgraph:
+        specifier: 1.14.1
+        version: 1.14.1
       katex:
         specifier: ^0.18.4
         version: 0.18.4
@@ -2558,6 +2561,10 @@ packages:
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
     engines: {node: '>=0.10.0'}
+
+  jsxgraph@1.14.1:
+    resolution: {integrity: sha512-TrjfzohP5hkw4ZYqFjxrPD3w7hjZFct8lqGv6RlbgyUoOqIw6Z2Io3q7nVpO+FPK7KEOfH/xcf0Y2xotoQQQMA==}
+    engines: {node: '>=20.19.0'}
 
   katex@0.18.4:
     resolution: {integrity: sha512-IMPntbRLOU+eu88XDiFKqQ8Akhr9Tv7jDMXqPhjG9SI1JMA4DIgXk4x9k4skJz2NZJXBRbC+2pYBLj9olqcZow==}
@@ -6118,6 +6125,8 @@ snapshots:
       graceful-fs: 4.2.11
 
   jsonpointer@5.0.1: {}
+
+  jsxgraph@1.14.1: {}
 
   katex@0.18.4:
     dependencies:

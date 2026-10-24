@@ -35,6 +35,12 @@ export const env = {
    * 띄우지 않아도 기존 동작이 그대로 유지된다).
    */
   casServiceUrl: process.env["CAS_SERVICE_URL"] ?? "",
+  /**
+   * 도형 시각화(PRD §4.12 FIG) 기능 플래그. 정확히 문자열 "true"일 때만 켜진다(기본 off).
+   * Stage 1에서는 값만 정의하고 어떤 실행 경로도 이 값을 읽지 않는다 — Stage 3부터 풀이 API가
+   * 이 값이 true일 때만 figures를 생성·반환한다. 끄면 기존 텍스트 풀이 흐름 그대로다.
+   */
+  figuresEnabled: process.env["FIGURES_ENABLED"] === "true",
   rateLimitMax: readNumber(process.env["RATE_LIMIT_MAX"], 30),
   rateLimitWindowMs: readNumber(process.env["RATE_LIMIT_WINDOW_MS"], 60_000),
 } as const;

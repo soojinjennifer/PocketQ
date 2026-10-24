@@ -91,6 +91,19 @@ export const routeConfig: RouteObject[] = [
       },
     ],
   },
+  // 개발 전용 도형 미리보기(`docs/FIGURE_DESIGN.md` §13). 운영 빌드에서는 조건이 false로 치환돼
+  // 동적 import까지 통째로 제거된다(fixture가 운영 번들에 들어가지 않음). `*`보다 앞에 둔다.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: "/dev/figures",
+          lazy: async () => {
+            const { FigurePreviewPage } = await import("../pages/dev/figures/FigurePreviewPage");
+            return { Component: FigurePreviewPage };
+          },
+        } satisfies RouteObject,
+      ]
+    : []),
   {
     path: "*",
     element: <NotFoundPage />,
