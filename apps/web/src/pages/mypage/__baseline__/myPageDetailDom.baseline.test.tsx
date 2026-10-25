@@ -14,6 +14,7 @@ import baselineJson from "./myPageDetailDom.baseline.json";
 import type { ProblemHistoryDetailDto } from "validation";
 import { F09_STEPWISE_AUXILIARY } from "validation/src/figures/fixtures";
 import { AuthContext, type AuthContextValue } from "../../../features/auth/AuthContext";
+import { applyHistoryPanelOpaqueDelta } from "../../../test/historyPanelOpaqueDelta";
 import { applyStage5OneLineDelta, sortClassTokens } from "../../../test/stage5OneLineDelta";
 import { createFakeSession } from "../../../test/supabaseTestUtils";
 
@@ -124,6 +125,7 @@ describe("Stage 5 WU0 — 마이페이지 상세 DOM 기준값(resume 없음)", 
     const detail = CASES[key];
     if (!detail) throw new Error(key);
     // Stage 5: RecognizedProblemBar 승인 클래스 변경(S5-V7·V8·V10)만 기준값에 적용하고 class 토큰 순서를 무시해 비교한다(장부 §8).
-    expect(sortClassTokens(await renderDetail(detail))).toBe(sortClassTokens(applyStage5OneLineDelta(baseline.html[key] ?? "")));
+    // 2026-10-25: 패널 루트 배경 bg-glass-fill → bg-bg-canvas(오너 결정, 장부 §8.16) 한 토큰만 추가로 적용한다.
+    expect(sortClassTokens(await renderDetail(detail))).toBe(sortClassTokens(applyHistoryPanelOpaqueDelta(applyStage5OneLineDelta(baseline.html[key] ?? ""))));
   });
 });

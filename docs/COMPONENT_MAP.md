@@ -23,6 +23,7 @@
 | `Button/Logout` | 마이페이지 | 1회 | `shared/ui/button` (`variant="logout"`) | |
 | `Filter Pill` | 마이페이지 | 5회 | `shared/ui/filter-pill` | 개념 필터 칩 |
 | `History Row` | 마이페이지 | 4회 | `features/learning-history/HistoryRow` | |
+| 지난 풀이 다시 보기 오버레이(**Figma 대응 없음 — 결정 필요**) | 마이페이지(MYPAGE-2, `/mypage` 내부 오버레이) | 1회 | `features/learning-history/HistoryDetailPanel` | 루트 `fixed inset-x-0 top-0 h-dvh` + 딤 `bg-black/40`(Modal과 같음). 패널은 `ResultPanelShell`의 보더·모서리·그림자(`border-glass-border`/`rounded-[24px]`/`Elevation/Glass Panel`)를 문자 그대로 재사용하되, **배경은 불투명 `bg-bg-canvas`(#fbfaf6)** 다 — 2026-10-25 오너 결정으로 `bg-glass-fill`(#fbfaf6f5)에서 바꿨다(같은 RGB, 오버레이 뒤 목록 글자 비침 제거, 장부 `docs/FIGURES_WORKFLOW_STATE.md` §8.16). `ResultPanelShell`은 `bg-glass-fill` 그대로(design 판정 대기). 마이페이지 DOM 기준값은 덮어쓰지 않고 `apps/web/src/test/historyPanelOpaqueDelta.ts`로 이 한 토큰만 적용해 비교한다. 닫기 3경로(목록으로·Escape·딤 클릭), 열 때 "목록으로" 포커스·닫을 때 복귀, `role="dialog"` + `aria-label="지난 풀이 다시 보기"` |
 | `Camera/Top Bar` | 카메라 촬영, 미리보기 | 1회/화면 | `features/camera/CameraTopBar` | |
 | `Camera/Problem Sheet` | 카메라 촬영, 미리보기 | 1회/화면 | `features/camera/ProblemSheet` | |
 | `Camera/Frame Guides` | 카메라 촬영 (미리보기에는 없음) | 1회 | `features/camera/FrameGuides` | 촬영 중에만 표시 |

@@ -220,6 +220,121 @@ describe("S5-7 resume 결과로 CHAT", () => {
   });
 });
 
+describe("solve·resume 공존(같은 problemId) — figureContext.source(§8.16 B-1)", () => {
+  // 이 묶음은 별도 사용자로 요청한다 — rate limiter(사용자당 분당 30회, 모듈 상태)를 위 묶음과 나눠 쓰지 않게.
+  const USER = "user-coexist";
+  const PID_BOTH = "ffffffff-ffff-4fff-8fff-fffffffffff3";
+  const PID_SOLVE_ONLY = "ffffffff-ffff-4fff-8fff-fffffffffff4";
+  const PID_RESUME_ONLY = "ffffffff-ffff-4fff-8fff-fffffffffff5";
+
+  function seedProblem(problemId: string, results: { solve: boolean; resume: boolean }): void {
+    inMemoryProblemStore.set({
+      problemId,
+      userId: USER,
+      grade: "M2",
+      problem: { recognizedText: "삼각형 ABC에서 높이와 중선", recognizedLatex: null },
+      createdAt: "2026-10-25T00:00:00.000Z",
+    });
+    if (results.solve) {
+      inMemoryProblemStore.setSolution(problemId, SOLUTION);
+      inMemoryProblemStore.attachSolutionFigures(problemId, SOLUTION, F09);
+    }
+    if (results.resume) {
+      inMemoryProblemStore.setResumeSolution(problemId, RESUME);
+      inMemoryProblemStore.attachResumeFigures(problemId, RESUME, F01);
+    }
+  }
+
+  beforeEach(() => {
+    getUserMock.mockResolvedValue({ data: { user: { id: USER, user_metadata: { grade: "M2" } } }, error: null });
+    seedProblem(PID_BOTH, { solve: true, resume: true });
+    seedProblem(PID_SOLVE_ONLY, { solve: true, resume: false });
+    seedProblem(PID_RESUME_ONLY, { solve: false, resume: true });
+  });
+
+  it("source resume → 이어풀기 맥락(발췌·단계 원문·도형 모두 resume)", async () => {
+    const { adapter, calls } = spyChat();
+    const res = await chat(app(adapter, true), PID_BOTH, { question: "왜 45도?", figureContext: { step: 2, source: "resume" } });
+    expect(res.status).toBe(200);
+    const call = calls()[0];
+    expect(call?.solution.solutionMd).toBe(RESUME.solutionMd);
+    expect(call?.solution.answerMd).toBe(RESUME.answerMd);
+    expect(call?.figureContext).toEqual({
+      currentStep: 2,
+      stepText: "**2단계** 45°를 확인한다.",
+      solutionExcerpt: RESUME.solutionMd,
+      figures: buildFigureChatSummaries(F01.figures, 2),
+    });
+  });
+
+  it("source solve → solve 맥락", async () => {
+    const { adapter, calls } = spyChat();
+    await chat(app(adapter, true), PID_BOTH, { question: "q", figureContext: { step: 2, source: "solve" } });
+    const call = calls()[0];
+    expect(call?.solution).toBe(SOLUTION);
+    expect(call?.figureContext).toEqual({
+      currentStep: 2,
+      stepText: "**2단계** A에서 BC에 수선 AH를 내린다.",
+      solutionExcerpt: SOLUTION.solutionMd,
+      figures: buildFigureChatSummaries(F09.figures, 2),
+    });
+  });
+
+  it("source 없음 → 기존대로 solve 우선(인자 전체가 source solve와 같다)", async () => {
+    const { adapter, calls } = spyChat();
+    await chat(app(adapter, true), PID_BOTH, { question: "q", figureContext: { step: 2 } });
+    await chat(app(adapter, true), PID_BOTH, { question: "q", figureContext: { step: 2, source: "solve" } });
+    expect(calls()[0]?.solution).toBe(SOLUTION);
+    expect(calls()[0]?.figureContext?.figures).toEqual(buildFigureChatSummaries(F09.figures, 2));
+    expect(calls()[0]).toEqual(calls()[1]);
+  });
+
+  it("source resume인데 이어풀기 결과가 없으면 solve로 fallback하고 currentStep은 null(다른 결과의 단계로 해석하지 않는다)", async () => {
+    const { adapter, calls } = spyChat();
+    const res = await chat(app(adapter, true), PID_SOLVE_ONLY, { question: "q", figureContext: { step: 2, source: "resume" } });
+    expect(res.status).toBe(200);
+    const call = calls()[0];
+    expect(call?.solution).toBe(SOLUTION);
+    expect(call?.figureContext).toEqual({
+      currentStep: null,
+      stepText: null,
+      solutionExcerpt: SOLUTION.solutionMd,
+      figures: buildFigureChatSummaries(F09.figures, null),
+    });
+  });
+
+  it("source solve인데 solve 결과가 없으면 resume으로 fallback하고 currentStep은 null", async () => {
+    const { adapter, calls } = spyChat();
+    await chat(app(adapter, true), PID_RESUME_ONLY, { question: "q", figureContext: { step: 2, source: "solve" } });
+    const call = calls()[0];
+    expect(call?.solution.solutionMd).toBe(RESUME.solutionMd);
+    expect(call?.figureContext?.currentStep).toBeNull();
+    expect(call?.figureContext?.stepText).toBeNull();
+    expect(call?.figureContext?.figures).toEqual(buildFigureChatSummaries(F01.figures, null));
+  });
+
+  it.each(["x", "", 1, null])("잘못된 source(%j)는 400", async (source) => {
+    const { adapter, calls } = spyChat();
+    const res = await chat(app(adapter, true), PID_BOTH, { question: "q", figureContext: { step: 1, source } });
+    expect(res.status).toBe(400);
+    expect(calls()).toHaveLength(0);
+  });
+
+  it("off면 source resume가 와도 기존과 같다(solve 우선, figureContext 키 0)", async () => {
+    const { adapter, calls } = spyChat();
+    await chat(app(adapter, false), PID_BOTH, { question: "q", history: [], figureContext: { step: 2, source: "resume" } });
+    await chat(app(adapter, false), PID_BOTH, { question: "q", history: [] });
+    expect(calls()[0]).toEqual({
+      problem: { recognizedText: "삼각형 ABC에서 높이와 중선", recognizedLatex: null },
+      solution: SOLUTION,
+      history: [],
+      question: "q",
+      grade: "M2",
+    });
+    expect(calls()[0]).toEqual(calls()[1]);
+  });
+});
+
 describe("S5-8 CHAT 뒤 도형 불변·응답 스키마 불변", () => {
   it("여러 번 CHAT해도 메모리 도형이 deep-equal, 응답은 { answerMd }만", async () => {
     const before = structuredClone(inMemoryProblemStore.getSolutionFigures(PID));

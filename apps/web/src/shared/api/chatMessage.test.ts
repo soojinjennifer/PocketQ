@@ -92,4 +92,22 @@ describe("sendChatMessage — Stage 5 figureContext", () => {
     ]);
     vi.unstubAllGlobals();
   });
+
+  it("source(solve·resume)가 있으면 step 뒤에 담고, 그 밖의 값·키는 보내지 않는다(장부 §8.16 B-1)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { answerMd: "a" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: { step: 2, source: "resume" } });
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: { step: null, source: "solve" } });
+    const invalid = { step: 1, source: "x", figures: ["fig"] } as unknown as { step: number };
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: invalid });
+
+    const bodies = fetchMock.mock.calls.map((call) => (call[1] as RequestInit).body);
+    expect(bodies).toEqual([
+      '{"question":"q","history":[],"figureContext":{"step":2,"source":"resume"}}',
+      '{"question":"q","history":[],"figureContext":{"step":null,"source":"solve"}}',
+      '{"question":"q","history":[],"figureContext":{"step":1}}',
+    ]);
+    vi.unstubAllGlobals();
+  });
 });

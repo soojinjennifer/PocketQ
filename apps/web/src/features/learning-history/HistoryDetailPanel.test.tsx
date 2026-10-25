@@ -48,7 +48,7 @@ describe("HistoryDetailPanel", () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
-  it("ResultPanelShell과 동일한 유리 패널 토큰 클래스를 사용한다(새 값을 만들지 않는다)", () => {
+  it("ResultPanelShell과 같은 보더·모서리 토큰을 쓰고, 배경은 불투명 bg-bg-canvas다(새 값을 만들지 않는다)", () => {
     render(
       <HistoryDetailPanel onClose={() => undefined}>
         <div />
@@ -56,7 +56,9 @@ describe("HistoryDetailPanel", () => {
     );
 
     const dialog = screen.getByRole("dialog", { name: "지난 풀이 다시 보기" });
-    expect(dialog.className).toContain("bg-glass-fill");
+    // 2026-10-25 오너 결정(장부 §8.16): 오버레이 뒤 목록 글자가 비치지 않도록 같은 RGB의 불투명 토큰.
+    expect(dialog.className).toContain("bg-bg-canvas");
+    expect(dialog.className).not.toContain("bg-glass-fill");
     expect(dialog.className).toContain("border-glass-border");
     expect(dialog.className).toContain("rounded-[24px]");
   });

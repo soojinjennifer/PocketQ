@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import emailIcon from "../../../assets/icons/email.svg";
 
 type ModalIcon = "check" | "email" | "error";
@@ -36,7 +36,9 @@ interface ModalProps {
  *
  * 접근성: `icon="error"`는 스크린리더에 즉시 통지되어야 하는 오류 상황이므로
  * `role="alertdialog"` + `aria-live="assertive"`를 사용하고, 그 외(check/email)는
- * 일반 `role="dialog"`를 사용한다. 마운트 시 하단 주 액션(확인) 버튼으로 포커스를 이동시켜
+ * 일반 `role="dialog"`를 사용한다. 대화상자의 접근 가능한 이름은 제목(`h2`)을
+ * `aria-labelledby`로 연결하고, `content` 슬롯이 없고 `description`이 비어 있지 않을 때만 설명 문단을
+ * `aria-describedby`로 연결한다(id는 `useId`로 인스턴스마다 다르다). 마운트 시 하단 주 액션(확인) 버튼으로 포커스를 이동시켜
  * 키보드/스크린리더 사용자가 즉시 다음 동작을 취할 수 있게 한다.
  */
 export function Modal({
@@ -53,6 +55,12 @@ export function Modal({
   const actionButtonRef = useRef<HTMLButtonElement>(null);
   const isError = icon === "error";
   const hasCancel = cancelLabel !== undefined && onCancel !== undefined;
+  const titleId = useId();
+  const descriptionId = useId();
+  // 설명 문단은 `content ?? <p>`로 렌더된다 — content가 null/undefined일 때만 p가 있다. describedby도 같은 조건을
+  // 써서(`content={false}`·`content=""`처럼 falsy지만 nullish가 아닌 값이면 p가 없다) 없는 id를 가리키지 않게 한다.
+  const rendersDescription = content === undefined || content === null;
+  const hasDescription = rendersDescription && description !== undefined && description.trim() !== "";
 
   useEffect(() => {
     actionButtonRef.current?.focus();
@@ -63,6 +71,8 @@ export function Modal({
       <div
         role={isError ? "alertdialog" : "dialog"}
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={hasDescription ? descriptionId : undefined}
         aria-live={isError ? "assertive" : undefined}
         className={
           wide
@@ -84,8 +94,12 @@ export function Modal({
               )}
             </div>
           )}
-          <h2 className="text-label-primary text-center text-[19px] font-bold">{title}</h2>
-          {content ?? <p className="text-modal-subtitle text-center text-sm">{description}</p>}
+          <h2 id={titleId} className="text-label-primary text-center text-[19px] font-bold">{title}</h2>
+          {content ?? (
+            <p id={hasDescription ? descriptionId : undefined} className="text-modal-subtitle text-center text-sm">
+              {description}
+            </p>
+          )}
         </div>
         <div className="bg-modal-divider h-px" />
         {hasCancel ? (

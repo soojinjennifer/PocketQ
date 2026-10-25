@@ -142,3 +142,72 @@ class TestVerifyFinalAnswer:
 
         assert response.status_code == 200
         assert response.json() == {"verified": False}
+
+
+class TestVerifyFinalAnswerCompositeForms:
+    """순서쌍·집합·여러 해 답(`app.core.answer_forms`) 라우터 연결과 예외 안전장치."""
+
+    def test_r3_ordered_pair_answers_verified_true(self):
+        for problem, solution in [("(2, 2)", "\\[\n(2,2)\n\\]"), ("(1, 3)", "\\((1,3)\\)")]:
+            response = client.post(
+                "/verify-final-answer",
+                json={"problemAnswerLatex": problem, "solutionAnswerLatex": solution},
+            )
+
+            assert response.status_code == 200
+            assert response.json() == {"verified": True}
+
+    def test_non_scalar_comparison_type_error_is_200_false(self):
+        # `x<3`(부등식) vs `3`은 기존 `is_equivalent`에서 TypeError가 났던 실제 입력이다.
+        response = client.post(
+            "/verify-final-answer",
+            json={"problemAnswerLatex": "x<3", "solutionAnswerLatex": "3"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"verified": False}
+
+    def test_unexpected_exception_in_scalar_path_is_200_false(self, monkeypatch):
+        from app.routers import final_check
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("unexpected")
+
+        monkeypatch.setattr(final_check, "is_equivalent", boom)
+        response = client.post(
+            "/verify-final-answer",
+            json={"problemAnswerLatex": "-1", "solutionAnswerLatex": "-1"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"verified": False}
+
+    def test_unexpected_exception_in_composite_path_is_200_false(self, monkeypatch):
+        from app.routers import final_check
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("unexpected")
+
+        monkeypatch.setattr(final_check, "composite_equivalent", boom)
+        response = client.post(
+            "/verify-final-answer",
+            json={"problemAnswerLatex": "(1,3)", "solutionAnswerLatex": "(1,3)"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"verified": False}
+
+    def test_unexpected_exception_in_classify_is_200_false(self, monkeypatch):
+        from app.routers import final_check
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("unexpected")
+
+        monkeypatch.setattr(final_check, "classify_answer", boom)
+        response = client.post(
+            "/verify-final-answer",
+            json={"problemAnswerLatex": "(1,3)", "solutionAnswerLatex": "(1,3)"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"verified": False}

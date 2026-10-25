@@ -1526,6 +1526,101 @@ R1(CHAT 도형 맥락 실평가)·R2(22건 재평가): **NOT RUN — 오너 미�
 - 실기기: Stage 4 §7.5 12항목 + Stage 5 마이페이지 3항목(터치 스크롤·VoiceOver·Split View) + iOS 하단 막대.
 - 마이그레이션 2종 적용(오너) → RS7·실DB 왕복.
 
+#### 8.16.1 처리 기록(development-agent, 2026-10-25, 3차 요청 — A·B-3·B-2·B-1, 커밋 안 함)
+
+자체 검증 결과다(QA 판정 아님). 오너 dev 서버 5173·4000·8000은 끄거나 재시작하지 않았다. 다만 api 4000은 오너의 `tsx watch`(PID 3991, 10:23 기동)가 소스 변경을 보고 **스스로** 자식 프로세스를 다시 띄웠다(22:28, 새 자식 PID 38563). CAS 8000은 `--reload` 없이 10:23부터 떠 있어 **새 코드를 반영하지 않은 상태**다.
+
+| 작업 | 처리 | 근거·테스트 |
+|---|---|---|
+| **A** CAS 순서쌍·집합·여러 해(위 첫 항목, QA 이월 MEDIUM-2) | 새 `services/cas/app/core/answer_forms.py`(분류·원소별 비교), `routers/final_check.py`만 연결. 순서: `_strip_wrappers` → `\left`·`\right`·`\ `·`\,` 정리 → 쉼표 없으면 **원문 그대로** 기존 경로 → 천 단위(`^-?\d{1,3}(,\d{3})+$`)는 합쳐 기존 경로 → `(x,y)=` 좌변(서로 다른 Symbol 튜플) 제거 → 점 이름(대문자 1자 + 선택적 아래첨자) 제거 → 괄호 깊이 0 쉼표로 분할 → ordered/set/solutions/invalid. ordered끼리는 길이·순서 일치, set·solutions끼리는 양방향 매칭(순서·중복 무관), 종류 다르면 false. 원소 파싱 실패·`Eq`·관계식 원소·10개 초과·`[1,3]`·`(1,3]`·`1<x<3`·연립(`x=2, y=2` vs `(2,2)`)·다른 Symbol 목록 → false. 라우터 전체 try/except → 예외 시 200 + `verified=false`(실제 재현: `x<3` vs `3`이 기존 코드에서 TypeError). `\text{또는}`은 미룸(`_strip_wrappers`가 지우므로 쉼표 없는 기존 경로로 가서 false). `parse_to_sympy`·`step_verify` diff 0 | 신규 `tests/test_answer_forms.py` 65건(참 21쌍·거짓 20쌍 + 파싱 실패·11개·10개 경계·`Eq` 튜플·섞인 목록·분류 단위), `test_routers.py` 추가 5건(R3 두 쌍, `x<3`/`3` 200 false, scalar·composite·classify 경로 예외 주입 200 false) — 구현 전 RED 확인. 기존 `test_parser` 9·`test_equivalence` 15·`test_routers` 11 수정 0·통과. api `resume.router.test.ts` 1건 추가: `"(2, 2)"`·`"\\[\n(2,2)\n\\]"`가 가공 없이 `verifyFinalAnswer`로 가고 `verified`가 SSE done·메모리에 반영. **HTTP 확인(별도 8123, 확인 후 그 서버만 종료)**: R3 두 쌍 `{"verified":true}`, `(1,3)`/`(3,1)` false, `x<3`/`3` HTTP 200 false. README 지원 형식 표 갱신 |
+| **B-3** Modal 접근성 | `useId`로 h2 id → `aria-labelledby`. `aria-describedby`는 content 슬롯이 없고 description이 공백이 아닐 때만 p id로 연결. class·구조 변경 0 | `Modal.test.tsx` 6건 추가(`getByRole("dialog"\|"alertdialog", {name})`, `toHaveAccessibleDescription`, content 변형 describedby 없음, 빈·공백 description, 두 인스턴스 id 다름, className 문자열 그대로 + wide). 이전 Modal에서 6건 실패 확인. Modal은 DOM 기준값(결과·마이페이지·CHAT)에 들어 있지 않다 |
+| **B-2** 마이페이지 오버레이 불투명화(위 §8.20.5 "오버레이 뒤 목록 비침") | `HistoryDetailPanel` 루트 `bg-glass-fill`(#fbfaf6f5) → `bg-bg-canvas`(#fbfaf6). `ResultPanelShell`은 그대로(design 판정 대기) | `HistoryDetailPanel.test.tsx` 기대 토큰 교체(+`bg-glass-fill` 없음 단언). 기준값 JSON은 덮어쓰지 않고 `apps/web/src/test/historyPanelOpaqueDelta.ts`(대상 노드 정확히 1개가 아니면 throw)를 `myPageDetailDom.baseline.test.tsx`·`MyPage.figures.test.tsx` 비교에 `stage5OneLineDelta` 뒤에 적용. 신규 `historyPanelOpaqueDelta.test.ts`: 4종 모두 루트 1노드·1토큰만 달라짐, 대상 0·2개면 throw, 무관 변이 10종(토큰 되돌림·둘 다·다른 불투명 토큰·보더·모서리·그림자·안쪽 카드 배경·aria-label·속성·텍스트) 모두 비교 실패. 이전 패널 코드로 되돌리면 기준값 비교·패널 테스트 6건 실패. `COMPONENT_MAP.md`에 항목 신설(기존에 HistoryDetailPanel 항목이 없었다) |
+| **B-1** CHAT `figureContext.source`(§8.20.5 이월 LOW-8) | `validation` `figureContext.source: z.enum(["solve","resume"]).optional()`, `shared-types` `ChatFigureContextRequest.source?`. `resolveSolutionContext(problemId, userId, preferredSource?)`: `"resume"`이고 이어풀기 결과가 있으면 그 결과·도형, 아니면 기존 순서(solve → resume), 실제 `solutionSource` 반환. `chat.router`: on이고 source가 있을 때만 세 번째 인자를 넘기고, 요청 source ≠ 실제 source면 step을 null로. off·source 없음은 인자 2개 호출 그대로. 웹 `SolveLandscapePage` `chatFigureContextArgs(step, source)` — solve 분기 `"solve"` 2곳, 진단·이어풀기 분기 `"resume"` 2곳, 플래그 off면 `[]`. **계획에 없던 필요 변경 1곳**: `shared/api/chatMessage.ts`가 본문을 `{ step }`으로 다시 만들고 있어 source가 빠졌다 → source가 `"solve"`·`"resume"`일 때만 `{ step, source }`, 그 밖에는 `{ step }`(타입 밖 키 계속 버림) | `chat.router.figures.test.ts` 공존 묶음 10건(resume → resume 맥락, solve → solve, 없음 = solve와 인자 동일, resume 결과 없음 → solve fallback·currentStep null, solve 결과 없음 → resume fallback·null, 잘못된 source `"x"`·`""`·`1`·`null` → 400·어댑터 호출 0, off + source resume = 기존 인자). rate limiter(사용자당 분당 30, 모듈 상태)를 기존 묶음과 나누지 않도록 별도 사용자로 seed. `figuresStage5.integration.test.ts` 2건(solve F01 → resume F09 실제 SSE 왕복 뒤 source별 CHAT 요약, 잘못된 source 400, resume 없음 fallback). 라우터·resolver를 되돌리면 새 테스트 5건 실패. 웹 `figuresChatStep.integration.test.tsx`: 기존 사례 기대값을 `{ step: null, source: "solve" }`·`{ step: 2, source: "solve" }`로 **강화**, 진단 → 이어풀기 분기 사례 추가(실제 `sendChatMessage` + fetch 스텁으로 본문 `{"question":"이어풀기 질문","history":[],"figureContext":{"step":null,"source":"resume"}}` 확인). `chatMessage.test.ts` 1건(source 직렬화·잘못된 source 버림). 기준값 바이트 동일: api `chatOff.baseline`, 웹 `chatRequest.baseline`, `figuresChatStepOff` 수정 없이 통과 |
+
+- **오프 동작 변화 1건(보고)**: `source`가 스키마에 생겨 `figureContext: { step, source: "x" }`는 서버 플래그와 무관하게 400이다(이전에는 모르는 키라 버려지고 200). 웹은 플래그 off면 `figureContext` 자체를 보내지 않으므로 운영 off 경로에는 영향이 없다.
+- **범위 밖(기록만)**: `suggestions.router`도 같은 `resolveSolutionContext` 우선순위(solve 우선)를 쓴다 — 공존 시 추천 질문은 solve 결과 기준이다. 이번에 바꾸지 않았다.
+- **헤드리스 B-2**(Chromium·WebKit, hasTouch, 1194×834, **물리 iPad 아님**): vite 5199(`VITE_API_BASE_URL=https://localhost:4199`, 가짜 Supabase 54398). 4199·54398은 서버 없이 Playwright route로 응답(목록 14행·상세 1건 고정). 패널 뒤에 목록 행 5개가 겹친 상태에서 패널 영역(테두리 2px 안쪽)을 캡처 → 오버레이 밖 요소를 모두 `visibility:hidden`으로 숨겨 "목록 없음" 상태로 다시 캡처 → 픽셀 비교. 모서리 24×24 사각형 안 차이는 둥근 모서리 밖 배경이라 따로 셌다.
+
+  | | 패널 배경(computed) | 다른 픽셀(전체 / 모서리 밖) | 대조군: 같은 화면에서 `bg-glass-fill`로 되돌림 |
+  |---|---|---|---|
+  | Chromium | rgb(251, 250, 246) | 92 / **0** (영역 716×500) | rgba(251, 250, 246, 0.96) — 15,988 / **15,837** |
+  | WebKit | rgb(251, 250, 246) | 128 / **0** (영역 716×515) | 같은 값 — 17,806 / **17,656** |
+
+  → 현재 토큰에서는 패널 안쪽에 목록 글자가 비치지 않는다. 대조군으로 같은 측정이 비침을 잡아낸다는 것도 확인했다. 콘솔 pageerror 0. 하니스(`run.mjs`)와 스크린샷은 휘발성 scratchpad에만 있고, 끝난 뒤 5199를 종료했다(4199·54398·8123 LISTEN 0).
+- **오너 CAS 8000**: `--reload` 없이 떠 있어 A의 새 판정은 **재시작해야** 반영된다(재시작 전까지 좌표 답 이어풀기는 여전히 `verified=false`).
+
+게이트(OneDrive 트리):
+
+| 실행 | 결과 |
+|---|---|
+| CAS `uv run pytest` / `ruff check .` / `ruff format --check .` | 105 통과(answer_forms 65·equivalence 15·parser 9·routers 16) / 0 / 0(format 설정은 없지만 함께 실행) |
+| 루트 1차 | typecheck **2**(내 새 테스트 `resume.router.test.ts`에서 동적 import 값 `FakeLLMAdapter`를 타입으로 씀 → `InstanceType<typeof FakeLLMAdapter>`로 수정), lint 0, test **1**(web `MyPage.figures.test` "solve·resume 그림이 각자 자리에"의 lazy 도형 `waitFor` 1초 안에 섹션 0 — 그 `it` 본문은 수정 0, 이 파일에서 바꾼 것은 다른 `it`의 기준값 비교 한 줄), build 0. api 1,045 통과 |
+| 실패 테스트 단독 5회 + 8병렬(load 27) | 13/13 통과 → §7.18.4 ①(단독·재실행 통과)로 전체 재실행 1회 |
+| **루트 2차(수정 뒤 처음부터)** | typecheck 0, lint 0, test 0 — api 71 파일/1,045, web 118 파일/1,254, build 0 — 메인 `index-Dxf_ZN1r.js` 977.10kB, precache 8(load 27→49) |
+
+- OneDrive 밖 복사본 비교 실행은 이번에 하지 않았다.
+
+##### 8.16.1 QA 판정 (stage-qa-agent, 2026-10-25) — STAGE CONDITIONAL PASS — FIX REQUIRED (BLOCKER 0 · HIGH 0 · MEDIUM 2 · LOW 6)
+
+제품 코드는 수정하지 않았다(변이·대조는 scratchpad 복사본·HEAD d8e9f3c 추출본). 오너 5173·4000·8000은 건드리지 않았고 QA용 CAS 8123은 확인 뒤 종료했다.
+
+- **게이트(저장소 루트 첫 실행)**: typecheck 0 · lint 0 · test 0(api 71 파일/1,045, web 118 파일/1,254) · build 0. CAS `pytest` 105 통과 · `ruff check` 0.
+- **A (CAS)**: 160쌍 적대 묶음을 HEAD CAS와 신규 CAS에 같은 입력으로 돌려 비교. R3 두 쌍 true, `(1,3)`/`(3,1)`·`[1,3]`·`(1,3]`·`1,000`/`1,0`·부분집합·개수 차이·`f(1,2)`·`m(1,3)`·`x=2,y=2` vs `(2,2)`·원소 11개·빈 문자열·중첩/불균형 괄호 모두 false, `1,000`=`1000` true. 쉼표 없는 3,481쌍(59×59, 쉼표 있는 입력은 이 묶음에 없음)은 HEAD와 판정 동일(true 123=123), 달라진 465쌍은 전부 HEAD 500 → 200 false. `step_verify`·`parser`·`equivalence`·`schemas`·`main` diff 0. 예외 주입 5종(분류·비교·scalar·원소·RecursionError) 모두 200 + false. HTTP 8123에서도 동일(422는 스키마 위반만).
+  - **MEDIUM-1 (거짓 양성)**: `(x,y)=(1,3)` vs `(y,x)=(1,3)` → true(좌변 제거로 변수 순서가 사라짐, HEAD는 false). `(a,b)=(1,3)` vs `(b,a)=(1,3)`도 true.
+  - **MEDIUM-2 (거짓 양성)**: `x=1,x=3` vs `y=1,y=3`·`x=2,x=-2` vs `a=2,a=-2` → true(변수 이름 무시). 단일 해 `x=3` vs `y=3`은 false라 서로 일관되지 않다. 둘 다 "같은 변수일 때만" 비교하도록 좁히면 된다(작은 수정).
+  - LOW: `A(1,3)` vs `B(1,3)` true(점 이름 폐기, 설계 문서 그대로) · `0,001`=`1`·`(1,000)`=`(1,0)` 같은 퇴화 천 단위/선행 0 · 쉼표가 있는 자기 자신 비교(`f(1,2)`·`m(1,3)`)가 HEAD true → false(소문자 점 이름 보수 처리) · 원소 파싱 시간 최대 10배/simplify 최대 110회, CAS·casClient 모두 시간 제한 없음(기존 한계).
+- **B-1**: 현재 트리 ↔ HEAD 동일 요청 15종 × 문제 3종(solve만·resume만·공존) × 플래그 2 = 90건의 상태·응답·`adapter.chat` 인자·OpenAI 요청 본문을 비교. off는 유효한 source(solve·resume)·없음 모두 HEAD와 바이트 동일, on+공존+`resume`은 이어풀기 발췌·단계 원문·도형 fig-f01만, `solve`/없음은 HEAD와 동일. 요청 결과가 없으면 fallback하고 currentStep·stepText null. 변이 15종(api 9·web 6) 전부 검출. **`source:"x"`(및 `""`·null·1·"SOLVE"·배열)는 플래그와 무관하게 400** — 유일한 송신자인 웹은 off면 figureContext를 안 보내고 on이면 허용값만 보내며, 구/신 웹·API 조합에서도(구 API는 모르는 키를 버림) 깨지지 않아 **수용 가능**.
+- **B-2**: 변이 14종(배경 되돌림·둘 다·다른 불투명 토큰·보더·모서리·폭·그림자·헤더 패딩·overflow·max-h·aria-label·속성 추가·p-1) 전부 기준값 비교에서 실패, 무변이 16/16 통과. `bg-bg-canvas`는 빌드 CSS에 `var(--color-bg-canvas)`(#fbfaf6)로 생성됨. 헤드리스 픽셀 측정은 개발자 기록만 확인했다(QA 미실행, 물리 iPad NOT VERIFIED).
+- **B-3**: HEAD Modal ↔ 신규 Modal을 12가지 변형(아이콘 3·설명 없음·공백·긴 설명·wide·content·content+description·취소·`content=false`·`content=""`)에서 id/aria 참조 속성만 제거하고 `innerHTML` 비교 → 12/12 동일(시각 변화 0). 접근 가능한 이름 = 제목, 설명 = description, content 슬롯 변형은 describedby 없음, 두 인스턴스 id 서로 다름. LOW: `content={false}`·`content=""`처럼 falsy지만 null이 아닌 값이면 `aria-describedby`가 존재하지 않는 id를 가리킨다(현재 호출부는 항상 JSX 요소라 발생하지 않음).
+- **회귀**: 기존 테스트 삭제 0·완화 0(바뀐 단언 5줄은 모두 강화 또는 승인된 B-2 토큰 교체), 새 의존성 0, 제품 코드 `any` 0, `eslint-disable`·`@ts-ignore`·`console.log`·TODO 0(테스트 1곳에 의도된 `as unknown as`).
+- **MUST FIX**: MEDIUM-1·2(위). **NOT VERIFIED**: 물리 iPad(B-2 오버레이 비침·B-3 VoiceOver 낭독), 실제 AI 호출, 오너 CAS 8000(재시작 전이라 옛 코드).
+
+##### 8.16.1 재작업 1/3 (development-agent, 2026-10-25) — QA CONDITIONAL PASS(위) + design PASS 대응, 커밋 안 함
+
+자체 검증 결과다(QA 판정 아님). 오너 5173·4000·8000 무변경(4000은 PID 38563 그대로, 이번엔 api 소스 변경 0).
+
+| 항목 | 처리 | 근거·테스트 |
+|---|---|---|
+| **MEDIUM-1** 좌변 순서 소실 | `AnswerForm.lhs`(좌변 Symbol 튜플)를 기억하고, **양쪽 모두** 좌변이 있으면 튜플이 같아야 참. 한쪽만 있으면 기존대로 값만 비교 | `(x,y)=(1,3)` vs `(y,x)=(1,3)`·`(a,b)` 변형·`(x,y)` vs `(a,b)` → false. `(x,y)=(2,2)` vs `(2,2)`(양방향)·`(x,y)=(1,3)` vs `(1,3)` true 유지 — 유지 근거(원 문제 정답은 보통 값만 있고 반대편에 비교할 변수 정보가 없음)를 `test_one_sided_lhs_keeps_matching` 주석에 기록 |
+| **MEDIUM-2** 해 목록 변수 무시 | `AnswerForm.symbol`(`x=값` 목록의 Symbol), **양쪽 모두** 있으면 같아야 함. 순수 값 목록·집합과의 비교는 기존 유지 | `x=1,x=3` vs `y=1,y=3`/`y=3,y=1`·`x=2,x=-2` vs `a=2,a=-2` → false, 단일 해 `x=3` vs `y=3` false(기존 경로)로 일관. `x=1,x=3` vs `1,3`·`\{1,3\}` true 유지 |
+| LOW 점 이름 | `AnswerForm.point`, 양쪽 모두 이름이 있으면 같아야 함(`{}`·공백 제거 정규화 `P_{1}`=`P_1`). 한쪽만 있으면 떼고 비교 | `A(1,3)`/`B(1,3)`·`P(0,0)`/`Q(0,0)`·`P_1`/`P_2` false. **1차 테스트의 참 쌍 `P_{1}(2,2)` vs `Q(2,2)`는 이 규칙상 거짓 양성이라 거짓 목록으로 옮기고** 참 목록은 `P_{1}(2,2)` vs `P_1(2,2)`로 바꿨다. `M(1,3)`/`(1,3)`·`(1,3)`/`B(1,3)`·`M(1,3)`/`M(1,3)` true |
+| LOW 퇴화 천 단위 | 정규식 `^-?[1-9]\d{0,2}(,\d{3})+$`(괄호 없는 최상위 단일 수에만 적용 — 원래도 전체 문자열에만 적용) | `0,001`/`1`·`000,000`/`0`·`-0,001`/`-1` false. `1,000`=`1000`·`12,345,678`·`-1,000` true 유지 |
+| LOW 괄호·집합 안 천 단위 | 괄호·집합 안에서는 합치지 않는다(기존과 같음). **확인 결과**: 선행 0 규칙 전에는 `(1,000)`이 원소 `1`·`000`(=0)인 순서쌍이 되어 `(1,0)`과 원소별 동치 → **true**였다(QA LOW). 보수안 채택: 원소 원문에 선행 0 숫자(`(?<![\d.])0\d`, 예 `000`·`01`)가 있으면 파싱 실패 → invalid → false. `10`·`0.5`·`1.05`·`0`은 해당 없음. 해 목록 항에도 같은 규칙 | `(1,000)`/`(1,0)`·`(1,000)`/`1000`·`\{1,000\}`/`\{1,0\}`·`x=1,x=000`/`x=1,x=0`·`1,0001`/`10001` false. 분류 단위 테스트(`(1,000)`·`0,001` invalid, `(1,0)`·`(0.5,10)`·`(1.05,0)` ordered). 부수 효과: 1차 테스트 `1,00`·`1,0000`·`1000,000`이 `solutions` → `invalid`(둘 다 "천 단위로 합치지 않음"이라 취지 같음, 기대 kind만 갱신 — 판정은 원래도 false) |
+| LOW Modal `content={false}`·`""` | describedby 조건을 p 렌더 조건(`content ?? <p>` → content가 null/undefined일 때만)과 같은 `rendersDescription`으로 통일. 렌더링·class 변경 0 | `Modal.test.tsx` 4건 추가(`false`·`""`·`0`에서 p 없음·describedby 없음, 6가지 조합에서 describedby가 있으면 항상 실제 요소를 가리킴). 1차 조건(`!content`)으로 되돌리면 이 4건 실패 확인 |
+
+- **QA 묶음 재실행**(scratchpad `s8161/`): `fp.py` 9쌍 — 거짓 양성이던 7쌍 모두 false, `(x,y)=(1,3)` 자기 자신만 true. `battery.py` 160쌍(같은 입력, `s8161/rework1_{head,new}.json`):
+
+  | | true 수 | 500 | 기대 false인데 true | 기대 true인데 아님 |
+  |---|---|---|---|---|
+  | HEAD d8e9f3c | 14 | 7 | 2(`f(1,2)`·`m(1,3)` 자기 비교) | 32 |
+  | 1차 구현(`new.json`) | 58 | 0 | 3 | 0 |
+  | **재작업 1** | **52** | 0 | **1**(`unicode`) | 0 |
+
+  1차 → 재작업 1 변화 6쌍은 모두 true → false: `solutions x vs y`, `(x,y)/(y,x)`, `A(1,3)/B(1,3)`, `(1,000)/(1,0)`, `0,001`, `000,000`. HEAD 대비 true +38(R3 4·천 단위 7·집합·해 목록·점 이름·좌변·감싼 표기 등), HEAD true → false 2(`f(1,2)`·`m(1,3)` 자기 비교, QA 기대와 일치), HEAD 500 → 200 false 7.
+- **남은 1건 `unicode`(`(１,３)` vs `(1,3)` true) — 결정 필요, 바꾸지 않음**: SymPy가 전각 숫자를 숫자로 읽어, 이번에 손대지 않은 쉼표 없는 기존 경로에서도 HEAD부터 `３`=`3`·`x=３`/`3`·`１２`=`12`가 true다. 값이 실제로 같고, 쉼표 목록만 false로 막으면 기존 경로와 어긋난다. 보수적으로 막으려면 원소에 ASCII가 아닌 숫자가 있으면 invalid로 하는 한 줄이면 된다(오케스트레이터 판단 요청).
+- 재작업 1 변경 파일: `services/cas/app/core/answer_forms.py`, `services/cas/tests/test_answer_forms.py`(회귀 추가 + 위 참 쌍 1건 이동·kind 기대 3줄 갱신), `services/cas/README.md`, `apps/web/src/shared/ui/modal/{Modal.tsx, Modal.test.tsx}`, 이 장부. `parser.py`·`step_verify.py`·`final_check.py` 이번 diff 0.
+
+| 게이트(재작업 1, OneDrive 트리 첫 실행) | 결과 |
+|---|---|
+| CAS `uv run pytest` / `ruff check .` / `ruff format --check .` | 134 통과 / 0 / 0 |
+| 루트 | typecheck 0 · lint 0 · test 0(api 71 파일/1,045, web 118 파일/1,258) · build 0(`index-HByrMPkl.js` 977.10kB, precache 8). §7.18.4 예외 적용 없음 |
+
+- 오너 CAS 8000은 여전히 재시작 전(옛 코드)이다. 재시작해야 A와 재작업 1이 반영된다.
+
+##### 8.16.1 재검증 (stage-qa-agent, 2026-10-25, 재작업 1/3 이후) — STAGE PASS — READY FOR NEXT STAGE (BLOCKER 0 · HIGH 0 · MEDIUM 0 · LOW 3 이월)
+
+제품 코드는 수정하지 않았다. 오너 5173·4000·8000은 건드리지 않았고, 8123은 재검증 중 열지 않았다(TestClient로 검증).
+
+- **게이트(루트 첫 실행)**: typecheck 0 · lint 0 · test 0(api 71/1,045, web 118/1,258) · build 0. CAS `pytest` 134 통과 · `ruff check` 통과.
+- **MEDIUM-1·2 해소 확인**: `fp.py` 9쌍 중 거짓 양성이던 7쌍 모두 false(`(x,y)=(1,3)` 자기 자신만 true). `battery.py` 160쌍을 다시 돌려 1차 구현 대비 달라진 쌍이 정확히 6개(전부 true→false: `x`/`y` 해 목록, `(x,y)`/`(y,x)`, `A`/`B` 점, `(1,000)`/`(1,0)`, `0,001`, `000,000`), 500 0건, 52 true. 기대와 다른 1건은 오케스트레이터가 수용한 `unicode`(전각 숫자)뿐이다. 쉼표 없는 3,481쌍은 HEAD와 판정 동일(HEAD 500→200 false 제외 차이 0, 1차 구현 대비도 변화 0, true 123).
+- **새 규칙 적대 탐침 126건**(양방향·한쪽만·점 이름 유무·선행 0 vs `0.5`/`0.05`/`10`/`1.05`/`100`/`0.0`·`2^{10}`·음수·공백 변형): 기대와 다른 것 1건(아래 LOW-1). 통과한 것: 좌변 순서 변형(공백, `\left`, 3개, 첨자, 집합 우변), 한쪽만 좌변/점 이름(`(x,y)=(2,2)`↔`(2,2)`↔`M(2,2)` true), `P_{1}`=`P_1`·`P_{12}`≠`P_1`·`P`≠`P_1`·`A(1,3)`≠`A(3,1)`, `0.5`·`0.50`·`0.05`·`1.05`·`10`·`100`·`0,0`·`1,0.0` 정상 통과 / `00.5`·`01`·`000`·`2^{010}`·`x=03`·`1,01`·`\{1,01\}` false, `(-1,3)`≠`(1,3)`≠`(+1,3)`·`(-0,3)`=`(0,3)`·`(-0.5,3)`=`(-\frac12,3)`·`{-1,3}`={3,-1}, 공백·탭·개행·`\ `·`\,`·`\[ \]` 변형 true, 후행 쉼표·`(1 3)`·`(1;3)` false.
+- **새 테스트 비공허성**: 변이 15종(좌변·점·해 Symbol 검사 삭제/한쪽만→양쪽, 중괄호 정규화 제거, 천 단위 선행 0 허용, 선행 0 검사 두 곳 삭제, 정규식이 소수를 막도록/`00`을 놓치도록 변경, lhs/point/symbol 미저장) 전부 검출, 무변이 통과.
+- **Modal**: HEAD ↔ 신규 12변형 `innerHTML`(id/aria 속성 제거) 12/12 동일 유지, `content={false}`·`""`에서 describedby null(댕글링 해소), 나머지 변형은 기존과 동일. 테스트 삭제·완화 0, 새 의존성 0, 제품 코드 `any`·`eslint-disable`·`console.log`·TODO 0.
+- **LOW-1 (새 우회, 이월)**: 괄호 없는 우변이면 solutions 종류가 좌변을 버려 `(x,y)=1,3` vs `(y,x)=1,3`이 true. 표준 표기(`(x,y)=(1,3)`)에서는 막혀 있고 이 표기는 비표준이라 LOW. 수정하려면 solutions 종류에도 `lhs`를 저장해 양쪽에 있을 때 비교.
+- **LOW-2**: `(1, 0 0)`·`(1,0\,0)` = `(1,0)` true — 공백으로 떼어 쓴 숫자를 기존 파서가 곱(0·0)으로 읽는다(쉼표 없는 경로와 같은 기존 동작, 선행 0 규칙 밖).
+- **LOW-3**: 좌변이 다르고 값 대응이 같은 `(x,y)=(1,3)` vs `(y,x)=(3,1)`은 false(보수적 거짓 음성), 유니코드 마이너스 `−`는 false.
+- NOT VERIFIED: 실제 AI, 물리 iPad(B-2 비침·B-3 VoiceOver), 오너 CAS 8000(재시작 전).
+
 ### 8.17 WU11 게이트(2차 요청)
 
 | 실행 | typecheck | lint | test | build | 비고 |

@@ -355,3 +355,63 @@ describe("resume 대표 사례(F09) 왕복", () => {
     if (summary) CASE_FACTS["F09"]?.(summary);
   });
 });
+
+describe("solve·resume 공존(같은 problemId) — CHAT figureContext.source(장부 §8.16 B-1)", () => {
+  it("solve(F01) 뒤 resume(F09): source resume → resume 맥락, source solve·없음 → solve 맥락, 잘못된 source → 400", async () => {
+    useDb(true);
+    const f01 = VALID_FIGURE_FIXTURES.find((fixture) => fixture.id === "F01");
+    if (!f01) throw new Error("F01 fixture missing");
+    const solveAdapter = new FixtureAdapter(f01.raw);
+    const resumeAdapter = new FixtureAdapter(F09_STEPWISE_AUXILIARY.raw);
+    const solve = await request(app(solveAdapter)).post(`/api/problems/${PID}/solve`).set(AUTH).send({ options: { concept: false, solution: true } });
+    expect(figuresEvent(solve.text)?.figures).toHaveLength(1);
+    const resume = await request(app(resumeAdapter)).post(`/api/problems/${PID}/resume`).set(AUTH).send({ mode: "own" });
+    expect(figuresEvent(resume.text)?.figures).toHaveLength(1);
+    // 서버 메모리에 두 결과·두 도형이 함께 있다.
+    expect(inMemoryProblemStore.get(PID)?.solution).toBeDefined();
+    expect(inMemoryProblemStore.get(PID)?.resumeSolution).toBeDefined();
+
+    const target = app(resumeAdapter);
+    const chatWith = async (figureContext: Record<string, unknown>) => {
+      const res = await request(target).post(`/api/problems/${PID}/chat`).set(AUTH).send({ question: "q", figureContext });
+      return { status: res.status, call: res.status === 200 ? resumeAdapter.chatRequests.at(-1) : undefined };
+    };
+    const f01Id = (f01.raw as { figureId: string }).figureId;
+
+    const asResume = await chatWith({ step: 2, source: "resume" });
+    expect(asResume.status).toBe(200);
+    expect(asResume.call?.figureContext?.currentStep).toBe(2);
+    expect(asResume.call?.figureContext?.figures[0]?.figureId).toBe("fig-f09");
+    expect(asResume.call?.figureContext?.solutionExcerpt.startsWith("## 이어풀기")).toBe(true);
+    expect(asResume.call?.figureContext?.stepText).toBe("**2단계** 보조선을 긋는다.");
+    const resumeSummary = asResume.call?.figureContext?.figures[0];
+    if (resumeSummary) CASE_FACTS["F09"]?.(resumeSummary);
+
+    const asSolve = await chatWith({ step: 2, source: "solve" });
+    expect(asSolve.call?.figureContext?.currentStep).toBe(2);
+    expect(asSolve.call?.figureContext?.figures[0]?.figureId).toBe(f01Id);
+    expect(asSolve.call?.figureContext?.solutionExcerpt.startsWith("## 풀이")).toBe(true);
+
+    const withoutSource = await chatWith({ step: 2 });
+    expect(withoutSource.call).toEqual(asSolve.call);
+
+    const invalid = await chatWith({ step: 2, source: "x" });
+    expect(invalid.status).toBe(400);
+    expect(resumeAdapter.chatRequests).toHaveLength(3);
+  });
+
+  it("resume 결과 없이 source resume → solve로 fallback, currentStep null", async () => {
+    useDb(true);
+    const adapter = new FixtureAdapter(F09_STEPWISE_AUXILIARY.raw);
+    const target = app(adapter);
+    await request(target).post(`/api/problems/${PID}/solve`).set(AUTH).send({ options: { concept: false, solution: true } });
+    expect(inMemoryProblemStore.get(PID)?.resumeSolution).toBeUndefined();
+    const res = await request(target).post(`/api/problems/${PID}/chat`).set(AUTH).send({ question: "q", figureContext: { step: 2, source: "resume" } });
+    expect(res.status).toBe(200);
+    const context = adapter.chatRequests.at(-1)?.figureContext;
+    expect(context?.currentStep).toBeNull();
+    expect(context?.stepText).toBeNull();
+    expect(context?.solutionExcerpt.startsWith("## 풀이")).toBe(true);
+    expect(context?.figures[0]?.figureId).toBe("fig-f09");
+  });
+});

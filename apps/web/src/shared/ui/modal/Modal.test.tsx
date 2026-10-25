@@ -151,4 +151,116 @@ describe("Modal", () => {
     expect(screen.queryByRole("button", { name: "취소" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
+
+  describe("접근 가능한 이름·설명(aria-labelledby / aria-describedby)", () => {
+    it("role='dialog'의 접근 가능한 이름은 제목, 설명은 description이다", () => {
+      render(
+        <Modal icon="check" title="로그인 되었습니다" description="다시 오셨네요." actionLabel="계속하기" onAction={() => {}} />,
+      );
+
+      const dialog = screen.getByRole("dialog", { name: "로그인 되었습니다" });
+      expect(dialog).toHaveAccessibleDescription("다시 오셨네요.");
+      const title = screen.getByRole("heading", { name: "로그인 되었습니다" });
+      expect(dialog).toHaveAttribute("aria-labelledby", title.id);
+    });
+
+    it("role='alertdialog'도 제목을 이름으로, description을 설명으로 갖는다", () => {
+      render(
+        <Modal icon="error" title="오류가 발생했습니다" description="잠시 후 다시 시도해 주세요" actionLabel="확인" onAction={() => {}} />,
+      );
+
+      const dialog = screen.getByRole("alertdialog", { name: "오류가 발생했습니다" });
+      expect(dialog).toHaveAccessibleDescription("잠시 후 다시 시도해 주세요");
+    });
+
+    it("content 슬롯을 쓰면 aria-describedby를 두지 않는다(이름은 그대로 제목)", () => {
+      render(
+        <Modal title="이 문제가 맞나요?" content={<div>미리보기 카드</div>} description="무시됨" actionLabel="확인" onAction={() => {}} />,
+      );
+
+      const dialog = screen.getByRole("dialog", { name: "이 문제가 맞나요?" });
+      expect(dialog).not.toHaveAttribute("aria-describedby");
+      expect(dialog).toHaveAccessibleDescription("");
+    });
+
+    it("description이 없거나 공백뿐이면 aria-describedby를 두지 않는다", () => {
+      const { unmount } = render(<Modal icon="check" title="제목만" actionLabel="확인" onAction={() => {}} />);
+      expect(screen.getByRole("dialog", { name: "제목만" })).not.toHaveAttribute("aria-describedby");
+      unmount();
+
+      render(<Modal icon="check" title="공백 설명" description="   " actionLabel="확인" onAction={() => {}} />);
+      expect(screen.getByRole("dialog", { name: "공백 설명" })).not.toHaveAttribute("aria-describedby");
+    });
+
+    it.each([
+      ["false", false],
+      ["빈 문자열", ""],
+      ["0", 0],
+    ] as const)("content=%s(falsy지만 nullish 아님)면 p가 없으므로 aria-describedby도 없다", (_label, content) => {
+      const { container } = render(
+        <Modal icon="check" title="falsy content" description="보이지 않는 설명" content={content} actionLabel="확인" onAction={() => {}} />,
+      );
+
+      const dialog = screen.getByRole("dialog", { name: "falsy content" });
+      expect(dialog).not.toHaveAttribute("aria-describedby");
+      expect(container.querySelector("p")).toBeNull();
+      expect(dialog).toHaveAccessibleDescription("");
+    });
+
+    it("aria-describedby가 있으면 항상 문서 안의 실제 요소를 가리킨다", () => {
+      const cases = [
+        { content: undefined, description: "설명" },
+        { content: null, description: "설명" },
+        { content: false, description: "설명" },
+        { content: "", description: "설명" },
+        { content: <div>슬롯</div>, description: "설명" },
+        { content: undefined, description: "" },
+      ];
+      for (const [index, props] of cases.entries()) {
+        const { unmount } = render(
+          <Modal icon="check" title={`case-${index}`} actionLabel="확인" onAction={() => {}} {...props} />,
+        );
+        const describedBy = screen.getByRole("dialog", { name: `case-${index}` }).getAttribute("aria-describedby");
+        if (describedBy !== null) expect(document.getElementById(describedBy)).not.toBeNull();
+        unmount();
+      }
+    });
+
+    it("두 인스턴스의 제목·설명 id는 서로 다르다", () => {
+      render(
+        <>
+          <Modal icon="check" title="첫째" description="첫째 설명" actionLabel="확인" onAction={() => {}} />
+          <Modal icon="email" title="둘째" description="둘째 설명" actionLabel="확인" onAction={() => {}} />
+        </>,
+      );
+
+      const first = screen.getByRole("dialog", { name: "첫째" });
+      const second = screen.getByRole("dialog", { name: "둘째" });
+      expect(first.getAttribute("aria-labelledby")).not.toBe(second.getAttribute("aria-labelledby"));
+      expect(first.getAttribute("aria-describedby")).not.toBe(second.getAttribute("aria-describedby"));
+      expect(first).toHaveAccessibleDescription("첫째 설명");
+      expect(second).toHaveAccessibleDescription("둘째 설명");
+    });
+
+    it("className은 바뀌지 않는다(시각 변화 0)", () => {
+      const { rerender } = render(
+        <Modal icon="check" title="제목" description="설명" actionLabel="확인" onAction={() => {}} />,
+      );
+
+      const dialog = screen.getByRole("dialog", { name: "제목" });
+      expect(dialog.className).toBe(
+        "bg-bg-canvas border-modal-border w-[342px] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11)]",
+      );
+      expect(screen.getByRole("heading", { name: "제목" }).className).toBe(
+        "text-label-primary text-center text-[19px] font-bold",
+      );
+      expect(screen.getByText("설명").className).toBe("text-modal-subtitle text-center text-sm");
+      expect(screen.getByText("설명").tagName).toBe("P");
+
+      rerender(<Modal icon="check" title="제목" description="설명" wide actionLabel="확인" onAction={() => {}} />);
+      expect(screen.getByRole("dialog", { name: "제목" }).className).toBe(
+        "bg-bg-canvas border-modal-border w-[690px] max-w-[calc(100%-3rem)] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11),inset_0px_2px_0px_1px_rgba(255,255,255,0.9),inset_0px_-2px_0px_1px_rgba(35,43,56,0.07)]",
+      );
+    });
+  });
 });

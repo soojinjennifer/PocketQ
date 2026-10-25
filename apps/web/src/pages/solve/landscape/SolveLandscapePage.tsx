@@ -37,11 +37,16 @@ import { Modal } from "../../../shared/ui/modal/Modal";
 // 도형 슬롯 조립(`figureSlotContent`)은 Stage 5에서 `features/figure-visualization/LazySolutionFigures`로 옮겼다(MyPage와 공용).
 
 /**
- * CHAT에 넘길 단계 맥락(Stage 5, 계획 §3.7) — 웹 플래그 on일 때만 `[{ step }]`(step: 1~N, null = 최종), off면 빈 배열이라
- * `sendChatMessage(question)`과 같은 호출이 되어 요청 본문이 기존과 바이트 단위로 같다. 도형 자체는 보내지 않는다.
+ * CHAT에 넘길 단계 맥락(Stage 5, 계획 §3.7) — 웹 플래그 on일 때만 `[{ step, source }]`(step: 1~N, null = 최종), off면 빈
+ * 배열이라 `sendChatMessage(question)`과 같은 호출이 되어 요청 본문이 기존과 바이트 단위로 같다. 도형 자체는 보내지 않는다.
+ * `source`(장부 §8.16 B-1)는 그 단계가 어느 결과의 단계인지다 — AI 풀이 분기는 "solve", 진단·이어풀기 분기는 "resume".
+ * 같은 문제에 두 결과가 함께 있어도(결과 "수정" 뒤 다시 진단) 서버가 학생이 보고 있는 결과로 맥락을 고른다.
  */
-function chatFigureContextArgs(step: number | null): [] | [{ step: number | null }] {
-  return import.meta.env.VITE_FIGURES_ENABLED === "true" ? [{ step }] : [];
+function chatFigureContextArgs(
+  step: number | null,
+  source: "solve" | "resume",
+): [] | [{ step: number | null; source: "solve" | "resume" }] {
+  return import.meta.env.VITE_FIGURES_ENABLED === "true" ? [{ step, source }] : [];
 }
 
 /**
@@ -389,7 +394,7 @@ export function SolveLandscapePage() {
                         <SuggestionPill
                           key={question}
                           label={question}
-                          onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(solveStep))}
+                          onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(solveStep, "solve"))}
                         />
                       ))}
                     </div>
@@ -417,7 +422,7 @@ export function SolveLandscapePage() {
                   hashtags={solveResult.conceptTags}
                   status={chatStatus}
                   errorMessage={chatErrorMessage}
-                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(solveStep))}
+                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(solveStep, "solve"))}
                   // 오너 확정 UX: 해시태그 pill도 `SuggestionPill`과 동일하게 입력창을 채우고
                   // 포커스만 한다(자동 전송 없음). 정확한 문구 템플릿은 Figma/오너가 확정한 바
                   // 없어 결정 필요(오너 확인 필요) — 우선 자연스러운 문장으로 조립한다.
@@ -484,7 +489,7 @@ export function SolveLandscapePage() {
                       <SuggestionPill
                         key={question}
                         label={question}
-                        onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(resumeStep))}
+                        onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(resumeStep, "resume"))}
                       />
                     ))}
                   </div>
@@ -524,7 +529,7 @@ export function SolveLandscapePage() {
                   hashtags={["개념설명", ...diagnosis.relatedConcepts, "비슷한 문제"]}
                   status={chatStatus}
                   errorMessage={chatErrorMessage}
-                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(resumeStep))}
+                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(resumeStep, "resume"))}
                   // "#개념설명"만 로컬 토글(관련 개념 카드 노출/숨김)로 처리하고, 그 외(개별 관련
                   // 개념 태그, "#비슷한 문제" 포함)는 기존 default 동작(입력창 채움+포커스)을 그대로
                   // 적용한다(오너 확정).

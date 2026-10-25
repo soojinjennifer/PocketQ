@@ -11,6 +11,7 @@ import type { ProblemHistoryDetailDto } from "validation";
 import { F01_TRIANGLE_ANGLE, F09_STEPWISE_AUXILIARY } from "validation/fixtures";
 import { AuthContext, type AuthContextValue } from "../../features/auth/AuthContext";
 import { createFakeSession } from "../../test/supabaseTestUtils";
+import { applyHistoryPanelOpaqueDelta } from "../../test/historyPanelOpaqueDelta";
 import { applyStage5OneLineDelta, sortClassTokens } from "../../test/stage5OneLineDelta";
 import baselineJson from "./__baseline__/myPageDetailDom.baseline.json";
 
@@ -180,6 +181,6 @@ describe("재조회 그림", () => {
     renderMyPage();
     const dialog = await openRow(/삼각형 ABC/);
     const html = (baselineJson as { html: Record<string, string> }).html["withSolutionNoChat"] ?? "";
-    expect(sortClassTokens(dialog.outerHTML)).toBe(sortClassTokens(applyStage5OneLineDelta(html)));
+    expect(sortClassTokens(dialog.outerHTML)).toBe(sortClassTokens(applyHistoryPanelOpaqueDelta(applyStage5OneLineDelta(html))));
   });
 });

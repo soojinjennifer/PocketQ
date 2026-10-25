@@ -370,6 +370,11 @@ export interface StepFigureRef {
 /** `POST /api/problems/:problemId/chat` 요청의 선택 필드. step: 1~99 = 그 단계, null = 최종. 탐색 상태 필드는 없다. */
 export interface ChatFigureContextRequest {
   step: number | null;
+  /**
+   * 학생이 보고 있는 결과(선택). 같은 문제에 AI 풀이와 이어풀기 결과가 함께 있을 때 `step`을 어느 결과의 단계로 볼지 정한다.
+   * 없으면 서버는 기존대로 solve 결과를 우선한다.
+   */
+  source?: "solve" | "resume";
 }
 
 export type ChatFigureEmphasis = "default" | "highlight" | "dim";

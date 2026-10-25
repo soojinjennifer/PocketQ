@@ -89,10 +89,14 @@ export const chatRequestSchema = z.object({
    * 학생이 보고 있는 결과의 단계(Stage 5, 선택). step: 1~99 = 그 단계, null = 최종. 웹은 `VITE_FIGURES_ENABLED`
    * on일 때만 보낸다. 도형 자체는 받지 않는다 — 서버는 메모리의 검증 도형만 쓰고, 이 객체의 다른 키(도형·탐색 상태
    * 등)는 버린다(`z.object`는 모르는 키를 제거한다). 서버 `FIGURES_ENABLED` off면 값이 와도 쓰지 않는다.
+   *
+   * `source`(선택): 학생이 보고 있는 결과가 AI 풀이("solve")인지 이어풀기("resume")인지. 같은 문제에 두 결과가 함께
+   * 있을 때 `step`을 어느 결과의 단계로 해석할지 정한다(장부 §8.16 B-1). 없으면 기존대로 solve 우선이다.
    */
   figureContext: z
     .object({
       step: z.number().int().min(1).max(99).nullable(),
+      source: z.enum(["solve", "resume"]).optional(),
     })
     .optional(),
 });

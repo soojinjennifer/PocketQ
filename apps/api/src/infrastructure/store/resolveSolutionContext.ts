@@ -3,12 +3,17 @@ import { env } from "../../config/env";
 import { AppError } from "../../shared/errors/AppError";
 import { inMemoryProblemStore } from "./inMemoryProblemStore";
 
+export type SolutionSource = "solve" | "resume";
+
 export interface ResolvedSolutionContext {
   problem: RecognizedProblem;
   solution: Solution;
   grade: Grade;
-  /** 대화 맥락이 된 결과(Stage 5). solve 풀이가 있으면 "solve", 이어풀기 결과만 있으면 "resume". */
-  solutionSource: "solve" | "resume";
+  /**
+   * 대화 맥락이 된 결과(Stage 5). 기본은 solve 풀이가 있으면 "solve", 이어풀기 결과만 있으면 "resume".
+   * `preferredSource`를 넘겼으면 그 결과가 있을 때 그것이다 — 호출부는 요청한 값과 이 값을 비교해 fallback 여부를 안다.
+   */
+  solutionSource: SolutionSource;
   /**
    * 그 결과의 도형 단계에서 검증을 통과해 SSE로 보낸 도형(Stage 5, 서버 메모리). 없으면 키 자체가 없다.
    * 클라이언트가 보낸 도형은 받지 않는다 — CHAT 맥락은 항상 이 값만 쓴다.
@@ -49,35 +54,50 @@ function toSolutionFromResume(resumeSolution: ResumeSolution): Solution {
  *    CAS 검증 통과 여부(`verified`)와 무관하게 사용한다 — 학생에게는 이미 결과 카드로 보여진 풀이다.
  * 4. 둘 다 없으면(예: 풀이 진행 전에 chat을 먼저 호출) 404와 구분해 400을 던진다.
  *
+ * `preferredSource`(선택, 장부 §8.16 B-1): 같은 문제에 두 결과가 함께 있을 때 학생이 보고 있는 쪽. 그 결과가 있으면
+ * 그 결과와 도형을 쓰고, 없으면 위 2→3 순서대로 고른다. 넘기지 않으면 기존과 완전히 같다.
+ *
  * Stage 5: 고른 결과에 연결된 검증 도형(`attachSolutionFigures`/`attachResumeFigures`)이 있으면 `figures`·`stepFigureRefs`를
  * 함께 돌려준다(없으면 키 없음). `solution` 객체에는 넣지 않는다 — 도형 플래그 off면 `adapter.chat` 인자가 기존과 같다.
  */
-export function resolveSolutionContext(problemId: string, userId: string): ResolvedSolutionContext {
+export function resolveSolutionContext(
+  problemId: string,
+  userId: string,
+  preferredSource?: SolutionSource,
+): ResolvedSolutionContext {
   const stored = inMemoryProblemStore.get(problemId);
 
   if (!stored || stored.userId !== userId) {
     throw new AppError("validation_error", `문제(${problemId})를 찾을 수 없습니다.`, 404);
   }
 
-  if (stored.solution) {
-    return {
-      problem: stored.problem,
-      solution: stored.solution,
-      grade: stored.grade,
-      solutionSource: "solve",
-      ...inMemoryProblemStore.getSolutionFigures(problemId),
-    };
+  const { solution, resumeSolution } = stored;
+  const fromSolve = (value: Solution): ResolvedSolutionContext => ({
+    problem: stored.problem,
+    solution: value,
+    grade: stored.grade,
+    solutionSource: "solve",
+    ...inMemoryProblemStore.getSolutionFigures(problemId),
+  });
+  const fromResume = (value: ResumeSolution): ResolvedSolutionContext => ({
+    problem: stored.problem,
+    solution: toSolutionFromResume(value),
+    grade: stored.grade,
+    solutionSource: "resume",
+    // 이어풀기 결과의 도형도 함께 옮긴다(S5-7) — `Solution` 모양 변환과 별개로, 그 결과에 연결된 도형만.
+    ...inMemoryProblemStore.getResumeFigures(problemId),
+  });
+
+  if (preferredSource === "resume" && resumeSolution) {
+    return fromResume(resumeSolution);
   }
 
-  if (stored.resumeSolution) {
-    return {
-      problem: stored.problem,
-      solution: toSolutionFromResume(stored.resumeSolution),
-      grade: stored.grade,
-      solutionSource: "resume",
-      // 이어풀기 결과의 도형도 함께 옮긴다(S5-7) — `Solution` 모양 변환과 별개로, 그 결과에 연결된 도형만.
-      ...inMemoryProblemStore.getResumeFigures(problemId),
-    };
+  if (solution) {
+    return fromSolve(solution);
+  }
+
+  if (resumeSolution) {
+    return fromResume(resumeSolution);
   }
 
   throw new AppError(

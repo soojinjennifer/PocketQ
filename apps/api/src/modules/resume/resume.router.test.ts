@@ -274,4 +274,41 @@ describe("POST /api/problems/:problemId/resume", () => {
       expect(result.verified).toBe(false);
     }
   });
+
+  it("순서쌍 답(R3 실제 사례)은 problemAnswerLatex·answerMd를 가공 없이 verifyFinalAnswer로 넘기고 그 결과를 반영한다", async () => {
+    // R3 원문: 원 문제 정답 "(2, 2)", 이어풀기 최종 답 "\\[\n(2,2)\n\\]"(디스플레이 수식 구분자 + 줄바꿈).
+    // 정규화는 CAS(`services/cas/app/core/answer_forms.py`)의 몫이므로 Node는 바이트 그대로 전달해야 한다.
+    const problemAnswerLatex = "(2, 2)";
+    const answerMd = "\\[\n(2,2)\n\\]";
+    const stored = inMemoryProblemStore.get(KNOWN_PROBLEM_ID);
+    if (!stored) throw new Error("fixture missing");
+    inMemoryProblemStore.set({ ...stored, diagnosis: { ...BASE_DIAGNOSIS, problemAnswerLatex } });
+
+    class CoordinateAnswerAdapter extends FakeLLMAdapter {
+      override async *resume(req: Parameters<InstanceType<typeof FakeLLMAdapter>["resume"]>[0]) {
+        for await (const event of super.resume(req)) {
+          yield "done" in event ? { ...event, result: { ...event.result, answerMd } } : event;
+        }
+      }
+    }
+
+    const casClient = createFakeCasClient({ verified: true });
+    const app = createApp(new CoordinateAnswerAdapter(), casClient);
+
+    const res = await request(app)
+      .post(`/api/problems/${KNOWN_PROBLEM_ID}/resume`)
+      .set(AUTH_HEADER)
+      .send({ mode: "own" });
+
+    expect(res.status).toBe(200);
+    expect(casClient.verifyFinalAnswer).toHaveBeenCalledTimes(1);
+    expect(casClient.verifyFinalAnswer.mock.calls[0]).toEqual([problemAnswerLatex, answerMd]);
+
+    const doneMatch = res.text.match(/event: done\ndata: (.+)\n\n/);
+    expect(doneMatch).not.toBeNull();
+    const result = JSON.parse(doneMatch?.[1] ?? "{}") as { verified: boolean; answerMd: string };
+    expect(result.verified).toBe(true);
+    expect(result.answerMd).toBe(answerMd);
+    expect(inMemoryProblemStore.get(KNOWN_PROBLEM_ID)?.resumeSolution?.verified).toBe(true);
+  });
 });

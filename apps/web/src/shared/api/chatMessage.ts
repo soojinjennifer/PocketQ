@@ -12,8 +12,15 @@ export interface SendChatMessageParams {
   /**
    * 학생이 보고 있는 결과의 단계(Stage 5, 선택). `VITE_FIGURES_ENABLED` on일 때만 페이지가 넘긴다 — 없으면 본문에 키 자체를
    * 넣지 않아 요청 바이트가 기존과 같다. 도형은 보내지 않는다(서버가 자기 메모리의 검증 도형만 쓴다).
+   * `source`("solve"·"resume", 장부 §8.16 B-1)는 그 두 값일 때만 `step` 뒤에 담는다 — 없으면 본문이 `{ step }` 그대로다.
    */
   figureContext?: ChatFigureContextRequest;
+}
+
+/** 본문에 넣을 `figureContext` — `step`과(있으면) 허용된 `source`만. 타입 밖 키(도형·탐색 상태 등)는 버린다. */
+function toFigureContextBody(figureContext: ChatFigureContextRequest): ChatFigureContextRequest {
+  const { step, source } = figureContext;
+  return source === "solve" || source === "resume" ? { step, source } : { step };
 }
 
 /**
@@ -29,7 +36,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Ch
     body: JSON.stringify({
       question: params.question,
       history: params.history,
-      ...(params.figureContext ? { figureContext: { step: params.figureContext.step } } : {}),
+      ...(params.figureContext ? { figureContext: toFigureContextBody(params.figureContext) } : {}),
     }),
     signal: createTimeoutSignal(),
   });

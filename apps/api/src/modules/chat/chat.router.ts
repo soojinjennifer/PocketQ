@@ -30,13 +30,20 @@ function createHandleChat(adapter: LLMAdapter, figuresEnabled: boolean) {
     }
 
     try {
-      const context = resolveSolutionContext(problemId, userId);
+      // 장부 §8.16 B-1(on 전용): 학생이 보고 있는 결과(`figureContext.source`)가 오면 그 결과를 우선한다. off거나 source가
+      // 없으면 인자를 넘기지 않는다 — 기존 solve 우선 순서 그대로다.
+      const requestedSource = figuresEnabled ? figureContext?.source : undefined;
+      const context =
+        requestedSource !== undefined
+          ? resolveSolutionContext(problemId, userId, requestedSource)
+          : resolveSolutionContext(problemId, userId);
       const { problem, solution, grade } = context;
 
+      // 요청한 결과가 없어 다른 결과로 fallback했으면, 학생이 본 단계 번호는 그 결과의 단계가 아니므로 최종(null)으로 본다.
+      const step = requestedSource !== undefined && requestedSource !== context.solutionSource ? null : (figureContext?.step ?? null);
+
       // Stage 5(on 전용): history 상한(S5-D5)과 검증 도형 맥락(S5-D6). 도형은 서버 메모리 값만 — 요청에서 받지 않는다.
-      const chatFigureContext = figuresEnabled
-        ? buildChatFigureContext(solution, context.figures, figureContext?.step ?? null)
-        : null;
+      const chatFigureContext = figuresEnabled ? buildChatFigureContext(solution, context.figures, step) : null;
       const answerMd = await adapter.chat({
         problem,
         solution,
