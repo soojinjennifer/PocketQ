@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../shared/api/ApiError";
+import { NetworkError } from "../../shared/api/NetworkError";
 
 vi.mock("../../shared/api/recognizeProblem", () => ({
   recognizeProblem: vi.fn(),
@@ -119,6 +120,99 @@ describe("useRecognizeProblem", () => {
       expect(returnedId).toBeNull();
       expect(result.current.status).toBe("error");
       expect(result.current.errorMessage).toBe("기록을 찾을 수 없습니다.");
+    });
+  });
+
+  describe("isConnectionError(연결 오류 판정)", () => {
+    const blob = new Blob(["fake"], { type: "image/jpeg" });
+
+    it("recognize가 NetworkError로 실패하면 true가 된다", async () => {
+      vi.mocked(recognizeProblem).mockRejectedValue(new NetworkError("unreachable"));
+      const { result } = renderHook(() => useRecognizeProblem());
+
+      await act(async () => {
+        await result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+
+      expect(result.current.status).toBe("error");
+      expect(result.current.isConnectionError).toBe(true);
+    });
+
+    it("타임아웃(NetworkError timeout)도 true다", async () => {
+      vi.mocked(recognizeProblem).mockRejectedValue(new NetworkError("timeout"));
+      const { result } = renderHook(() => useRecognizeProblem());
+
+      await act(async () => {
+        await result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+
+      expect(result.current.isConnectionError).toBe(true);
+    });
+
+    it("서버가 응답한 실패(ApiError 4xx/5xx)는 false다", async () => {
+      vi.mocked(recognizeProblem).mockRejectedValue(new ApiError("internal_error", "서버 오류", 500));
+      const { result } = renderHook(() => useRecognizeProblem());
+
+      await act(async () => {
+        await result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+
+      expect(result.current.status).toBe("error");
+      expect(result.current.isConnectionError).toBe(false);
+    });
+
+    it("resumeFromHistory가 NetworkError로 실패해도 true가 된다", async () => {
+      vi.mocked(reopenProblemHistory).mockRejectedValue(new NetworkError("unreachable"));
+      const { result } = renderHook(() => useRecognizeProblem());
+
+      await act(async () => {
+        await result.current.resumeFromHistory("problem-1");
+      });
+
+      expect(result.current.status).toBe("error");
+      expect(result.current.isConnectionError).toBe(true);
+    });
+
+    it("다음 요청이 loading으로 들어가면 false로 돌아가고, reset도 false로 되돌린다", async () => {
+      vi.mocked(recognizeProblem).mockRejectedValueOnce(new NetworkError("unreachable"));
+      const { result } = renderHook(() => useRecognizeProblem());
+
+      await act(async () => {
+        await result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+      expect(result.current.isConnectionError).toBe(true);
+
+      let resolveRecognize: (value: Awaited<ReturnType<typeof recognizeProblem>>) => void = () => undefined;
+      vi.mocked(recognizeProblem).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveRecognize = resolve;
+        }),
+      );
+      let pending: Promise<string | null> = Promise.resolve(null);
+      act(() => {
+        pending = result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+      expect(result.current.status).toBe("loading");
+      expect(result.current.isConnectionError).toBe(false);
+
+      await act(async () => {
+        resolveRecognize({
+          problemId: "problem-1",
+          recognizedText: "1+1=?",
+          recognizedLatex: null,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        });
+        await pending;
+      });
+
+      vi.mocked(recognizeProblem).mockRejectedValueOnce(new NetworkError("timeout"));
+      await act(async () => {
+        await result.current.recognize({ imageBlob: blob, inputType: "photo", grade: "M2" });
+      });
+      expect(result.current.isConnectionError).toBe(true);
+
+      act(() => result.current.reset());
+      expect(result.current.isConnectionError).toBe(false);
     });
   });
 });

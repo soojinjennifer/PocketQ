@@ -41,7 +41,8 @@ const CASES: { name: string; before: string; root: () => Element | null }[] = [
   },
   {
     name: "RecognizedProblemBar(복사본)",
-    before: "bg-bg-elevated flex items-center gap-3 rounded-[14px] p-4 drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)]",
+    // Stage 5 S5-V8(오너 승인): 행 정렬 items-center → items-start(한 줄 배치 규칙, §18.12). 그 외 토큰은 Stage 4 기준 그대로.
+    before: "bg-bg-elevated flex items-start gap-3 rounded-[14px] p-4 drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)]",
     root: () => render(<RecognizedProblemBar recognizedText="문제" />).container.firstElementChild,
   },
   {

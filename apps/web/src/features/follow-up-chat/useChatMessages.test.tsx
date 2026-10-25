@@ -116,3 +116,19 @@ describe("useChatMessages", () => {
     expect(result.current.errorMessage).toBeNull();
   });
 });
+
+describe("useChatMessages — Stage 5 figureContext", () => {
+  it("sendMessage의 두 번째 인자를 그대로 넘기고, 생략하면 키가 없다", async () => {
+    vi.mocked(sendChatMessage).mockResolvedValue({ answerMd: "a" });
+    const { result } = renderHook(() => useChatMessages("problem-1"));
+    await act(async () => {
+      await result.current.sendMessage("첫 질문");
+    });
+    await act(async () => {
+      await result.current.sendMessage("둘째 질문", { step: 2 });
+    });
+    expect(vi.mocked(sendChatMessage).mock.calls[0]?.[0]).toEqual({ problemId: "problem-1", question: "첫 질문", history: [] });
+    expect(Object.keys(vi.mocked(sendChatMessage).mock.calls[0]?.[0] ?? {})).not.toContain("figureContext");
+    expect(vi.mocked(sendChatMessage).mock.calls[1]?.[0]).toMatchObject({ question: "둘째 질문", figureContext: { step: 2 } });
+  });
+});

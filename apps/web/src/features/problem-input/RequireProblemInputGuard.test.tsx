@@ -36,6 +36,7 @@ function createContextValue(
     isRequestingReinput: false,
     startNewProblem: () => undefined,
     recognizeStatus: "idle",
+    isRecognizeConnectionError: false,
     problemId: null,
     recognizedText: null,
     dailyUsageCount: null,

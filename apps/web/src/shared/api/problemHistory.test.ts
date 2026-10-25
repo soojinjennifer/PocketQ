@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { F01_TRIANGLE_ANGLE } from "validation/src/figures/fixtures";
+import { problemHistoryDetailSchema } from "validation";
+import { F01_TRIANGLE_ANGLE, F09_STEPWISE_AUXILIARY } from "validation/src/figures/fixtures";
 import { ApiError } from "./ApiError";
+import { NetworkError } from "./NetworkError";
 
 vi.mock("../lib/supabase/client", () => ({
   supabase: {
@@ -173,6 +175,18 @@ describe("reopenProblemHistory", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("서버에 도달하지 못하면(타임아웃) NetworkError(timeout)를 던진다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")),
+    );
+
+    await expect(reopenProblemHistory("problem-1")).rejects.toMatchObject({ name: "NetworkError", kind: "timeout" });
+    await expect(reopenProblemHistory("problem-1")).rejects.toBeInstanceOf(NetworkError);
+
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("bulkDeleteProblemHistory", () => {
@@ -242,5 +256,55 @@ describe("getProblemHistoryDetail — 도형 시각화 필드(PRD §4.12 FIG) �
     expect(result.solution).not.toHaveProperty("stepFigureRefs");
 
     vi.unstubAllGlobals();
+  });
+});
+
+describe("getProblemHistoryDetail — 이어풀기 저장(Stage 5, RS6) 하위 호환", () => {
+  const RESUME = {
+    mode: "own" as const,
+    methodName: "3번째 줄부터 이어가기",
+    solutionMd: "## 이어풀기\n**1단계** 정리",
+    answerMd: "-1",
+    verified: true,
+  };
+
+  it("resumeSolution이 있으면 그대로 파싱하고 도형 키도 보존한다(solution이 null이어도)", async () => {
+    const figures = [F09_STEPWISE_AUXILIARY.raw];
+    const stepFigureRefs = [{ stepId: "s1", figureId: "fig-f09" }];
+    const body = { ...DETAIL_BODY, solution: null, resumeSolution: { ...RESUME, figures, stepFigureRefs } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, body)));
+
+    const result = await getProblemHistoryDetail("problem-1");
+
+    expect(result).toEqual(body);
+    expect(result.resumeSolution?.figures).toEqual(figures);
+    vi.unstubAllGlobals();
+  });
+
+  it("resumeSolution 키가 없는 기존 응답은 키를 만들지 않는다(바이트 동일)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, DETAIL_BODY)));
+    const result = await getProblemHistoryDetail("problem-1");
+    expect(JSON.stringify(result)).toBe(JSON.stringify(DETAIL_BODY));
+    expect(result).not.toHaveProperty("resumeSolution");
+    vi.unstubAllGlobals();
+  });
+
+  it("예전 웹 스키마(resumeSolution 모름)도 새 응답을 파싱한다 — 모르는 키는 버려질 뿐 실패하지 않는다", () => {
+    const legacySchema = problemHistoryDetailSchema.omit({ resumeSolution: true });
+    const body = { ...DETAIL_BODY, resumeSolution: RESUME };
+    const parsed = legacySchema.parse(body);
+    expect(parsed).toEqual(DETAIL_BODY);
+  });
+
+  it("resumeSolution이 null이거나 모양이 틀리면 parse가 실패한다(서버는 키를 생략해야 한다 — nullable 아님)", () => {
+    expect(problemHistoryDetailSchema.safeParse({ ...DETAIL_BODY, resumeSolution: null }).success).toBe(false);
+    expect(problemHistoryDetailSchema.safeParse({ ...DETAIL_BODY, resumeSolution: { ...RESUME, mode: "hack" } }).success).toBe(false);
+  });
+
+  it("resumeSolution.workContext(§12.3)가 있으면 그대로, stallLine null도 파싱한다", () => {
+    const workContext = { lines: [{ lineNo: 1, latex: "x=1" }], lastValidLine: 1, stallLine: null };
+    const parsed = problemHistoryDetailSchema.parse({ ...DETAIL_BODY, resumeSolution: { ...RESUME, workContext } });
+    expect(parsed.resumeSolution?.workContext).toEqual(workContext);
+    expect(problemHistoryDetailSchema.parse({ ...DETAIL_BODY, resumeSolution: RESUME }).resumeSolution).not.toHaveProperty("workContext");
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { ChatMessage } from "shared-types";
+import type { ChatFigureContextRequest, ChatMessage } from "shared-types";
 import { ApiError } from "../../shared/api/ApiError";
 import { sendChatMessage } from "../../shared/api/chatMessage";
 
@@ -13,9 +13,10 @@ interface UseChatMessagesResult {
    * 빈/공백 질문, `problemId`가 아직 없는 경우(풀이 완료 전), 이미 전송 중인 경우(중복 제출)에는
    * 아무 것도 하지 않고 `false`를 반환한다. 성공하면 `true`, 실패하면(대화 이력에서 실패한 질문을
    * 되돌리고) `false`를 반환한다 — 호출 측(`ChatFooter`)이 이 반환값으로 입력값을 초기화할지
-   * (성공) 그대로 유지할지(실패)를 결정한다.
+   * (성공) 그대로 유지할지(실패)를 결정한다. `figureContext`(Stage 5, 선택)는 그대로 API에 전달되며, 생략하면 요청이
+   * 기존과 같다.
    */
-  sendMessage: (question: string) => Promise<boolean>;
+  sendMessage: (question: string, figureContext?: ChatFigureContextRequest) => Promise<boolean>;
   reset: () => void;
 }
 
@@ -34,7 +35,7 @@ export function useChatMessages(problemId: string | null): UseChatMessagesResult
   const isSubmittingRef = useRef(false);
 
   const sendMessage = useCallback(
-    async (question: string): Promise<boolean> => {
+    async (question: string, figureContext?: ChatFigureContextRequest): Promise<boolean> => {
       const trimmed = question.trim();
       if (!trimmed || !problemId || isSubmittingRef.current) {
         return false;
@@ -49,7 +50,12 @@ export function useChatMessages(problemId: string | null): UseChatMessagesResult
       setMessages((prev) => [...prev, userMessage]);
 
       try {
-        const response = await sendChatMessage({ problemId, question: trimmed, history });
+        const response = await sendChatMessage({
+          problemId,
+          question: trimmed,
+          history,
+          ...(figureContext ? { figureContext } : {}),
+        });
         setMessages((prev) => [...prev, { role: "assistant", content: response.answerMd }]);
         setStatus("idle");
         return true;

@@ -110,6 +110,12 @@ function createHandleSolve(adapter: LLMAdapter, figures: Required<Pick<FiguresRo
               ...(figures.figuresTotalBudgetMs !== undefined ? { totalBudgetMs: figures.figuresTotalBudgetMs } : {}),
             }),
           figures.keepAliveMs,
+          // Stage 5: 보낸 도형을 이 실행의 풀이에 연결(CHAT용 메모리, 재풀이됐으면 무시)하고 영속 저장한다
+          // (`FIGURES_PERSIST_ENABLED` + 컬럼 탐지 + run id 일치일 때만 쓰기, best-effort).
+          async (accepted) => {
+            inMemoryProblemStore.attachSolutionFigures(problemId, solved, accepted);
+            await problemRepository.saveSolutionFigures({ problemId, solution: solved, ...accepted });
+          },
         );
       }
     } catch {

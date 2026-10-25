@@ -61,3 +61,61 @@ describe("HistoryDetailPanel", () => {
     expect(dialog.className).toContain("rounded-[24px]");
   });
 });
+
+describe("HistoryDetailPanel — Stage 5 높이·포커스(§18.7·§18.13, RS12·RS13)", () => {
+  it("루트는 fixed inset-x-0 top-0 h-dvh(inset-0·vh 단위 없음)", () => {
+    const { container } = render(
+      <HistoryDetailPanel onClose={() => undefined}>
+        <div />
+      </HistoryDetailPanel>,
+    );
+    const root = container.firstElementChild;
+    const tokens = (root?.getAttribute("class") ?? "").split(/\s+/);
+    expect(tokens).toEqual(expect.arrayContaining(["fixed", "inset-x-0", "top-0", "h-dvh"]));
+    expect(tokens).not.toContain("inset-0");
+    expect(tokens.some((t) => /(^|:)(h|min-h|max-h)-screen$/.test(t) || /vh\b/.test(t.replace("dvh", "")))).toBe(false);
+  });
+
+  it("열면 '목록으로'에 포커스, 닫으면(언마운트) 열기 직전 포커스 요소로 복귀", () => {
+    const opener = document.createElement("button");
+    opener.textContent = "행";
+    document.body.appendChild(opener);
+    opener.focus();
+    const view = render(
+      <HistoryDetailPanel onClose={() => undefined}>
+        <div />
+      </HistoryDetailPanel>,
+    );
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "목록으로" }));
+    view.unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it("열기 직전 요소가 사라졌거나 body였으면 getFallbackFocus 대상으로 간다", () => {
+    const fallback = document.createElement("button");
+    document.body.appendChild(fallback);
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+    const view = render(
+      <HistoryDetailPanel onClose={() => undefined} getFallbackFocus={() => fallback}>
+        <div />
+      </HistoryDetailPanel>,
+    );
+    opener.remove();
+    view.unmount();
+    expect(document.activeElement).toBe(fallback);
+
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+    const second = render(
+      <HistoryDetailPanel onClose={() => undefined} getFallbackFocus={() => fallback}>
+        <div />
+      </HistoryDetailPanel>,
+    );
+    second.unmount();
+    expect(document.activeElement).toBe(fallback);
+    fallback.remove();
+  });
+});

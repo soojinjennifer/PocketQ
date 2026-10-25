@@ -10,6 +10,10 @@ import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
 import type { PhotoUploadErrorKind } from "../../../features/problem-input/preparePhotoForUpload";
 import { usePhotoUpload } from "../../../features/problem-input/usePhotoUpload";
+import {
+  RECOGNIZE_CONNECTION_ERROR_DESCRIPTION,
+  RECOGNIZE_CONNECTION_ERROR_TITLE,
+} from "../../../features/problem-recognition/connectionErrorMessage";
 import { useProblemInput } from "../../../features/problem-input/useProblemInput";
 import { ActionBar } from "../../../features/solve-session/ActionBar";
 import { EmptyStateHint } from "../../../features/solve-session/EmptyStateHint";
@@ -111,6 +115,7 @@ export function SolvePencilcanvasPage() {
     resumeToWork,
     problemId,
     recognizeStatus,
+    isRecognizeConnectionError,
     recognizedText,
     dailyUsageCount,
     dailyUsageLimit,
@@ -577,8 +582,16 @@ export function SolvePencilcanvasPage() {
           ) : isRecognizeError ? (
             <Modal
               icon="error"
-              title="문제를 인식하지 못했습니다"
-              description="사진이나 손글씨가 선명하게 보이는지 확인하고 다시 시도해 주세요."
+              title={
+                isRecognizeConnectionError
+                  ? RECOGNIZE_CONNECTION_ERROR_TITLE
+                  : "문제를 인식하지 못했습니다"
+              }
+              description={
+                isRecognizeConnectionError
+                  ? RECOGNIZE_CONNECTION_ERROR_DESCRIPTION
+                  : "사진이나 손글씨가 선명하게 보이는지 확인하고 다시 시도해 주세요."
+              }
               actionLabel="확인"
               onAction={resetSubmission}
               cancelLabel="인식취소"

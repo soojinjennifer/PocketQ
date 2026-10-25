@@ -1,7 +1,7 @@
 import type { Grade } from "shared-types";
 import { recognizeResponseSchema, type RecognizeResponseDto } from "validation";
 import { parseApiErrorBody } from "./ApiError";
-import { buildApiUrl, createTimeoutSignal, getAuthHeaders } from "./httpClient";
+import { buildApiUrl, createTimeoutSignal, fetchWithNetworkError, getAuthHeaders } from "./httpClient";
 
 export interface RecognizeProblemParams {
   imageBlob: Blob;
@@ -23,7 +23,7 @@ export async function recognizeProblem(params: RecognizeProblemParams): Promise<
   formData.append("grade", params.grade);
 
   const authHeaders = await getAuthHeaders();
-  const response = await fetch(buildApiUrl("/api/problems/recognize"), {
+  const response = await fetchWithNetworkError(buildApiUrl("/api/problems/recognize"), {
     method: "POST",
     headers: authHeaders,
     body: formData,

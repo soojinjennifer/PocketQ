@@ -55,6 +55,7 @@ function createHandleDiagnose(adapter: LLMAdapter, casClient: CasClient) {
 
       const diagnosis = await adapter.diagnose({ problem: problemText, workLines, casVerification, grade });
       inMemoryProblemStore.setDiagnosis(problemId, diagnosis);
+      inMemoryProblemStore.setDiagnosedWorkLines(problemId, workLines);
 
       const responseBody = diagnoseResponseSchema.parse(diagnosis);
       res.status(200).json(responseBody);

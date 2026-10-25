@@ -70,3 +70,26 @@ describe("sendChatMessage", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("sendChatMessage — Stage 5 figureContext", () => {
+  it("figureContext가 있으면 본문 끝에 step만 담고, 없으면 기존 본문 바이트 그대로다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { answerMd: "a" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendChatMessage({ problemId: "p", question: "q", history: [] });
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: { step: 2 } });
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: { step: null } });
+    // 타입 밖 키가 섞여 들어와도 step만 보낸다(도형·탐색 상태 미전송).
+    const extra = { step: 3, figures: ["fig"], exploration: { A: [1, 2] } } as unknown as { step: number };
+    await sendChatMessage({ problemId: "p", question: "q", history: [], figureContext: extra });
+
+    const bodies = fetchMock.mock.calls.map((call) => (call[1] as RequestInit).body);
+    expect(bodies).toEqual([
+      '{"question":"q","history":[]}',
+      '{"question":"q","history":[],"figureContext":{"step":2}}',
+      '{"question":"q","history":[],"figureContext":{"step":null}}',
+      '{"question":"q","history":[],"figureContext":{"step":3}}',
+    ]);
+    vi.unstubAllGlobals();
+  });
+});

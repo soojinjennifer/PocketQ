@@ -9,7 +9,7 @@ import {
   type RecognizeResponseDto,
 } from "validation";
 import { parseApiErrorBody } from "./ApiError";
-import { buildApiUrl, createTimeoutSignal, getAuthHeaders } from "./httpClient";
+import { buildApiUrl, createTimeoutSignal, fetchWithNetworkError, getAuthHeaders } from "./httpClient";
 
 /**
  * `GET /api/problems` — 로그인한 사용자의 풀이 이력 목록(마이페이지, PRD MYPAGE-1).
@@ -69,7 +69,7 @@ export async function reopenProblemHistory(problemId: string): Promise<Recognize
   const authHeaders = await getAuthHeaders();
   // 요청 본문이 없는 POST다 — `Content-Type`도 보내지 않는다(빈 본문에 JSON 타입을 선언하면
   // 서버의 body parser가 파싱 오류를 낼 수 있다).
-  const response = await fetch(buildApiUrl(`/api/problems/${problemId}/reopen`), {
+  const response = await fetchWithNetworkError(buildApiUrl(`/api/problems/${problemId}/reopen`), {
     method: "POST",
     headers: authHeaders,
     signal: createTimeoutSignal(),

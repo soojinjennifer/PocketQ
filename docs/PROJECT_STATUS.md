@@ -735,6 +735,13 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 - 웹: 요청별 AbortController(L-4)·`figuresPhase`, 공통 카드 `shared/ui/card/ElevatedCard`, 단계 블록 `SolutionStepList`(데이터 기준), 도형 슬롯 `SolutionFigures`(lazy, 스테퍼·대기 줄·aria-live off), `resolveStepStateAt`, 최소 보드 폭 240px, 축마다 눈금 숫자 최소 1개, `Spinner announce`, PWA에서 JSXGraph 청크 precache 제외(CacheFirst), 빌드 플래그 `VITE_FIGURES_ENABLED`.
 - 탐색 모드: 자격 판정 `exploreEligibility.ts`만(F09만 자격). **탐색 UI와 "처음 모양으로"(초기화) 버튼은 미이행(오너 결정 D-1)**.
 
+
+**Stage 5 — 저장·CHAT 연동과 통합 QA (2026-10, development-agent 구현 완료 · stage-qa 전)**
+
+- DB(파일만, 적용은 오너): `supabase/migrations/20261025000000_solution_figures.sql`, `20261025000100_resume_solutions.sql`. 서버 플래그 `FIGURES_PERSIST_ENABLED`·`RESUME_PERSIST_ENABLED` + 컬럼/테이블 탐지 두 겹 장치. off면 바이트 동일.
+- 도형 저장·재조회(AI 재호출 0, 서버 재검증), 이어풀기 결과(진단에 쓴 줄 포함) 저장, 마이페이지에서 풀이 → 이어풀기 → 대화 + 그림·결과별 단계(`docs/FIGURE_DESIGN.md` §18), 오버레이 `h-dvh`·포커스 관리·배경 inert, "인식됨" 한 줄 배치(S5-V7~V10).
+- CHAT 도형 맥락(서버 on 전용, history 상한, 웹은 지금 보이는 단계만 전송). CHAT은 도형을 만들지 않는다.
+- R3 실제 호출 30회(텍스트 대표본). R1·R2 NOT RUN(오너 미승인). 상세·AC·재현 방법은 `docs/FIGURES_WORKFLOW_STATE.md` §8.
 ## 4. 확정된 아키텍처 결정 (6단계에서 이대로 구현 완료 — §3.5 참고)
 
 아래는 오너가 명시적으로 승인했지만 **아직 구현되지 않은** 6단계("프론트 문제 제출 연결")의 설계다. 다음 세션에서 6단계를 시작하기 전, 다시 승인받을 필요 없이 이 결정대로 구현하면 된다.
@@ -767,7 +774,7 @@ design-agent가 Figma `38:21`(3-2 Solve/Landscape)을 재조회한 결과 이 �
 | 6.5 | 후속 질문(채팅) Footer 연결 | ✅ 완료(§3.9~3.11) — 백엔드 chat 엔드포인트 신규, 프론트 Footer/입력/pill, 라이브 검증까지. ChatBubble은 Figma 미확정 임시 컴포넌트 |
 | 6.6 | Solve v2.0(WORK/DIAG/RESUME) 재구현 | ✅ 1~3단계(§3.17)+4a(§3.18~3.19)+4b(§3.20)+4b 정정 1차·2차(§3.21)+WORK 흐름 단순화/사진 유지(§3.22)+work-order 5단계 RESUME(이어풀기) 1차·2차(§3.23)+CAS(Python/SymPy) 실제 서비스 Phase 1 완료(§3.24)+work-order 6단계 `HandwritingHighlightOverlay`(캔버스 막힌 지점 하이라이트) 완료(§3.25)+사진 인식 확인 팝업(`RecognizedProblemPopup`) 완료(§3.26)+WORK 단계 화면 버그 수정(§3.27)+**WORK 캔버스 손가락 스크롤(PRD WORK-6) 완료, ActionBar 개념설명 세그먼트는 철회(§3.28)** +**DIAG 결과 화면 사진 미리보기 완전 은닉, §3.22 결정 번복(§3.29, 커밋 `1f8e6d4`)** +**`SolveScroll` WORK 캔버스 스크롤 인디케이터(§3.30)** +**`RecognizedChip` 좌측 확대(§3.31) → PenRail+SolveScroll 그룹 중앙정렬(§3.32) → RecognizedChip 화면 상단 중앙 위치 원복+ellipsis 수정(§3.33) → `/solve/landscape`에도 PenRail+SolveScroll 그룹 확장+SolveScroll disabled 상태+배경 Pattern Fill 실측 정정(§3.34)** — DIAG-1/RESUME-5가 이제 결정론적 스텁이 아니라 실제 SymPy 동치성 검사(등식 변형 + 완전제곱식류 극값 결론 + 상수식 등식 값 비교)로 검증되고, 진단 결과 화면에서 학생 필기 위에 막힌 지점이 시각적으로 표시되며, 사진 인식 완료 시 확인 팝업 후 WORK 캔버스로 전환되고, 풀이 공간이 부족하면 손가락으로 스크롤(+펜으로 마커를 탭해 스크롤 이동)해 확장할 수 있으며, 결과 화면에서는 입력 방식(사진/필기)과 무관하게 사진 미리보기가 노출되지 않고(WORK 단계와 동일하게 완전 숨김), WORK 단계 인식 카드는 별도 버튼으로 확장해 사진/인식 텍스트 전체를 확인할 수 있음. 매 단계 design-agent/stage-qa-agent 검증(최종 STAGE PASS, 회귀 테스트 중 발견된 결함 전부 수정 확인 — 4b 정정 HIGH 1건, RESUME HIGH 2건, CAS Phase 1 파싱/극값/시그마 등식 버그 3건, 인식 팝업 Medium 2건, WORK 단계 화면 버그 2건, 캔버스 스크롤 팜 리젝션 HIGH 1건, SolveScroll 좌표/토큰/렌더링 버그 5건(미선택 마커 완전 비노출 포함), RecognizedChip 확장 접근성 HIGH 2건+MEDIUM 2건). CAS Phase 2(부등식 방향/미적분/수열)와 ActionBar 개념설명 세그먼트는 각각 오너 재승인/재제안 없이 착수 금지. work-order 7~8단계(CHAT 컨텍스트 확장/METHOD)는 아직 미착수 — 오너 확인 후 진행. §3.29만 커밋 완료(`1f8e6d4`/`4802a69`), §3.30~3.31은 미커밋 |
 | 6.7 | 마이페이지(`/mypage`) 개선 4항목 | ✅ 완료(§3.35, 미커밋) — History Row 썸네일 확대(72→120px), 상단 카테고리 필터 1줄 가로스크롤, 체크박스+"풀이 내역 지우기" 일괄 삭제(신규 백엔드 `POST /api/problems/bulk-delete`, 소유권 검증), 각 행 "다시풀기" 버튼(신규 `resumeToWork` — 기존 `resumeFromHistory`와 달리 solve 미호출, `/solve/pencilcanvas` WORK 단계로 재진입). stage-qa-agent 통합 검증에서 HIGH 데이터 안전 결함(필터 전환 시 안 보이는 선택 항목이 삭제 대상에 섞임) 발견·수정 후 최종 STAGE PASS. iPad 실기기 시각 확인은 미검증 |
-| 6.8 | 도형 시각화(FIG, JSXGraph) | 🔄 진행 중 — Stage 1(데이터 계약) stage-qa PASS(§3.41). Stage 2(검증기·렌더러·`/dev/figures`) **PASS**(재작업 1/3, 실기기 미확인). Stage 3(풀이 AI API 연결) **PASS**(§6.10). Stage 4(단계별 표시·iPad) development-agent 구현 완료·stage-qa 전(운영 플래그 off 유지). 5 미착수. 상세 `docs/FIGURES_WORKFLOW_STATE.md` |
+| 6.8 | 도형 시각화(FIG, JSXGraph) | 🔄 진행 중 — Stage 1(데이터 계약) stage-qa PASS(§3.41). Stage 2(검증기·렌더러·`/dev/figures`) **PASS**(재작업 1/3, 실기기 미확인). Stage 3(풀이 AI API 연결) **PASS**(§6.10). Stage 4(단계별 표시·iPad) **PASS**(재작업 1/3, 실기기 미확인). Stage 5(저장·CHAT 연동·통합 QA) development-agent WU0~WU11 구현 완료·**stage-qa 전**(마이그레이션 2종 파일만·적용 전, 운영 플래그 4종 off 유지). 상세 `docs/FIGURES_WORKFLOW_STATE.md` |
 | 7 | Supabase 저장 | ❌ 미착수(현재 in-memory Map만 존재, 서버 재시작 시 소실) |
 | 8 | 통합 테스트 | ❌ 미착수(수동 스모크 테스트만 있음) |
 

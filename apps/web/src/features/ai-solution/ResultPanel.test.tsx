@@ -90,3 +90,29 @@ describe("ResultPanel", () => {
     expect(screen.getByTestId("chat-footer")).toBeInTheDocument();
   });
 });
+
+describe("ResultPanel — Stage 5 resumeContent·answerMd null(§18.1)", () => {
+  it("answerMd가 null이면 최종 답 배너가 없고, resumeContent는 답 다음·chatContent 앞에 온다", () => {
+    const { container } = render(
+      <ResultPanel
+        recognizedText="문제"
+        conceptMd={null}
+        solutionMd={null}
+        answerMd={null}
+        resumeContent={<section>이어풀기 섹션</section>}
+        chatContent={<p>대화</p>}
+      />,
+    );
+    expect(container.textContent).not.toContain("최종 답");
+    const text = container.textContent ?? "";
+    expect(text.indexOf("이어풀기 섹션")).toBeLessThan(text.indexOf("대화"));
+  });
+
+  it("answerMd 문자열이면 답 배너 다음에 resumeContent", () => {
+    const { container } = render(
+      <ResultPanel recognizedText="문제" conceptMd={null} solutionMd={null} answerMd="42" resumeContent={<section>이어풀기 섹션</section>} />,
+    );
+    const text = container.textContent ?? "";
+    expect(text.indexOf("42")).toBeLessThan(text.indexOf("이어풀기 섹션"));
+  });
+});

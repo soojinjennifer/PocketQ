@@ -40,25 +40,45 @@ export function abortOnClientClose(res: Response): AbortController {
   return controller;
 }
 
+/** 실제로 `event: figures`로 보낸 도형(최종 재파싱 결과). Stage 5 저장·CHAT 맥락은 정확히 이 값을 쓴다. */
+export interface AcceptedFigures {
+  figures: FigureSpec[];
+  stepFigureRefs: StepFigureRef[];
+}
+
 /**
  * 도형 단계를 실행하고 결과를 SSE로 보낸다. `generate`는 throw하지 않는다고 가정하지만, 혹시 throw해도 삼킨다.
+ *
+ * `onAccepted`(Stage 5)는 `event: figures`를 **실제로 쓴 뒤에만** 한 번 호출된다(수용 0·연결 끊김이면 호출 0 —
+ * 보내지 않은 도형은 저장하지 않는다, S5-D9). 받는 값은 SSE로 보낸 것과 같은 객체다. 콜백이 throw해도 삼키며
+ * 어떤 경우에도 `event: error`를 보내지 않는다(done 뒤 error 금지).
  */
 export async function streamFiguresPhase(
   res: Response,
-  generate: () => Promise<{ figures: FigureSpec[]; stepFigureRefs: StepFigureRef[] }>,
+  generate: () => Promise<AcceptedFigures>,
   keepAliveMs: number = FIGURES_KEEP_ALIVE_MS,
+  onAccepted?: (accepted: AcceptedFigures) => Promise<void> | void,
 ): Promise<void> {
   const timer = setInterval(() => {
     if (isWritable(res)) res.write(": keep-alive\n\n");
   }, keepAliveMs);
+  let sent: AcceptedFigures | null = null;
   try {
     const { figures, stepFigureRefs } = await generate();
     if (figures.length > 0 && isWritable(res)) {
       res.write(`event: figures\ndata: ${JSON.stringify({ figures, stepFigureRefs })}\n\n`);
+      sent = { figures, stepFigureRefs };
     }
   } catch {
     // 도형 실패는 텍스트 풀이에 영향을 주지 않는다 — error 이벤트를 보내지 않는다.
   } finally {
     clearInterval(timer);
+  }
+  if (sent && onAccepted) {
+    try {
+      await onAccepted(sent);
+    } catch (error) {
+      console.error("[streamFiguresPhase] 수용 도형 후처리 실패", error);
+    }
   }
 }

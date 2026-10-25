@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
   HandwritingCanvas,
@@ -6,10 +6,13 @@ import {
 } from "../../../features/drawing-canvas/HandwritingCanvas";
 import { HandwritingHighlightOverlay } from "../../../features/drawing-canvas/HandwritingHighlightOverlay";
 import { PenRail } from "../../../features/drawing-canvas/PenRail";
+import {
+  RECOGNIZE_CONNECTION_ERROR_DESCRIPTION,
+  RECOGNIZE_CONNECTION_ERROR_TITLE,
+} from "../../../features/problem-recognition/connectionErrorMessage";
 import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
 import { DiagnosisCard } from "../../../features/ai-solution/DiagnosisCard";
-import { hasSolutionSteps } from "../../../features/ai-solution/hasSolutionSteps";
 import { parseStreamingSolve } from "../../../features/ai-solution/parseStreamingSolve";
 import { RecognizedProblemBar } from "../../../features/ai-solution/RecognizedProblemBar";
 import { ResultCard } from "../../../features/ai-solution/ResultCard";
@@ -18,7 +21,7 @@ import { ResultPanelShell, type ResultPanelWidth } from "../../../features/ai-so
 import { ResumeModeBar } from "../../../features/ai-solution/ResumeModeBar";
 import { ResumeResultCard } from "../../../features/ai-solution/ResumeResultCard";
 import { WorkLineList } from "../../../features/ai-solution/WorkLineList";
-import { FigureErrorBoundary } from "../../../features/figure-visualization/FigureErrorBoundary";
+import { figureSlotContent } from "../../../features/figure-visualization/LazySolutionFigures";
 import { ChatBubble } from "../../../features/follow-up-chat/ChatBubble";
 import { ChatFooter, type ChatFooterHandle } from "../../../features/follow-up-chat/ChatFooter";
 import { SuggestionPill } from "../../../features/follow-up-chat/SuggestionPill";
@@ -31,36 +34,14 @@ import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLin
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
 
-/**
- * 도형 슬롯(Stage 4) — 빌드 플래그 `VITE_FIGURES_ENABLED === "true"`일 때만 지연 로딩한다. Vite가 빌드 시점에 값을
- * 치환하므로 off 빌드에서는 이 동적 import가 통째로 빠져 렌더러·검증 커널·JSXGraph 청크가 생기지 않는다.
- */
-const SolutionFigures =
-  import.meta.env.VITE_FIGURES_ENABLED === "true"
-    ? lazy(() => import("../../../features/figure-visualization/SolutionFigures"))
-    : null;
-
-type FigurePhase = "idle" | "waiting" | "received" | "empty";
+// 도형 슬롯 조립(`figureSlotContent`)은 Stage 5에서 `features/figure-visualization/LazySolutionFigures`로 옮겼다(MyPage와 공용).
 
 /**
- * 도형 슬롯 내용 조립(재작업 1). 반환값 의미: `undefined` = 슬롯 없음(플래그 off·표지 없고 도형 단계도 아님 → 기존 DOM),
- * `null` = `aria-live="off"` 래퍼만 미리 둠(P2-1), 그 밖 = 지연 로딩 그림.
- * H-1: 지연 청크를 못 받거나(오프라인·배포 뒤 해시 불일치) 그림 렌더가 실패해도 결과 화면 전체가 오류가 되지 않게
- * `Suspense` 바깥을 도형 오류 경계(fallback 없음)로 감싼다 — 도형 슬롯만 비고 풀이·채팅은 그대로다.
+ * CHAT에 넘길 단계 맥락(Stage 5, 계획 §3.7) — 웹 플래그 on일 때만 `[{ step }]`(step: 1~N, null = 최종), off면 빈 배열이라
+ * `sendChatMessage(question)`과 같은 호출이 되어 요청 본문이 기존과 바이트 단위로 같다. 도형 자체는 보내지 않는다.
  */
-function figureSlotContent(
-  phase: FigurePhase,
-  solutionMd: string | null,
-  render: (Slot: NonNullable<typeof SolutionFigures>) => ReactNode,
-): ReactNode {
-  if (SolutionFigures === null) return undefined;
-  const active = phase === "waiting" || phase === "received";
-  if (!active) return hasSolutionSteps(solutionMd) ? null : undefined;
-  return (
-    <FigureErrorBoundary fallback={null}>
-      <Suspense fallback={null}>{render(SolutionFigures)}</Suspense>
-    </FigureErrorBoundary>
-  );
+function chatFigureContextArgs(step: number | null): [] | [{ step: number | null }] {
+  return import.meta.env.VITE_FIGURES_ENABLED === "true" ? [{ step }] : [];
 }
 
 /**
@@ -112,6 +93,7 @@ export function SolveLandscapePage() {
     resumeFromHistory,
     problemId,
     recognizeStatus,
+    isRecognizeConnectionError,
     recognizedText,
     solveStatus,
     streamedText,
@@ -407,7 +389,7 @@ export function SolveLandscapePage() {
                         <SuggestionPill
                           key={question}
                           label={question}
-                          onClick={() => void sendChatMessage(question)}
+                          onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(solveStep))}
                         />
                       ))}
                     </div>
@@ -435,7 +417,7 @@ export function SolveLandscapePage() {
                   hashtags={solveResult.conceptTags}
                   status={chatStatus}
                   errorMessage={chatErrorMessage}
-                  onSend={sendChatMessage}
+                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(solveStep))}
                   // 오너 확정 UX: 해시태그 pill도 `SuggestionPill`과 동일하게 입력창을 채우고
                   // 포커스만 한다(자동 전송 없음). 정확한 문구 템플릿은 Figma/오너가 확정한 바
                   // 없어 결정 필요(오너 확인 필요) — 우선 자연스러운 문장으로 조립한다.
@@ -502,7 +484,7 @@ export function SolveLandscapePage() {
                       <SuggestionPill
                         key={question}
                         label={question}
-                        onClick={() => void sendChatMessage(question)}
+                        onClick={() => void sendChatMessage(question, ...chatFigureContextArgs(resumeStep))}
                       />
                     ))}
                   </div>
@@ -542,7 +524,7 @@ export function SolveLandscapePage() {
                   hashtags={["개념설명", ...diagnosis.relatedConcepts, "비슷한 문제"]}
                   status={chatStatus}
                   errorMessage={chatErrorMessage}
-                  onSend={sendChatMessage}
+                  onSend={(question) => sendChatMessage(question, ...chatFigureContextArgs(resumeStep))}
                   // "#개념설명"만 로컬 토글(관련 개념 카드 노출/숨김)로 처리하고, 그 외(개별 관련
                   // 개념 태그, "#비슷한 문제" 포함)는 기존 default 동작(입력창 채움+포커스)을 그대로
                   // 적용한다(오너 확정).
@@ -622,10 +604,18 @@ export function SolveLandscapePage() {
       {hasError ? (
         <Modal
           icon="error"
-          title={isRecognizeError ? "문제를 인식하지 못했습니다" : "풀이를 만들지 못했습니다"}
+          title={
+            isRecognizeError
+              ? isRecognizeConnectionError
+                ? RECOGNIZE_CONNECTION_ERROR_TITLE
+                : "문제를 인식하지 못했습니다"
+              : "풀이를 만들지 못했습니다"
+          }
           description={
             isRecognizeError
-              ? "사진이나 손글씨가 선명하게 보이는지 확인하고 다시 시도해 주세요."
+              ? isRecognizeConnectionError
+                ? RECOGNIZE_CONNECTION_ERROR_DESCRIPTION
+                : "사진이나 손글씨가 선명하게 보이는지 확인하고 다시 시도해 주세요."
               : "잠시 후 다시 시도해 주세요."
           }
           actionLabel="확인"

@@ -361,3 +361,61 @@ export interface StepFigureRef {
   stepId: FigureStepId;
   figureId: string;
 }
+
+/* ----------------------------------------------------------------------------------------------
+ * CHAT 도형 맥락(Stage 5, `docs/FIGURE_SPEC.md` §17). 서버가 메모리의 검증 도형으로만 만든다 —
+ * 클라이언트는 학생이 보고 있는 단계(`ChatFigureContextRequest.step`)만 보낸다. CHAT은 도형을 생성하지 않는다.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** `POST /api/problems/:problemId/chat` 요청의 선택 필드. step: 1~99 = 그 단계, null = 최종. 탐색 상태 필드는 없다. */
+export interface ChatFigureContextRequest {
+  step: number | null;
+}
+
+export type ChatFigureEmphasis = "default" | "highlight" | "dim";
+
+export interface ChatFigureElementSummary {
+  id: FigureElementId;
+  type: FigureElement["type"];
+  label: string | null;
+  role: FigureElementRole;
+  /** 이 요소가 참조하는 요소 ID(의존 순서). */
+  refs: FigureElementId[];
+  /** 기준 단계에서 보이는지. */
+  visible: boolean;
+  /** 보일 때만 값이 있다. */
+  emphasis: ChatFigureEmphasis | null;
+  /** 점류 요소의 좌표(자유 점은 명세 값, 파생점은 계산 값, 소수 셋째 자리). */
+  point?: { x: number; y: number };
+}
+
+export interface ChatFigureConstraintSummary {
+  type: FigureConstraint["type"];
+  source: FigureConstraintSource;
+  /** 제약이 가리키는 요소 ID. */
+  targets: FigureElementId[];
+  /** 수치 제약(length.value, angleMeasure.degrees)의 값. */
+  value?: number;
+}
+
+/** 검증 도형 1개의 CHAT용 요약(`buildFigureChatSummary`). 길이 상한을 넘으면 elements·constraints 없이 truncated. */
+export interface ChatFigureSummary {
+  figureId: string;
+  kind: FigureSpec["kind"];
+  description: string;
+  /** 기준 단계("final" 또는 1..99). */
+  step: number | "final";
+  elements?: ChatFigureElementSummary[];
+  constraints?: ChatFigureConstraintSummary[];
+  truncated?: true;
+}
+
+/**
+ * 이어풀기 결과와 함께 저장하는 진단 맥락(Stage 5 §12.3). 진단에 실제로 쓴 학생 풀이 줄과 진단의 최소 근거 2값.
+ * 줄별 판정(확인/막힌 지점)은 저장하지 않고 화면이 `lastValidLine`·`stallLine`으로 같은 함수(`deriveWorkLineJudgments`)로 계산한다.
+ */
+export interface ResumeWorkContext {
+  lines: { lineNo: number; latex: string }[];
+  lastValidLine: number;
+  stallLine: number | null;
+}

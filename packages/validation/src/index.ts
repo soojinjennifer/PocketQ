@@ -85,6 +85,16 @@ export const chatRequestSchema = z.object({
       }),
     )
     .default([]),
+  /**
+   * 학생이 보고 있는 결과의 단계(Stage 5, 선택). step: 1~99 = 그 단계, null = 최종. 웹은 `VITE_FIGURES_ENABLED`
+   * on일 때만 보낸다. 도형 자체는 받지 않는다 — 서버는 메모리의 검증 도형만 쓰고, 이 객체의 다른 키(도형·탐색 상태
+   * 등)는 버린다(`z.object`는 모르는 키를 제거한다). 서버 `FIGURES_ENABLED` off면 값이 와도 쓰지 않는다.
+   */
+  figureContext: z
+    .object({
+      step: z.number().int().min(1).max(99).nullable(),
+    })
+    .optional(),
 });
 export type ChatRequestDto = z.infer<typeof chatRequestSchema>;
 
@@ -150,6 +160,48 @@ export type ProblemHistoryListResponseDto = z.infer<typeof problemHistoryListRes
  * GET /api/problems/:problemId 응답 스키마 (풀이 이력 상세).
  * `solution`은 recognize만 끝나고 solve가 완료되지 않은 문제를 위해 nullable이다.
  */
+/** workContext 상한. **결정 필요(임시값, 계획 §12)** — 50줄·줄당 500자·JSON 32KB. */
+export const RESUME_WORK_LINES_MAX = 50;
+export const RESUME_WORK_LINE_MAX_CHARS = 500;
+export const RESUME_WORK_CONTEXT_MAX_BYTES = 32_768;
+
+/** UTF-8 바이트 수(런타임 API 없이 — 이 패키지는 DOM·Node 타입을 쓰지 않는다). */
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+  }
+  return bytes;
+}
+
+/**
+ * 이어풀기 진단 맥락(Stage 5 §12.1·§12.3) 엄격 검사 — 서버가 저장 전·재조회 때 쓴다. lineNo 1~999 정수·중복 없음·오름차순,
+ * latex 문자열 500자 이하, 50줄 이하, lines JSON 32KB 이하. 하나라도 어기면 통째로 실패한다(부분 저장 금지).
+ */
+export const resumeWorkContextSchema = z
+  .object({
+    lines: z
+      .array(z.object({ lineNo: z.number().int().min(1).max(999), latex: z.string().max(RESUME_WORK_LINE_MAX_CHARS) }))
+      .min(1)
+      .max(RESUME_WORK_LINES_MAX),
+    lastValidLine: z.number().int().min(0).max(999),
+    stallLine: z.number().int().min(1).max(999).nullable(),
+  })
+  .superRefine((value, ctx) => {
+    for (let i = 1; i < value.lines.length; i += 1) {
+      const prev = value.lines[i - 1];
+      const current = value.lines[i];
+      if (prev && current && current.lineNo <= prev.lineNo) {
+        ctx.addIssue({ code: "custom", path: ["lines", i, "lineNo"], message: "lineNo는 중복 없이 오름차순이어야 합니다." });
+        return;
+      }
+    }
+    if (utf8ByteLength(JSON.stringify(value.lines)) > RESUME_WORK_CONTEXT_MAX_BYTES) {
+      ctx.addIssue({ code: "custom", path: ["lines"], message: "lines가 너무 큽니다." });
+    }
+  });
+
 export const problemHistoryDetailSchema = z.object({
   problemId: z.string(),
   recognizedText: z.string(),
@@ -173,6 +225,32 @@ export const problemHistoryDetailSchema = z.object({
       createdAt: z.string(),
     }),
   ),
+  /**
+   * 저장된 이어풀기 결과(Stage 5, 서버 `RESUME_PERSIST_ENABLED` + `resume_solutions` 테이블이 있고 행이 있을 때만).
+   * 키가 없으면 기존 응답과 같다(선택 필드, nullable 아님). 서버가 행을 검증한 뒤에만 키를 넣고, 도형은 solution과 같은
+   * 관대 규칙(`optionalFiguresShape`, 원소 검증은 `parseSolutionFigures`)이다. 서버는 `verified === true`인 결과만 저장한다.
+   */
+  resumeSolution: z
+    .object({
+      mode: z.enum(["own", "alternative"]),
+      methodName: z.string(),
+      solutionMd: z.string(),
+      answerMd: z.string(),
+      verified: z.boolean(),
+      ...optionalFiguresShape,
+      /**
+       * 진단에 쓴 학생 풀이 줄과 진단 근거(§12.3, 선택). 서버가 엄격 검사(`resumeWorkContextSchema`)를 통과한 값만 넣고,
+       * 실패·과거 행·플래그 off면 키가 없다. 웹은 모양만 확인한다.
+       */
+      workContext: z
+        .object({
+          lines: z.array(z.object({ lineNo: z.number(), latex: z.string() })),
+          lastValidLine: z.number(),
+          stallLine: z.number().nullable(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 export type ProblemHistoryDetailDto = z.infer<typeof problemHistoryDetailSchema>;
 

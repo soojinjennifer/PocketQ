@@ -3,6 +3,17 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { routeConfig } from "./routes";
 
+// gitignored `.env`(VITE_SUPABASE_*) 없이도 돌도록 다른 라우트 테스트와 같은 관례로 Supabase 클라이언트를 mock한다
+// (Stage 5 재작업 1, QA LOW-6 — 깨끗한 체크아웃에서 `createClient("")`가 스위트 로드를 깨뜨렸다). 라우팅만 검증하므로 auth는 쓰지 않는다.
+vi.mock("../shared/lib/supabase/client", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+    },
+  },
+}));
+
 // 미리보기 페이지의 FigureView가 실제 JSXGraph를 부르지 않게 한다(라우팅만 검증).
 vi.mock("../features/figure-visualization/jsxgraphAdapter", () => ({
   loadJsxGraph: () => new Promise(() => {}),

@@ -51,6 +51,7 @@ function createContextValue(
     isRequestingReinput: false,
     startNewProblem: () => undefined,
     recognizeStatus: "idle",
+    isRecognizeConnectionError: false,
     problemId: null,
     recognizedText: null,
     dailyUsageCount: null,
@@ -420,6 +421,36 @@ describe("SolvePencilcanvasPage — 에러 팝업 '인식취소' 버튼(오너 U
 
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
     expect(resetSubmission).toHaveBeenCalledTimes(1);
+  });
+
+  it("인식 실패가 연결 오류(isRecognizeConnectionError)면 오너 문구로 바뀌고 '확인'/'인식취소' 버튼은 그대로다", () => {
+    const cancelRecognition = vi.fn();
+    const resetSubmission = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <ProblemInputContext.Provider
+          value={createContextValue({
+            recognizeStatus: "error",
+            isRecognizeConnectionError: true,
+            resetSubmission,
+            cancelRecognition,
+          })}
+        >
+          <Routes>
+            <Route path="/solve/pencilcanvas" element={<SolvePencilcanvasPage />} />
+          </Routes>
+        </ProblemInputContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("연결 오류 입니다.")).toBeInTheDocument();
+    expect(screen.getByText("네트웍 연결을 확인해주세요")).toBeInTheDocument();
+    expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(resetSubmission).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "인식취소" }));
+    expect(cancelRecognition).toHaveBeenCalledTimes(1);
   });
 
   it("WORK 단계(재인식/진단) 실패 모달에서도 '인식취소'를 누르면 cancelRecognition이 호출되고 기존 '확인'(재시도) 동작은 그대로 유지된다", () => {

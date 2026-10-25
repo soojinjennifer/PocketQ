@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
-import type { Diagnosis, Grade, ResumeMode, ResumeSolution, WorkLine } from "shared-types";
+import type { Diagnosis, Grade, ResumeMode, ResumeSolution, ResumeWorkContext, WorkLine } from "shared-types";
 import { resumeRequestSchema, type ResumeRequestDto } from "validation";
 import { authenticate } from "../../middleware/authenticate";
 import { rateLimiter } from "../../middleware/rate-limiter";
@@ -9,6 +9,7 @@ import type { LLMAdapter } from "../../infrastructure/ai/adapter";
 import { resolveAdapter } from "../../infrastructure/ai/resolve-adapter";
 import type { CasClient } from "../../infrastructure/cas/casClient";
 import { resolveCasClient } from "../../infrastructure/cas/resolveCasClient";
+import { problemRepository } from "../../infrastructure/persistence/problemRepository";
 import { inMemoryProblemStore } from "../../infrastructure/store/inMemoryProblemStore";
 import { getRequestUser } from "../../shared/lib/request-user";
 import { env } from "../../config/env";
@@ -16,9 +17,54 @@ import { buildPriorWork } from "../../infrastructure/ai/prompts/figures";
 import { generateSolutionFigures } from "../figures/generateSolutionFigures";
 import { abortOnClientClose, streamFiguresPhase, type FiguresRouteOptions } from "../figures/streamFigures";
 
+/** resume 라우터 주입 옵션(테스트·운영 공통). */
+export interface ResumeRouteOptions extends FiguresRouteOptions {
+  /** 기본값 `env.resumePersistEnabled`(`RESUME_PERSIST_ENABLED === "true"`). off면 저장소 호출 0(RS1). */
+  resumePersistEnabled?: boolean;
+}
+
+/**
+ * CAS 검증을 통과한 결과를 `resume_solutions`에 저장한다(Stage 5, done **직전**). 어떤 실패·throw도 삼킨다 —
+ * done 전송을 막지 않는다(RS9). `ai_provider`/`ai_model`은 어댑터가 노출하지 않아 `toSolutionFromResume`과 같은
+ * 환경변수 값을 쓴다(**결정 필요**: 어댑터에 공급자·모델 조회가 생기면 그 값으로 바꾼다).
+ */
+async function persistVerifiedResume(
+  problemId: string,
+  result: ResumeSolution,
+  workContext: ResumeWorkContext | null,
+): Promise<void> {
+  if (result.verified !== true) return;
+  try {
+    await problemRepository.saveResumeSolution({
+      problemId,
+      resumeSolution: result,
+      aiProvider: env.aiProvider ?? "openai",
+      aiModel: env.aiModel,
+      workContext,
+    });
+  } catch (error) {
+    console.error("[resume.router] 이어풀기 결과 저장 실패", error);
+  }
+}
+
+/**
+ * 저장할 진단 맥락(§12.1·§12.2): 진단에 실제로 쓴 줄(`diagnosedWorkLines`, 없으면 인식 원본 `workLines`)을 lineNo 순으로,
+ * 진단 근거 2값과 함께. 줄이 없으면 null. 상한·형식 검사는 저장소가 한다(실패 시 세 값 null).
+ */
+function buildWorkContext(lines: readonly WorkLine[], diagnosis: Diagnosis): ResumeWorkContext | null {
+  if (lines.length === 0) return null;
+  return {
+    lines: [...lines].sort((a, b) => a.lineNo - b.lineNo).map((line) => ({ lineNo: line.lineNo, latex: line.latex })),
+    lastValidLine: diagnosis.lastValidLine,
+    stallLine: diagnosis.stallLine,
+  };
+}
+
 interface ResolvedResumeContext {
   problemText: string;
   workLines: WorkLine[];
+  /** 진단에 실제로 쓴 줄(저장 전용, 프롬프트·priorWork에는 쓰지 않는다). */
+  diagnosedWorkLines: WorkLine[] | null;
   diagnosis: Diagnosis;
   grade: Grade;
 }
@@ -56,6 +102,7 @@ function resolveResumeContext(problemId: string, userId: string, mode: ResumeMod
   return {
     problemText: stored.problem.recognizedText,
     workLines: stored.workLines ?? [],
+    diagnosedWorkLines: stored.diagnosedWorkLines ?? null,
     diagnosis: stored.diagnosis,
     grade: stored.grade,
   };
@@ -64,7 +111,7 @@ function resolveResumeContext(problemId: string, userId: string, mode: ResumeMod
 function createHandleResume(
   adapter: LLMAdapter,
   casClient: CasClient,
-  figures: Required<Pick<FiguresRouteOptions, "figuresEnabled">> & FiguresRouteOptions,
+  figures: Required<Pick<ResumeRouteOptions, "figuresEnabled" | "resumePersistEnabled">> & ResumeRouteOptions,
 ) {
   return async function handleResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { problemId } = req.params as { problemId: string };
@@ -116,6 +163,14 @@ function createHandleResume(
           );
           const result = { ...event.result, verified };
           inMemoryProblemStore.setResumeSolution(problemId, result);
+          // Stage 5: verified 결과만 done 직전에 저장한다(RESUME_PERSIST off면 저장소 호출 0). SSE 바이트는 그대로다.
+          if (figures.resumePersistEnabled) {
+            await persistVerifiedResume(
+              problemId,
+              result,
+              buildWorkContext(resolved.diagnosedWorkLines ?? resolved.workLines, resolved.diagnosis),
+            );
+          }
           res.write(`event: done\ndata: ${JSON.stringify(result)}\n\n`);
           doneResult = result;
         } else if (!(figureAbort && doneResult)) {
@@ -142,6 +197,14 @@ function createHandleResume(
               ...(figures.figuresTotalBudgetMs !== undefined ? { totalBudgetMs: figures.figuresTotalBudgetMs } : {}),
             }),
           figures.keepAliveMs,
+          // Stage 5: 보낸 도형을 이 실행의 이어풀기 결과에 연결(CHAT용 메모리)하고, verified 결과만 영속 저장한다
+          // (RESUME_PERSIST + FIGURES_PERSIST + 테이블 탐지 + run id 일치일 때만 쓰기, best-effort).
+          async (accepted) => {
+            inMemoryProblemStore.attachResumeFigures(problemId, resumed, accepted);
+            if (figures.resumePersistEnabled && resumed.verified) {
+              await problemRepository.saveResumeFigures({ problemId, resumeSolution: resumed, ...accepted });
+            }
+          },
         );
       }
     } catch {
@@ -164,7 +227,11 @@ function createHandleResume(
 export function createResumeRouter(
   adapter: LLMAdapter = resolveAdapter(),
   casClient: CasClient = resolveCasClient(),
-  { figuresEnabled = env.figuresEnabled, ...figureOptions }: FiguresRouteOptions = {},
+  {
+    figuresEnabled = env.figuresEnabled,
+    resumePersistEnabled = env.resumePersistEnabled,
+    ...figureOptions
+  }: ResumeRouteOptions = {},
 ): Router {
   const router = Router();
 
@@ -173,7 +240,7 @@ export function createResumeRouter(
     authenticate,
     rateLimiter,
     validateRequest(resumeRequestSchema),
-    createHandleResume(adapter, casClient, { figuresEnabled, ...figureOptions }),
+    createHandleResume(adapter, casClient, { figuresEnabled, resumePersistEnabled, ...figureOptions }),
   );
 
   return router;

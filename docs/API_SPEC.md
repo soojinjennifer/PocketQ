@@ -4,7 +4,8 @@
 
 - 요구사항: `docs/PRD_WHYMATH.md` §4.4(SOLVE), §4.7(RESUME), §4.12(FIG, FIG-11)
 - 도형 데이터 계약: `docs/FIGURE_SPEC.md`(§2 응답 위치, §16 AI 생성)
-- 기능 플래그: 서버 환경변수 `FIGURES_ENABLED`(정확히 `"true"`일 때만 on, 기본 off)
+- 기능 플래그: 서버 환경변수 `FIGURES_ENABLED`(정확히 `"true"`일 때만 on, 기본 off). Stage 5 영속 플래그 `FIGURES_PERSIST_ENABLED`·`RESUME_PERSIST_ENABLED`(같은 규칙). 4종 조합은 `docs/DEPLOYMENT.md`
+- Stage 5에서 chat·상세 조회의 도형 관련 계약을 이 문서 끝에 더했다(§ Stage 5 추가).
 
 ---
 
@@ -91,3 +92,27 @@ data: {"figures":[{"schemaVersion":1,"figureId":"fig-f07", ...}],"stepFigureRefs
 - `done` data = `ResumeSolution`: `{ mode, methodName, solutionMd, answerMd, verified }`. `verified`는 CAS 검증 결과. 저장(`setResumeSolution`) 시점·내용은 플래그와 무관하다.
 - on이면 `## 이어풀기` 섹션에 `**N단계**` 표지를 요청한다. `sN`은 `ResumeSolution.solutionMd` 안에서 s1부터 센다 — own 모드에서도 학생 풀이의 줄 번호(`lineNo`)와 무관하며 s1은 이어서 쓴 첫 단계다. `## 최종 답`은 계속 순수 LaTeX(CAS 파싱 대상)이며 표지를 넣지 않는다.
 - 도형 생성에는 own 모드만 학생 풀이의 유효 구간(`lineNo ≤ diagnosis.lastValidLine`, stallLine 이후 제외, 줄 수·길이 상한)을 데이터로 넘긴다. alternative는 넘기지 않는다.
+
+---
+
+## Stage 5 추가 — 저장·재조회·CHAT
+
+### solve·resume 저장(SSE 바이트는 그대로)
+
+- solve: `FIGURES_PERSIST_ENABLED` on + 컬럼 탐지면 done 직전 텍스트 upsert에 도형 null·새 run id를 함께 쓰고, `event: figures`를 보낸 뒤 같은 도형을 run id 조건으로 update한다. off면 payload가 Stage 5 전과 같다.
+- resume: `RESUME_PERSIST_ENABLED` on + 테이블 탐지면 `verified === true`인 결과만 **done 직전** `resume_solutions`에 upsert(문제당 1행, 진단에 쓴 줄 `workContext` 포함). off면 저장소 호출 0. 저장 실패·throw는 done·SSE에 영향 없음(error 0).
+- 저장 규칙 상세: `docs/FIGURE_SPEC.md` §10.
+
+### GET `/api/problems/:problemId` (상세)
+
+응답(`problemHistoryDetailSchema`)에 선택 키가 생길 수 있다. 키가 없으면 기존 응답과 바이트 동일하며, 예전 웹 스키마(모르는 키 제거)로도 파싱된다.
+
+- `solution.figures?`·`solution.stepFigureRefs?` — 도형 저장 on·탐지·서버 재파싱 수용 ≥1일 때만.
+- `resumeSolution?` — 이어풀기 저장 on·탐지·행 있음일 때만(**nullable 아님**, 없으면 키 생략): `{ mode, methodName, solutionMd, answerMd, verified, figures?, stepFigureRefs?, workContext? }`. `workContext = { lines: {lineNo, latex}[], lastValidLine, stallLine | null }`(엄격 검사 통과 시만). resume 조회 실패는 키만 생략(상세 500 아님).
+- 목록 `GET /api/problems`는 바뀌지 않았다.
+
+### POST `/api/problems/:problemId/chat`
+
+- 요청에 선택 `figureContext: { step: number | null }`(정수 1~99 또는 null). 범위 밖·정수 아님·문자열이면 `400 validation_error`. 그 밖의 키는 버려진다(도형·탐색 상태를 받지 않는다).
+- 서버 `FIGURES_ENABLED` on이고 맥락 결과에 검증 도형이 있을 때만 어댑터에 도형 맥락을 넘기고 history를 최근 12개·8,000자로 자른다. off면 기존과 같다. 응답은 `{ answerMd }`로 불변. 상세 `docs/FIGURE_SPEC.md` §17.
+

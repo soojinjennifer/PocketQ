@@ -255,10 +255,11 @@ JSXGraph: `face: 'o'`, `size`(원 반지름 px), `fillColor`, `strokeColor`, `st
 
 | 패널 폭 | 패널 폭 계산 | Body 콘텐츠 폭(`px-5`) | 보드 폭(카드 `p-4`) | 정사각형 bbox 보드 높이 |
 |---|---|---|---|---|
-| Default | `min(420px,45vw)` → 1024~1366px 화면 모두 420 | 380 | **348** | 348 |
-| Extend | `min(748px,90vw)` → 748 | 708 | 676 | 360(상한) → bbox 가로 확장 |
+| Default | `min(420px,45vw)` → 1024~1366px 화면 모두 420 | 378(패널 테두리 1px×2 제외) | **액자 346 / 그리기 344** | 344 |
+| Extend | `min(748px,90vw)` → 748 | 706 | 액자 674 / 그리기 672 | 360(상한) → bbox 가로 확장 |
 | Close | `w-6` | 콘텐츠 렌더 안 함 | FigureView 언마운트 → `freeBoard` | — |
 
+- **정정(Stage 5 재작업 1, design P2)**: 처음 표는 테두리를 빼지 않은 값(348·676)이었다. 실제 분해 = 패널 폭 − 패널 테두리 2(`ResultPanelShell` `border` 1px×2) − Body `px-5` 40 − 카드 `p-4` 32 = **보드 액자**(`FigureBoard` 상자, `border` 1px 포함), 액자 − 2 = **그리기 영역**(JSXGraph 보드 실제 폭). Default 420−2−40−32 = 346 → 344, Extend 748−2−40−32 = 674 → 672. 헤드리스 실측 카드 안 폭 346(장부 §8.12.4)과 맞는다. 새 값이 아니라 파생 계산 정정이다. §7.3·§9·§15·§17의 "348px" 언급은 이 Default 값을 가리키며 실제는 액자 346 / 그리기 344다(코드의 측정 전 자리 높이 상수는 바꾸지 않았다 — 측정 뒤 실제 폭으로 다시 맞춘다).
 - 패널 폭 전환은 `transition-[width] duration-300`이다. 보드는 `ResizeObserver` + `requestAnimationFrame`으로 한 프레임에 한 번만 `resizeContainer`하고, 전환 중 매 프레임 다시 만들지 않는다.
 - Stage 4에서 카드 위치(풀이 카드 다음 / 단계 옆)와 헤더 캡션 여부를 정한다(§15-9).
 
@@ -570,7 +571,7 @@ JSXGraph: `face: 'o'`, `size`(원 반지름 px), `fillColor`, `strokeColor`, `st
 ### 17.9 최소 보드 폭 (Q9)
 
 - **`MIN_BOARD_WIDTH = 240px`(제안, 오너 확인 필요).** 근거: 가드가 덮는 Split View 폭 694px에서 패널 `min(420,45vw)`=312 → Body 272 → 보드 240px이다. 이 값이면 눈금 숫자 간격 32px(P16) 기준 7칸, 점 라벨 15px + 거리 6px, 높이 하한 120px이 모두 들어간다. 이보다 좁으면 라벨이 겹치기 시작한다.
-- 실제 표시 환경(가로 ≥1024px, 가드 해제)에서 Default 보드는 항상 348px이다. 최소 폭은 **패널 폭 전환(Close→Default 300ms) 중간 프레임**과 **가드에 덮인 상태**에서만 의미가 있다.
+- 실제 표시 환경(가로 ≥1024px, 가드 해제)에서 Default 보드 액자는 항상 346px(테두리 포함), 그리기 영역 344px이다(§7.4 정정과 같은 분해). 최소 폭은 **패널 폭 전환(Close→Default 300ms) 중간 프레임**과 **가드에 덮인 상태**에서만 의미가 있다.
 - 최소 폭 미만일 때:
   - 보드가 이미 있으면 **직전 크기를 유지**한다. 보드 상자 `overflow-hidden`으로 잘린다. 다시 만들지도, 리사이즈하지도 않는다.
   - 보드가 아직 없으면 만들지 않는다. 보드 상자는 348px 기준 높이로 자리만 잡는다(§7.3 "측정 전" 규칙과 같다). 내용은 비워 둔다.
@@ -666,8 +667,228 @@ plan-agent 제안안에 **동의**하고, 다음을 보완한다.
 | 터치 타깃 | 스테퍼 버튼 높이 44px(`min-h-11`), 가로는 pill 패딩으로 약 78px 이상(높이 44px로 타깃 충족). 단계 블록은 조작 대상 아님 |
 | 보드 위 스크롤 | 읽기 모드 보드는 이벤트 0(§11). 스테퍼·카드 위에서도 세로 스와이프로 패널이 스크롤된다(S4-13) |
 | 필기 | 그림 카드·스테퍼는 패널 안에 있어 캔버스와 이벤트가 분리된다. Pencil로 버튼을 눌러도 획이 생기지 않는다(§7.2) |
-| 회전·Split View | 가드가 덮는 동안 보드는 §17.9 규칙. 가드가 걷히면 348px로 맞춘다 |
+| 회전·Split View | 가드가 덮는 동안 보드는 §17.9 규칙. 가드가 걷히면 Default 그리기 영역 344px(액자 346px)로 맞춘다 |
 | 키보드 표시 | 보드 높이는 폭 기준이라 변하지 않는다(§7.5). 스테퍼도 높이 고정 |
 | 포커스 링 | 기존 Button `focus-visible:ring-2 ring-brand ring-offset-2`. 선택 블록 테두리(`ring-1`)는 포커스를 받지 않는 요소라 혼동되지 않는다 |
 | 대비 | 캡션 text-brand 5.21, 스테퍼 라벨·상태 label-primary 11.5 이상, 선택 테두리 brand 5.21(비텍스트 3:1) |
 | reduced-motion | 애니메이션이 없어 별도 처리 없음(§17.8) |
+
+---
+
+## 18. Stage 5 — 마이페이지 재조회 화면의 풀이·이어풀기·그림 (2026-10-25 design-agent 사전 검토)
+
+`.omc/plans/figures-stage5.md` §7의 질문 8개에 대한 디자인 명세다. 결정 요약은 그 문서 §0 "design 결정" 행에 있다.
+
+> **오너 결정 반영(2026-10-25)**: S5-V1~V6 승인(조건: "인식됨"류 배치는 한 줄 — §18.12). Q-A = Stage 5에 포함(own 모드 재조회에 학생 풀이 줄 표시 — §18.3). Q-E = `h-dvh`와 포커스 관리 둘 다 포함(§18.13). Q-B·Q-C·Q-D는 권장안대로. 아래 본문은 이 결정에 맞춰 고쳤다.
+
+> **Figma 대응 없음.** 마이페이지 재조회 오버레이(`HistoryDetailPanel`)부터 Figma 근거가 없는 임시 디자인이다(`HistoryDetailPanel.tsx` 주석, `docs/COMPONENT_MAP.md`). 그래서 이 절은 **§17 승인값, `ResultPanel`, `ResumeResultCard`, `RecognizedProblemBar`, `SolutionFigures`를 그대로 조합**한다. 새로 생기는 값은 §18.9 표에 모았고 모두 **오너 확인 필요**다. 시안: https://claude.ai/artifact/YBUL65TPZZgTqqCB63hSKK 의 보드 8~10(보드 10이 오너 결정 반영본: 한 줄 배치·own 모드 workLines·포커스).
+
+### 18.1 배치 (Q1)
+
+**결정: 탭을 두지 않고 한 스크롤 안에 세로로 쌓는다. 순서는 풀이(solve) → 이어풀기(resume) → 대화 기록이다.**
+
+```
+HistoryDetailPanel (dialog "지난 풀이 다시 보기", w-[min(720px,100%)])
+  [목록으로]
+  ResultPanel 머리  h2 "풀이 결과" + 개념 배지(solve 있을 때만)
+  ResultPanel Body (기존 aria-live="polite", gap-3)
+    RecognizedProblemBar  ("다시 풀기")              ← 문제당 1개, 맨 위
+    ── solve 있을 때 ──────────────────────────
+    ResultCard concept
+    ResultCard steps → SolutionStepList (currentStep = solveStep)
+    [FigureSlot] solve 그림 카드 1~3개              (§18.4·§18.5)
+    AnswerBox (default)
+    ── resume 있을 때 ─────────────────────────
+    <section aria-labelledby="이어풀기 머리말 id">
+      h3 "이어풀기 결과"   ← solve도 있을 때만 화면에 보임 (§18.2)
+      WorkLineList "내가 쓴 풀이" (읽기 전용, onEdit 없음)   ← workLines가 저장돼 있을 때 (§18.3)
+        └ 없으면: own 모드일 때만 대체 안내 한 줄 (S5-V3)
+      ResumeResultCard (currentStep = resumeStep, figureContent = resume 그림 → 그 안에서 그림 → 답)
+    </section>
+    ── 대화 기록 (기존 chatContent) ────────────
+    ChatBubble …
+```
+
+| 상황 | 표시 |
+|---|---|
+| solve만 | **지금과 DOM 동일**(S5-1, RS8). 그림이 저장돼 있으면 AnswerBox 앞에 FigureSlot만 더해진다 |
+| solve + resume | 위 구조 전체 |
+| resume만 | 머리 "풀이 결과"(개념 배지 없음) → RecognizedProblemBar → resume 섹션(h3 숨김 → 학생 풀이 줄 → 이어풀기 카드 → 그림 → 답) → 대화 기록. **"저장된 풀이가 없는 문제예요"를 띄우지 않는다** |
+| 둘 다 없음 | 기존 "저장된 풀이가 없는 문제예요" 그대로 |
+
+- **탭을 쓰지 않는 이유**: ① Figma·`shared/ui`에 탭 컴포넌트가 없다(`NavTabBar`는 페이지 이동, `ResumeModeBar`는 이어풀기 요청 동작이라 의미가 다르다). 새 컴포넌트가 필요하다. ② 한쪽 결과가 가려져 "이 문제에 이어풀기도 있다"를 놓친다. ③ 탭 전환마다 보드 생성·해제가 일어나 S5-10(board 수 = 보이는 그림 수) 검사가 복잡해진다. ④ 실시간 진단 화면(`SolveLandscapePage`)도 탭 없이 세로로 쌓는다.
+- **solve가 먼저인 이유**: 머리 "풀이 결과"와 맨 위 `RecognizedProblemBar`는 solve 화면 구조 그대로다. resume을 그 아래 독립 섹션으로 붙이면 solve만 있는 화면의 DOM이 바뀌지 않는다. 두 결과의 시간 순서는 상세 응답에 없다(최신순 정렬은 API 확장이라 하지 않는다).
+- **대화 기록은 맨 끝**: 지금 MyPage(답 다음)와 실시간 진단 화면(이어풀기 다음)의 위치와 같다. 대화가 solve 맥락인지 resume 맥락인지는 저장되지 않으므로 나누지 않는다.
+- **조립 방법(구현 권장)**: `ResultPanel`에 선택 prop 두 개를 더한다. ① `resumeContent?: ReactNode` — AnswerBox 다음, `chatContent` 앞에 렌더. ② `answerMd: string | null` — null이면 AnswerBox를 렌더하지 않는다(resume만 있는 경우, conceptMd·solutionMd도 null). 기존 호출부는 문자열을 넘기므로 DOM이 같다. 헤더·Body 클래스를 MyPage에 복사하지 않는다(이미 `ResultPanel`과 `SolveLandscapePage` 진단 분기에 2벌 있음, 3번째 복사는 frontend.md §2 위반). `ResultPanel.tsx`는 §4 변경 금지 목록에 없지만 변경 파일 목록에도 없으므로 계획에 추가해야 한다.
+
+### 18.2 resume 머리 (Q2)
+
+- **`RecognizedProblemBar`는 문제당 하나, 맨 위에만 둔다.** resume 섹션에 다시 넣지 않는다. 같은 문제 원문이 두 번 보이게 된다.
+- **"다시 풀기"(onEdit)는 그 하나에만 있다.** 지금처럼 `/solve/landscape`로 이동해 같은 문제를 다시 푸는 동작이다. 문제 단위 동작이라 resume만 있는 문제에서도 그대로 둔다. resume 섹션에는 별도 버튼을 두지 않는다. 목록 행의 "다시 풀기"(필기 화면으로 이동)는 바꾸지 않는다.
+- **머리말 "이어풀기 결과"**: `<h3>`, Subheadline Semibold 15/20 590, `text-label-primary`(흰 카드 아닌 유리 패널 위에서도 11.5:1 이상).
+  - **solve와 resume이 둘 다 있을 때만 보인다.** 두 결과 모두 "최종 답 · …" 배너로 끝나므로, 머리말이 없으면 답 배너 두 개가 연달아 나온다. 둘의 차이는 `AnswerBox tone`의 배경색뿐이라 **색만으로 구분하게 된다**(§1-1 위반). 머리말 텍스트가 구분을 맡는다.
+  - resume만 있을 때는 숨긴다(`sr-only`). `ResumeResultCard` 라벨 "이어풀기 · {모드}"가 바로 아래에 있어 화면에서 중복된다. 다만 섹션 이름은 스크린리더용으로 계속 필요하다.
+  - 위 여백: solve도 있을 때 머리말에 `pt-3`을 더해 앞 답 배너와 24px(Body gap 12 + 12) 띄운다(§18.9 S5-V1). 구분선은 쓰지 않는다(§17.3과 같은 이유, 카드 그림자와 겹쳐 보임).
+- **`ResumeResultCard`는 수정하지 않는다.** `currentStep`·`figureContent` prop이 이미 있어 그대로 조립된다.
+- 참고(기존 문제, 범위 밖): `ResumeResultCard` 라벨 색 `text-accent-orange`(`#d9a05b`)는 흰 카드 위 약 2.2:1로 12px 텍스트 AA 미달이다. Figma 실측값이고 변경 금지 파일이다. 이번 머리말이 AA를 지키는 텍스트로 같은 정보를 준다.
+
+### 18.3 진단 요약과 학생 풀이 줄 (Q3, 오너 결정 Q-A 반영)
+
+**결정(오너, 2026-10-25): 진단은 저장하지 않는다(Q-B). 학생 풀이 줄(workLines, 가능하면 줄별 판정 포함)은 Stage 5에서 저장하고 재조회에 보인다(Q-A).** 데이터 계약은 plan-agent가 정한다. 이 절은 화면만 정한다.
+
+| 모드 | `methodName` 예 | 재조회에서 읽히는가 |
+|---|---|---|
+| alternative | "새로운 방법으로 처음부터 풀기" | 풀이가 처음부터 시작해 완결된다. 학생 줄은 "왜 다른 방법으로 갔는지"의 맥락이 된다 |
+| own | "3번째 줄부터 이어가기" | 학생 줄이 있어야 완결된다. RESUME-2대로 풀이가 학생이 쓴 줄을 다시 설명하지 않기 때문이다 |
+
+배치(resume 섹션 안):
+
+```
+h3 "이어풀기 결과"            (solve도 있을 때만 보임, 아니면 sr-only)
+WorkLineList                  학생 풀이 줄 — 실시간 화면의 그 컴포넌트 그대로
+ResumeResultCard              라벨 · methodName · SolutionStepList
+  └ FigureSlot (그림)          카드 다음
+  └ AnswerBox tone="resume"    맨 끝
+```
+
+- **실시간 진단 화면과 순서를 맞춘다.** 실시간 화면(`SolveLandscapePage` 진단 분기)은 RecognizedProblemBar → WorkLineList → DiagnosisCard → ResumeModeBar → ResumeResultCard 순서다. 재조회에서는 저장되지 않는 DiagnosisCard와 조작용 ResumeModeBar만 빠지고, 나머지 상대 순서는 같다. 학생이 "그때 본 화면"과 같은 흐름으로 다시 읽는다.
+- **`WorkLineList` 재사용 규칙**:
+  - `onEdit`을 넘기지 않는다. 헤더의 "수정" 링크가 렌더되지 않는다(컴포넌트 기존 동작). 재조회는 읽기 전용이다.
+  - 줄별 판정이 저장돼 있으면 `isValid` true/false를 넘겨 "확인"/"막힌 지점" 배지와 막힌 줄 배경을 실시간 화면과 똑같이 보인다. 판정이 없으면 `isValid: null`로 배지 없이 줄만 보인다.
+  - 판정 배지가 있는 줄은 §18.12 한 줄 규칙을 따른다("막힌 지점"이 두 줄로 꺾이지 않게).
+  - 모드와 관계없이, 저장돼 있으면 보인다(실시간 화면도 모드와 무관하게 보인다). alternative 모드에도 저장할지는 데이터 계약(plan-agent)에서 정한다. design 권장은 두 모드 모두 저장이다.
+- **S5-V3 안내 줄은 대체 표시로 바꾼다.** 조건: `mode === "own"` 그리고 workLines가 없음(키 없음 또는 빈 배열 — Stage 5 이전에 저장된 행, 또는 저장 실패). 문구·타이포는 승인값 그대로("내가 쓴 풀이 줄은 저장되지 않아 여기에는 보이지 않아요.", Footnote 13/18, `text-label-primary`). 자리는 WorkLineList가 올 자리(h3 다음, 카드 앞)다. alternative 모드에서 workLines가 없으면 아무것도 두지 않는다.
+- WorkLineList 카드 라벨 "내가 쓴 풀이"(Caption 1 Semibold, label-primary)가 섹션 안 첫 보이는 텍스트라 resume만 있는 문제에서도 h3(sr-only) 없이 맥락이 선다.
+
+### 18.4 그림과 스테퍼 (Q4)
+
+- **단계 k는 결과별로 따로 둔다.** MyPage state `solveStep`, `resumeStep`(둘 다 `number | null`). solve 그림의 스테퍼는 solve 단계 블록만, resume 스테퍼는 resume 블록만 강조한다. 두 풀이는 단계 수와 내용이 다르므로 공유하면 "2단계"가 서로 다른 내용을 가리킨다. 같은 결과 안의 여러 그림은 §17.1대로 k를 공유한다.
+- **기본은 최종**(둘 다 null). 오버레이를 열 때, 다른 문제로 바꿀 때, 닫았다 다시 열 때 둘 다 null로 돌아간다(`selectedProblemId`가 바뀌는 렌더에서 조정, `useProblemHistoryDetail`의 prevProblemId 패턴과 같다).
+- 그림 카드, 캡션("그림"/"그림 1~3"), 스테퍼(표시 조건·버튼·포커스 이동·상태 텍스트)는 **§17.2·§17.4를 그대로 쓴다.** 스테퍼가 resume 그림에 붙는 조건도 같다(resume `solutionMd` 분할 성공 + 그 그림의 단계 정보).
+- **보드 폭**: 오버레이 720 − 대화상자 테두리 2(`border` 1px×2) − Body `px-5` 40 − 카드 `p-4` 32 = **보드 액자 646px(테두리 포함) / 그리기 영역 644px**(액자 `border` 1px×2 제외). 처음 명세의 648은 두 테두리를 빼지 않은 값이라 정정했다(재작업 1, design P2, 헤드리스 실측 644 — 장부 §8.12.4). 승인된 Extend 패널 보드(액자 674 / 그리기 672, §7.4 정정값)와 같은 구간이라 새 값이 아니다. 높이는 §7.3 내용 맞춤 [120, 360]px 그대로이고, 정사각형에 가까운 도형은 360 상한에 걸려 가로가 대칭 확장된다(Extend와 같은 모양).
+- **최소 폭 240px(S4-V2)** 은 그대로 둔다. 실제 표시 환경(가로 ≥1024px)에서 오버레이는 항상 720px라 최소 폭에 닿지 않는다. 가드에 덮인 세로·Split View에서만 §17.9 규칙이 적용된다.
+
+### 18.5 상태 (Q5)
+
+재조회에는 스트리밍이 없다. 저장된 도형은 상세 응답과 함께 한 번에 온다.
+
+| 응답 | 도형 슬롯 |
+|---|---|
+| `figures` 키 없음·빈 배열·웹 플래그 off | **슬롯을 렌더하지 않는다**(`figureContent = undefined`, `FigureSlot` 래퍼도 없음 → 기존 DOM). Stage 4 실시간 화면의 "표지가 있으면 빈 래퍼를 미리 둔다"(`null`) 규칙은 늦게 오는 그림 때문이라 재조회에는 쓰지 않는다 |
+| `figures` 1개 이상 | phase `"received"`로 `SolutionFigures`를 lazy 렌더. `FigureSlot` 래퍼는 그림과 같은 렌더에 생기지만, 청크를 받기 전에는 내용이 비어 있다가 채워진다. 래퍼가 내용보다 먼저 있으므로 §17.7 `aria-live="off"`가 지켜진다 |
+| JSXGraph 청크 대기 | §9 보드 상자 자리 + `Spinner "그림을 준비하는 중"`(기존). 상세 로딩 중에는 이미 `LoadingMark "풀이를 불러오는 중"`이 화면을 맡고 있다 |
+| 그림 하나 렌더 실패 | 그 카드 안 `FigureFallback`(§8) + description. 다른 그림과 풀이는 그대로 |
+| 청크 로드 실패(오프라인 등) | `FigureErrorBoundary fallback={null}` → 슬롯 내용 0, `FigureSlot`의 `-mt-3`으로 간격도 0. 문구 없음 |
+| `waiting`·`empty` 대기 줄 | 재조회에는 없다 |
+
+- "그림 없음"류 문구는 두지 않는다(§17.6과 같은 이유).
+- **보드 해제 시점**: ① 오버레이 닫기("목록으로"·Escape·배경 탭) → `HistoryDetailPanel` 언마운트 → 모든 `FigureView` 언마운트 → `freeBoard`. ② 다른 문제 행 선택 → detail이 null·loading으로 바뀌는 렌더에서 언마운트. ③ "다시 시도"(reload) → 같은 방식. ④ "다시 풀기" → 페이지 이동으로 언마운트. 오버레이를 연 상태에서 보드를 미리 만들거나 숨겨 두지 않는다. S5-9·RS8의 "10회 열고 닫기 후 board 0"이 이 규칙의 검사다.
+
+### 18.6 목록 배지 (Q6)
+
+- **Stage 5에서는 배지를 두지 않는다.** 목록 API를 바이트 동일로 두는 RS10과 충돌하고, 상세 오버레이를 열면 이어풀기 결과가 바로 보인다. 행 높이 78px(Figma 실측) 안 meta 행에는 이미 개념 태그 chip과 날짜가 있어 자리도 좁다.
+- 오너가 원하면 Stage 5 밖에서 `hasResume`을 목록에 더하고, meta 행에 기존 `Badge variant="outline" size="chip"` "이어풀기"를 날짜 앞에 두는 안을 권한다(새 variant·색 없음, 텍스트로 구분) → **오너 질문 Q-C**.
+
+### 18.7 입력과 접근성 (Q7)
+
+| 항목 | 명세 |
+|---|---|
+| 그림 위 터치 스크롤 | 읽기 모드 보드는 포인터·터치 이벤트를 받지 않는다(§11). 스크롤 컨테이너는 `ResultPanel` Body(`overflow-y-auto touch-pan-y`)라 그림·스테퍼 위에서 세로로 밀어도 오버레이 본문이 스크롤된다. 마이페이지에는 필기 캔버스가 없어 Pencil 충돌이 없다 |
+| 오버레이 높이 (**오너 승인, Stage 5 포함**) | `HistoryDetailPanel` 루트가 `fixed inset-0`이다. frontend.md §3-6은 iOS Safari에서 `inset: 0` 고정 요소가 실제 보이는 화면보다 커져 아래가 브라우저 막대에 가려지는 회귀 때문에 `h-dvh`를 쓰게 한다. 그림이 붙으면 오버레이가 거의 항상 최대 높이(`max-h-full`)까지 차므로 아래쪽(마지막 답·대화)이 가려질 가능성이 커진다. **`fixed inset-x-0 top-0 h-dvh`로 바꾸기를 권한다**(클래스만 변경, 픽셀값 없음). `HistoryDetailPanel.tsx`는 변경 금지 목록에 없다 → 계획 §4 추가 필요 |
+| VoiceOver 순서 | dialog "지난 풀이 다시 보기" → "목록으로" → h2 "풀이 결과" → 개념 배지 → 인식된 문제 + "다시 풀기" → 개념 → 단계별 풀이 → **그림 카드**(캡션 → 스테퍼 group → 그림 설명) → 최종 답 → h3 "이어풀기 결과" → 내가 쓴 풀이(또는 own 대체 안내) → 이어풀기 카드 → **그림 카드** → 최종 답 → 대화. 요구 순서 "결과 → 그림 → 답"을 두 결과 모두에서 지킨다. DOM 순서 = 읽기 순서이고 `order`·`tabindex` 양수를 쓰지 않는다 |
+| 라이브 영역 | `FigureSlot`(`aria-live="off"`)을 그대로 재사용한다. 스테퍼 상태 텍스트(`aria-live="polite"`)는 사용자가 누를 때만 바뀐다. resume 섹션 머리말·안내 줄은 라이브 영역이 아니다 |
+| 키보드 | Tab 순서: 목록으로 → 다시 풀기 → solve 스테퍼(이전·다음) → resume 스테퍼(이전·다음). Escape로 닫힌다(기존). 스테퍼에 전역 키 처리 없음 |
+| 포커스 (**오너 결정 Q-E: Stage 5 포함**) | §18.13 명세를 따른다 |
+| 터치 타깃 | 스테퍼 44px(`min-h-11`, §17.16). 기존 문제(P2): `RecognizedProblemBar`의 "다시 풀기"는 텍스트 링크라 높이가 18px다. 이번 범위에서 바꾸지 않고 기록만 한다 |
+| 세로·Split View | `ViewportGuard`가 덮는다. 덮여 있는 동안 오버레이와 보드는 마운트된 채 남고 §7.5·§17.9 규칙을 따른다. 가드가 걷히면 액자 646 / 그리기 644px로 다시 맞춘다 |
+| 대비 | 새 텍스트(머리말·안내 줄) 모두 `label-primary`. 나머지는 §17.16 그대로 |
+
+### 18.8 공용 컴포넌트 (Q8)
+
+- **`features/figure-visualization/LazySolutionFigures.tsx`로 옮기는 데 동의한다.** lazy `SolutionFigures` 정의, `import.meta.env.VITE_FIGURES_ENABLED` 분기, `FigureErrorBoundary` + `Suspense` 감싸기를 한 곳에 두고 `SolveLandscapePage`·`MyPage`가 함께 쓴다.
+- **의존 방향 주의**: 지금 페이지의 `figureSlotContent`는 `features/ai-solution/hasSolutionSteps`를 쓴다. figure-visualization으로 옮기면서 그대로 import하면 feature 간 참조 금지(frontend.md §1) 위반이다. **`validation`의 `splitSolutionSteps(...).ok`를 직접 쓴다**(`hasSolutionSteps`가 감싸는 함수와 같음).
+- MyPage는 §18.5 규칙(도형 없으면 `undefined`)이 필요하다. 함수 하나에 phase만 넘기면 `null` 래퍼 규칙이 섞이므로, 재조회용 진입점을 따로 둔다. 예: `savedFigureSlot(figures, solutionMd, step, onStepChange)` → 도형 0개면 `undefined`, 아니면 received 슬롯. 실시간 화면용 함수의 동작·DOM은 바꾸지 않는다(SolveLandscape DOM 무수정 기준).
+- `ResumeResultCard`·`SolutionFigures`·`FigureSlot`·`ElevatedCard`는 **수정 없이** 재사용한다. `WorkLineList`는 재조회에 그대로 재사용하되(오너 Q-A), §18.12 배지 클래스 추가만 필요하다(Q-F). `ResultPanel`만 §18.1 선택 prop 두 개가 필요하다.
+- 새 공통 UI 컴포넌트는 만들지 않는다. resume 섹션 머리말·안내 줄은 MyPage에서 한 번만 쓰는 조립이다(3회 반복 아님).
+- `docs/COMPONENT_MAP.md`: `SolutionFigures` 행의 "사용 화면"에 마이페이지 재조회를, `ResumeResultCard` 행에 마이페이지를 더하고, `LazySolutionFigures` 행을 새로 둔다.
+
+### 18.9 Stage 5 제안값 — S5-V1~V6 **오너 승인(2026-10-25)**, S5-V7~V10 오너 확인 필요
+
+모두 Figma 근거 없음. 기존 토큰·타이포·Tailwind 기본 스케일만 쓴다. 새 색·임의 px 없음.
+
+| # | 항목 | 제안값 | 위치 |
+|---|---|---|---|
+| S5-V1 | solve 답 배너와 resume 머리말 사이 | Body `gap-3` + 머리말 `pt-3` = **24px**(둘 다 있을 때만) | §18.2 |
+| S5-V2 | resume 머리말 | `<h3>` "이어풀기 결과", Subheadline Semibold 15/20 590, `text-label-primary`. resume만 있으면 `sr-only` | §18.2 |
+| S5-V3 | own 모드 대체 안내 줄 | "내가 쓴 풀이 줄은 저장되지 않아 여기에는 보이지 않아요." Footnote 13/18, `text-label-primary`. **own이고 workLines가 없는 행에서만**(오너 Q-A 결정으로 대체 표시로 바뀜) | §18.3 |
+| S5-V4 | 배치 순서 | solve → resume → 대화 기록, 탭 없음 | §18.1 |
+| S5-V5 | 단계 상태 | 결과별 k(`solveStep`/`resumeStep`), 기본 최종, 문제 전환·닫기 시 초기화 | §18.4 |
+| S5-V6 | 오버레이 높이 | `fixed inset-0` → `fixed inset-x-0 top-0 h-dvh`(규칙 준수 수정) | §18.7 |
+| S5-V7 | 한 줄 배치 규칙 | 라벨·배지·동작 버튼 `shrink-0 whitespace-nowrap`, 본문 `min-w-0 flex-1 wrap-anywhere`(새 px 없음, 오너 조건 이행) | §18.12 |
+| S5-V8 | RecognizedProblemBar 세로 정렬 | `items-center` → `items-start` + 본문·"다시 풀기" `pt-0.5`(**2px**, 첫 줄을 22px 배지 가운데에 맞춤) | §18.12 |
+| S5-V9 | 오버레이 열 때 포커스 | "목록으로" 버튼 | §18.13 |
+| S5-V10 | "다시 풀기"·"수정" 텍스트 링크 포커스 표시 | Button과 같은 `outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2` + `rounded-[6px]`(기존 radius) | §18.13 |
+
+재사용(새 값 아님): 오버레이 폭 `min(720px,100%)`(기존), 보드 액자 646 / 그리기 644px(파생, 재작업 1 정정 — 처음 648은 테두리 미반영), 보드 높이 [120, 360](P13), 최소 폭 240(S4-V2), 스테퍼 44px(S4-V3), 카드 gap(S4-V6·V7).
+
+### 18.10 오너 질문
+
+| # | 질문 | design 권장 |
+|---|---|---|
+| Q-A | own 모드 재조회에서 학생 풀이 줄 표시(workLines 저장) | **결정: Stage 5 포함**(오너). 화면은 §18.3, 계약은 plan-agent |
+| Q-B | 진단 저장 | **결정: 저장하지 않음**(오너, 권장안) |
+| Q-C | 목록 이어풀기 배지 | **결정: Stage 5 밖**(오너, 권장안) |
+| Q-D | 둘 다 있을 때 순서 | **결정: solve 먼저 고정**(오너, 권장안) |
+| Q-E | `h-dvh`와 포커스 관리 | **결정: 둘 다 Stage 5 포함**(오너). §18.7·§18.13 |
+| Q-F(신규) | `WorkLineList`는 계획 §4 "변경 금지(diff 0)" 목록에 있다. §18.12 한 줄 규칙을 "막힌 지점"·"확인" 배지에 적용하려면 이 파일에 클래스 두 개(`shrink-0 whitespace-nowrap`)를 더해야 한다. 금지 목록에서 이 변경만 풀어 줄까? | **풀어 준다.** 실시간 화면에도 같은 결함이 있고, 클래스 추가라 넓은 폭에서는 DOM 클래스만 바뀌고 모양은 같다 |
+
+### 18.11 사후 검수에서 볼 것
+
+- solve만 있는 상세의 DOM이 Stage 5 전과 같다(그림 없는 경우). resume만 있는 상세에 "저장된 풀이가 없는 문제예요"가 없다.
+- 둘 다 있을 때 h3이 보이고, 각 스테퍼가 자기 결과의 단계 블록만 강조한다.
+- 오버레이 10회 열고 닫기 후 board 0, 문제 전환 시 k가 최종으로 돌아온다.
+- 실기기(NOT VERIFIED로 분리): 그림 위 스와이프 스크롤, VoiceOver 순서(§18.7), 오버레이 아래쪽이 Safari 막대에 가려지지 않음.
+- (오너 결정 반영) "인식됨"·"다시 풀기"·"막힌 지점"이 두 줄로 꺾이지 않는다: 긴 문제 텍스트(공백 없는 긴 수식 포함)로 Default 패널(카드 안 346px)·오버레이(카드 안 646px)·RecognizedChip(400px)에서 확인.
+- own 모드 + workLines 있음 → WorkLineList(수정 링크 없음), 없음 → 대체 안내 줄. alternative + 없음 → 아무것도 없음.
+- 포커스: 열면 "목록으로", Escape·목록으로·배경 탭으로 닫으면 연 행의 상세 버튼, 열린 동안 Tab이 대화상자 밖으로 나가지 않음.
+
+### 18.12 한 줄 배치 규칙 (오너 조건, S5-V7·V8)
+
+**규칙: 짧은 라벨·배지·동작 버튼과 본문 텍스트가 한 행(flex row)에 있을 때, 라벨·배지·버튼은 절대 줄바꿈되거나 줄어들지 않는다. 남는 폭은 본문만 쓰고, 본문이 길면 본문 안에서만 줄바꿈(또는 그 컴포넌트에 이미 정해진 말줄임)한다.** 이 규칙은 컴포넌트에 들어가므로 실시간 풀이 화면과 마이페이지 재조회에 똑같이 적용된다.
+
+**원인(코드 확인)**: `Badge`의 기본 클래스(`inline-flex items-center justify-center leading-4`)에는 `shrink-0`·`whitespace-nowrap`이 없다. flex 항목의 최소 폭은 min-content인데, 한글은 글자 사이에서 줄을 바꿀 수 있어 "인식됨"의 min-content는 글자 하나 폭이다. 옆 본문이 `flex-1`이고 긴 텍스트라 기준 폭(max-content)이 크면, 남는 공간을 나눠 줄이는 과정에서 배지도 줄어 "인식/됨"처럼 꺾인다. "다시 풀기" 버튼은 이미 `shrink-0`이라 안전하다.
+
+`Badge` 기본값에 넣지 않는 이유: `SuggestionPill`(제안 질문)처럼 긴 문장을 담는 배지가 같은 컴포넌트를 쓴다. 기본값에 nowrap을 넣으면 그쪽이 넘친다. 그래서 **사용처에서 `className`으로** 준다(Badge가 이미 `className`을 받는다).
+
+| 대상 | 쓰이는 화면 | 적용 |
+|---|---|---|
+| `RecognizedProblemBar` "인식됨" 배지 | 실시간 풀이 결과(`ResultPanel`), 스트리밍 중 결과, 진단 분기(`SolveLandscapePage` 465·564행), 마이페이지 재조회(`ResultPanel`) — **같은 컴포넌트 1개** | 배지 `className="shrink-0 whitespace-nowrap"` |
+| `RecognizedProblemBar` 문제 텍스트 | 〃 | `min-w-0 flex-1` + 기존 `whitespace-pre-wrap` + **`wrap-anywhere`**(공백 없는 긴 수식도 본문 안에서 꺾임, FigureView 선례). **말줄임하지 않는다** — 재조회·결과 화면에서 문제 조건이 잘리면 안 된다. 여러 줄이 되면 본문만 길어진다 |
+| `RecognizedProblemBar` "다시 풀기"/"수정" | 〃 | 기존 `shrink-0`에 `whitespace-nowrap` 추가(공백이 있는 "다시 풀기"를 확실히 고정) |
+| `RecognizedProblemBar` 세로 정렬(S5-V8) | 〃 | 행 `items-center` → **`items-start`**. 본문이 여러 줄일 때 배지·버튼이 문단 가운데에 떠 보이는 문제를 막는다(`RecognizedChip`에서 오너가 iPad로 찾은 같은 결함, 같은 해법). 배지 높이 22px(16 + 위아래 3)와 본문 첫 줄 18px의 가운데를 맞추려고 본문과 버튼에 `pt-0.5`(2px)를 준다 — **새 값, 오너 확인 필요** |
+| `RecognizedChip`(필기 화면 인식 칩) "인식됨" | `/solve/pencilcanvas` 등 | 배지를 감싼 `div`(`mt-[1px]`)에 `shrink-0`, 배지에 `whitespace-nowrap`. 접힘 상태의 1줄 말줄임(오너 결정)은 그대로 |
+| `WorkLineList` "확인"/"막힌 지점" 배지 | 실시간 진단 화면, 마이페이지 재조회(Q-A) | 배지 `className="shrink-0 whitespace-nowrap"`. 줄 텍스트는 기존 `flex-1` + `wrap-anywhere`·`min-w-0` 추가. **이 파일은 계획상 diff 0 → 오너 질문 Q-F** |
+| `ResumeResultCard` 라벨 "이어풀기 · {모드}" | 단독 줄(행 안에 다른 요소 없음) | 해당 없음. 변경 없음 |
+
+**이전 시안·화면에서 두 줄이 될 수 있었던 곳**
+
+1. **보드 8·9(이번 Stage 5 시안)**: 인식 바의 "인식됨" `<span>`과 "다시 풀기" `<button>`에 `flex-shrink: 0`이 없고 옆 문제 텍스트가 `flex-grow: 1`이었다. 코드와 같은 구조라 긴 문제에서 꺾일 수 있었다. 배지 크기도 실제 `chip`(11px Regular, 7/3px, 모서리 6px)과 달랐다(12px Semibold로 그림). 보드 10에서 바로잡았다. 보드 8·9는 기록으로 남겨 두고 보드 10을 기준으로 한다.
+2. **실제 화면 — 실시간 풀이 결과 패널 Default 폭**: 카드 안 폭 346px(재작업 1 정정, §7.4)에서 배지·간격·"수정"을 빼면 본문이 약 250px다. 두 줄 이상인 문제(수능형 장문)는 거의 항상 본문 기준 폭이 커서 "인식됨"이 꺾일 조건이 된다. 마이페이지 오버레이(카드 안 646px)도 문제가 길면 같다.
+3. **실제 화면 — 진단 화면 `WorkLineList`**: 긴 줄 옆 "막힌 지점"(공백 포함 4글자)이 "막힌/지점"으로 꺾일 수 있다.
+4. 기존 보드 1~7은 인식 바가 없거나 짧은 예시라 해당 없음(수정하지 않음).
+
+검증(사후 검수): 긴 문제 텍스트·공백 없는 긴 수식 fixture로 배지의 렌더 높이가 한 줄 높이(22px)인지, 버튼 텍스트가 한 줄인지 본다. jsdom은 레이아웃을 계산하지 않으므로 헤드리스 브라우저 캡처로 확인한다.
+
+### 18.13 오버레이 포커스 관리 (오너 결정 Q-E, S5-V9·V10)
+
+| 항목 | 명세 |
+|---|---|
+| 열 때 | 대화상자가 마운트되면 **"목록으로" 버튼**에 포커스를 준다. VoiceOver는 대화상자 이름 "지난 풀이 다시 보기"와 버튼을 읽는다. 이 버튼은 상세 로딩·오류·성공 어느 상태에서도 같은 자리에 계속 있으므로, 상세가 도착해도 포커스가 사라지지 않는다(내용 영역만 바뀜). 내용 맨 위로 바로 보내지 않는 이유: 로딩 중엔 내용이 없고, 닫는 방법을 먼저 알려 준다 |
+| 닫을 때 | "목록으로"·Escape·배경 탭 모두 **오버레이를 연 그 행의 상세 버튼**(HistoryRow 안 `<button>`)으로 포커스를 돌린다. 구현 권장: `HistoryDetailPanel`이 마운트 시점의 `document.activeElement`를 기억했다가 언마운트 때 그 요소가 문서에 남아 있으면 `focus()`(feature 간 참조 없이 컴포넌트 안에서 끝남). 남아 있지 않으면(드묾) 목록 첫 행의 상세 버튼, 그것도 없으면 NavTabBar의 현재 탭 |
+| "다시 풀기"로 나갈 때 | 페이지 이동이라 복귀하지 않는다 |
+| 배경 inert | 열린 동안 MyPage의 `<header>`와 `<main>`에 `inert`를 준다(React 19.2 boolean prop). 이 두 요소는 페이지가 소유하므로 MyPage가 `selectedProblemId !== null`일 때 붙인다. 효과: Tab·VoiceOver 스와이프가 대화상자 밖 목록으로 나가지 않는다. 별도 JS 포커스 트랩은 두지 않는다(inert로 충분, 전역 keydown 추가 0 — Escape 처리는 기존 그대로) |
+| 시각적 포커스 표시 | 키보드 조작일 때만 보인다(`:focus-visible`). 열 때 스크립트로 준 포커스는 터치·클릭으로 열었으면 링이 안 보이고, 키보드(Enter)로 열었으면 보인다(브라우저 휴리스틱). 강제로 링을 띄우지 않는다. **"목록으로"**: Button 공용 `focus-visible:ring-2 ring-brand ring-offset-2`(기존). **복귀한 행 상세 버튼**: 기존 `focus-visible:ring-2 ring-brand ring-inset`. **스테퍼**: Button 공용(기존). **RecognizedProblemBar "다시 풀기"/"수정" 텍스트 링크**: 지금은 포커스 스타일이 없어 브라우저 기본 외곽선이 나온다 → Button과 같은 `outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2` + `rounded-[6px]`(기존 chip 모서리)로 통일(S5-V10). 링 색 brand는 유리 패널·흰 카드 위 5.2:1 이상(비텍스트 3:1 충족) |
+| 높이 | §18.7 `fixed inset-x-0 top-0 h-dvh`(S5-V6, 승인) |
+| 삭제 확인 Modal과의 관계 | 오버레이와 동시에 열리지 않는다. 변경 없음 |
+
+검증: 단위 테스트로 ① 열면 "목록으로"가 `document.activeElement`, ② 세 닫기 경로 모두 연 행 버튼으로 복귀, ③ 열린 동안 header·main에 `inert` 속성, 닫으면 제거. 실기기 VoiceOver 스와이프가 대화상자 밖으로 안 나가는지는 NOT VERIFIED로 분리.

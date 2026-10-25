@@ -12,12 +12,12 @@
 
 | 항목 | 값 |
 |---|---|
-| 현재 Stage | Stage 4 — 단계별 표시와 iPad 대응 |
-| 현재 역할 | stage-qa Stage 4 재검증(재작업 1/3) 완료(§7.18) → **PASS**(게이트 첫 실행 환경 플레이크 예외 기록, 실기기 12항목 NOT VERIFIED) |
-| 상태 | Stage 4 stage-qa **PASS**(§7.18): H-1 해소(Chromium·WebKit 직접 재현), P2-1 래퍼 선삽입·간격 상쇄 확인, L-B/L-C/L-D/L-F/L-H 확인. 루트 게이트 첫 실행에서 test가 **환경성 간헐 타임아웃으로 1회 실패**(Stage 4 코드 결함 근거 없음, 아래 §7.18.4). 신규 LOW 2건. 탐색 UI·초기화 버튼 미이행(D-1). 운영 플래그 off 유지 |
-| 재작업 | Stage 2: 1 / 3 (종료). Stage 3: 0 / 3 (종료). Stage 4: 1 / 3 |
-| 차단 요인 | 없음(실기기 iPad·VoiceOver 확인은 오너 몫, NOT VERIFIED) |
-| 다음 작업 | 오너: 계획 §7.5 실기기 12항목(플래그 on 전 필수). development-agent: LOW N-1·N-2 선택 처리, 게이트는 OneDrive 밖 복사본 실행 권장. 그 뒤 Stage 5 |
+| 현재 Stage | Stage 5 — 저장·CHAT 연동과 통합 QA |
+| 현재 역할 | stage-qa Stage 5 **재검증 완료**(§8.20, 2026-10-25) → 다음: development-agent 문서 보정(최종 보고 LOW 3건·FIGURE_DESIGN 348px 잔여) · 오너(마이그레이션 적용 후 실DB, 실기기) |
+| 상태 | **STAGE CONDITIONAL PASS — FIX REQUIRED**(§8.20): 1차 지적 전부 해소 확인(MEDIUM-1·LOW-1·2·3·4·6·7·10·design P2·P3), 구현·테스트 미해소 0. 남음: 최종 보고 문서 사실 오류 3건(LOW)·실DB BLOCKED·실기기 NOT VERIFIED·이월 MEDIUM-2(CAS 순서쌍). 게이트 안·밖(.env 없음) 첫 실행 통과. 운영 플래그 4종 off 유지 |
+| 재작업 | Stage 2: 1 / 3 (종료). Stage 3: 0 / 3 (종료). Stage 4: 1 / 3 (종료). Stage 5: **1 / 3** (재검증 통과, 문서 보정은 횟수에 넣지 않음) |
+| 차단 요인 | 마이그레이션 적용(오너)·실기기(오너) — BLOCKED/NOT VERIFIED로 분리 |
+| 다음 작업 | 문서 보정(§8.20.4·§8.20.5) → 오너: 마이그레이션 적용·실DB 확인·실기기 체크리스트 → 플래그 켜기(순서 `docs/DEPLOYMENT.md`) |
 
 ## 2. Stage 표
 
@@ -27,7 +27,7 @@
 | 2 | 검증기와 고정 fixture 렌더링(JSXGraph 설치) | plan → design → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md`, 오너 승인) | **PASS**(design 재검수 PASS + stage-qa 재검증 PASS §4.6, 실기기 미확인) · 후속 정리 완료(§4.7) | 1/3 |
 | 3 | 풀이 AI API 연결 | plan → dev → stage-qa (+design: 로딩·실패 UI 시) | 생략(화면 변경 없음, §6.3) | **PASS**(stage-qa §6.10, 실제 모델 보정 효과·텍스트 대표본은 이월 조건) | 0/3 |
 | 4 | 단계별 표시와 iPad 대응 | plan → design → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md` §17, 오너 승인) | **PASS**(stage-qa 재검증 §7.18, 게이트 환경 플레이크 예외, 실기기 미확인) | 1/3 |
-| 5 | 저장·CHAT 연동과 통합 QA | plan → design(필요시) → dev → stage-qa | 조건부 | 미착수 | — |
+| 5 | 저장·CHAT 연동과 통합 QA | plan → design(필요시) → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md` §18 사전 검토, WU7용) | **조건부 PASS**(재검증 §8.20: 1차 지적 전부 해소, 최종 보고 문서 LOW 3건 보정·실DB BLOCKED·실기기 NOT VERIFIED 남음) | 1/3 |
 
 ## 3. Stage 1 기록
 
@@ -1249,3 +1249,539 @@ HEAD worktree(`git worktree add --detach <dir> 74ddd3b` + `pnpm install --offlin
 | N-2 페이지 래퍼 사전 렌더 규칙 테스트 공백 | 코드 변경 없음. 신규 `apps/web/src/app/figuresSlotPrerender.integration.test.tsx`(실제 라우터 + Provider, 플래그 on): 표지 있음 → 도형 없이 스트림 종료(waiting → empty)해도 같은 `aria-live="off"` 래퍼 노드가 단계별 풀이와 최종 답 사이에 남고 자식 0 / 표지 없음 → 종료 뒤 래퍼 없음. 결과 패널은 done 뒤에만 보여 그때 phase가 이미 waiting이라, 페이지에서 관찰되는 "도형 단계 아님"은 `empty`(idle과 같은 `!active` 분기) | 변이: `if (!active) return undefined;`로 바꾸면 첫 테스트 실패, 복원 확인 |
 
 게이트(저장소 루트, **첫 실행**): typecheck 0, lint 0, test 0(api 810, web 1,159), build 0(메인 `index-c82YtCJj.js` 972,540B, precache 8). §7.18.4 플레이크 예외 적용 없음. 변경 금지 파일 diff 0.
+
+---
+
+## 8. Stage 5 — 저장·CHAT 연동과 통합 QA
+
+승인 계획: `.omc/plans/figures-stage5.md`. 이번 요청 범위는 **WU0~WU6(WU2b·WU3b 포함)**. WU7(마이페이지 화면)은 design 명세 뒤 별도 요청, WU8·WU8b·WU10·WU11은 다음 요청.
+
+### 8.1 WU 진행 상태 (development-agent, 2026-10-25)
+
+| WU | 상태 | 요약 |
+|---|---|---|
+| WU0 | 완료 | 변경 전 기준값 5종 캡처(아래 §8.2). 캡처는 코드 변경 전 작업 트리(HEAD 091ae2a와 코드 동일)에서 했다 |
+| WU1 | 완료 — 1차 요청에서는 원인 미확정·재현 0/N(§8.3), **2차 요청에서 원인 확정·수정(§8.13)** | supertest 서버가 외부 프로세스(VS Code helper)의 `127.0.0.1` 리스너와 포트가 겹쳐 요청이 외부 서버로 감. 테스트 하니스 결함 — `src/test-support/loopbackListen.ts`(vitest setup)로 수정 |
+| WU2 | 완료 | solutions 마이그레이션, `FIGURES_PERSIST_ENABLED`, 탐지·재탐지·쓰기 분기·키 없이 재시도·`saveSolutionFigures`·상세 재파싱 |
+| WU2b | 완료 | resume 마이그레이션, `RESUME_PERSIST_ENABLED`, `saveResumeSolution`·`saveResumeFigures`·상세 resume 별도 쿼리 |
+| WU3 | 완료 | 메모리 도형 연결(같은 결과 객체만), `resolveSolutionContext` 도형·출처, `streamFiguresPhase` 콜백, solve·resume 라우터 연결(resume는 done 직전 저장, verified만) |
+| WU3b | 완료 | `problemHistoryDetailSchema.resumeSolution`(선택, nullable 아님), 웹 problemHistory 테스트 |
+| WU4 | 완료 | `buildFigureChatSummary`·`buildFigureChatSummaries`·`stepStateAt`(validation 순수 함수), 상한·라벨 안전 |
+| WU5 | 완료 | `chatRequestSchema.figureContext`, 라우터 맥락·history 상한(on 전용), OpenAI user 메시지 그림 섹션 |
+| WU6 | 완료 | 웹 `sendChatMessage`·`useChatMessages`·Context 타입·`SolveLandscapePage`(보이는 결과의 단계 전달, 웹 플래그 on 전용) |
+| WU7 이후 | 미착수(범위 밖) | design §18 사전 검토는 별도 진행됨(`docs/FIGURE_DESIGN.md` §18, 이 요청에서 작성하지 않음) |
+
+### 8.2 WU0 기준값
+
+| 파일 | 내용 | 비교 테스트 |
+|---|---|---|
+| `apps/api/src/contracts/__baseline__/chatOff.baseline.json` | OpenAI chat 요청 본문(system+user) — history 0·3·30턴·긴 30턴(턴당 2,000자) × solve 맥락(M3)·resume 변환 맥락(H1) 8건, 라우터 `adapter.chat` 인자 JSON·응답 본문 6건 | `contracts/chatOff.baseline.test.ts` |
+| `apps/api/src/contracts/__baseline__/persistenceOff.baseline.json` | 실제 라우터 + 기본 저장소 + 메모리 가짜 Supabase: solve 완료 시 호출(solutions upsert payload·옵션), resume 완료 시 호출(**0건**)과 SSE, 상세(풀이 있음/없음/없는 문제) select 문자열·필터 순서·응답 본문, 목록 호출·응답, `createProblemRepository(client).saveSolution` 단독 payload | `contracts/persistenceOff.baseline.test.ts` |
+| `apps/web/src/features/follow-up-chat/__baseline__/chatRequest.baseline.json` | 실제 `useChatMessages` → 실제 `sendChatMessage` → fetch 스텁, 질문 3개의 URL 경로·method·헤더·본문 문자열(기준 URL origin은 기기별이라 캡처 직후 제거, 테스트도 경로만 비교) | `chatRequest.baseline.test.tsx` |
+| `apps/web/src/pages/mypage/__baseline__/myPageDetailDom.baseline.json` | 실제 `MyPage` + 라우터(API 모듈만 mock), 행 클릭 → dialog `outerHTML` 4건: 풀이+대화, 풀이만(개념 없음), 풀이 없음, 풀이에 저장 도형 키 있음(변경 전 웹은 무시) — WU7 비교 기준 | `myPageDetailDom.baseline.test.tsx` |
+| 기존 `figuresOff.baseline.*` | 수정 없음(diff 0) | 그대로 통과 |
+
+- 캡처 방법: api 두 파일은 `STAGE5_BASELINE_CAPTURE=1`일 때만 쓰는 분기가 남아 있고 **파일이 이미 있으면 캡처를 거부**한다. 웹 두 파일은 캡처 분기를 캡처 직후 제거했다(웹 tsconfig에 node 타입이 없음). 모두 다시 캡처하지 않는다.
+- 비교: 캡처 직후 HEAD 코드에서 비교 테스트 통과 확인 → 이후 모든 WU 뒤에도 통과.
+
+### 8.3 WU1 — chat.router.test "question 비면 400"이 404 (§7.18.4) 조사
+
+계측은 모두 scratchpad 복사본(`git archive HEAD` + `pnpm install --offline`, OneDrive 밖)에서 했다. 제품 트리 계측 코드 0.
+
+1. **코드 경로**: 라우트 체인은 `authenticate → rateLimiter → validateRequest(chatRequestSchema) → handler`. `question: ""`은 `z.string().trim().min(1)`에서 실패해 **핸들러 진입 전에 400**으로 끝난다. 404를 내는 곳은 핸들러 안의 `resolveSolutionContext`뿐이라, **공유 `inMemoryProblemStore`가 새거나 순서가 바뀌어도 이 요청은 404가 될 수 없다**. 이 요청이 404를 받으려면 응답이 이 앱의 체인에서 나오지 않았어야 한다(라우트가 없는 다른 앱/서버의 Express 기본 404 등).
+2. **저장소 격리**: vitest 기본 `isolate: true`(api `vitest.config.ts`는 바꾸지 않음) → 파일마다 모듈 인스턴스가 따로다. 파일 안에서는 `beforeEach`가 `clear()` 후 다시 채운다. 실측: chat.router.test 단독 `--sequence.shuffle` 시드 1~20 → **20/20 통과**, `src/modules` 전체를 단일 워커(`--no-file-parallelism`)·파일/테스트 순서 섞기로 10회 → **10/10 통과**.
+3. **계측 ①~③(§7.17.1)**: 복사본 전용 setup 파일로 (a) 모든 서버 응답에 프로세스·서버 일련번호 헤더를 붙이고, 클라이언트 응답마다 "방금 만든 그 서버의 응답인가"를 대조, (b) keep-alive 소켓 재사용, (c) 1초 넘는 테스트·실패 테스트의 CPU 사용량, (d) 파일별 이벤트 루프 지연(`monitorEventLoopDelay`)을 기록. **루트 게이트와 같은 동시 부하**(api 2벌 + web 1벌 동시 실행) 12라운드 = api 전체 24회·web 전체 12회, load average 최대 95: api 810/810 × 24, web 1,159/1,159 × 12 **전부 통과**, 다른 서버 응답 0, 소켓 재사용 0, 1초 넘는 테스트 0, 이벤트 루프 지연 최대 1,076ms.
+4. **같은 증상을 내는 환경 기제(실험으로 확인)**: macOS에서 `listen(0)`(`::`)은 **같은 프로세스 안**에 이미 `127.0.0.1:P`에 묶인 소켓이 있으면 그 포트 P를 받을 수 있고, supertest는 `127.0.0.1:P`로 접속하므로 요청이 그 다른 서버로 간다 — 실험에서 정확히 "404 FOREIGN"을 받았다. **다른 프로세스**가 `127.0.0.1:P`를 잡고 있으면 커널이 P를 건너뛰어 충돌하지 않았다(VS Code helper 등 외부 리스너 3개는 해당 없음, 외부 리스너 3,000개를 미리 잡아도 0건). api 테스트 코드에는 `127.0.0.1` 전용 리스너가 없다(grep) — **이 스위트에서 이 기제를 일으킬 요인은 찾지 못했다.**
+5. **판정: 원인 미확정, 재현 0/N(N = 동시 부하 api 전체 24회 + 순서 섞기 30회).** 결함 근거가 없어 코드는 고치지 않았다. Stage 5가 바꾼 chat 경로에는 새 테스트(`chat.router.figures.test.ts`)를 붙였고 기존 `chat.router.test.ts`는 수정하지 않았다.
+6. 부수 관찰: 저장소의 `node_modules/.pnpm/node_modules/`에 OneDrive가 만든 충돌 사본 2개(`@vitejs/plugin-react 2`, `@exodus/bytes 2`)와 클라우드 전용(dataless) 항목 1개(`@exodus/bytes`)가 있다. rsync가 이 dataless 항목을 읽다가 멈췄다(복사본은 `git archive`로 다시 만듦). 테스트 실패와의 관련은 확인하지 않았다 — 게이트 플레이크 가설(§7.17.4)의 추가 정황으로만 기록한다.
+7. 재발 시: 위 setup(서버 일련번호 헤더 대조)을 복사본에 다시 넣고 실패 실행의 `foreign-response` 기록 유무로 "다른 서버 응답"인지부터 가른다.
+
+### 8.4 변경 파일
+
+- DB(신규, **적용·연결하지 않음**): `supabase/migrations/20261025000000_solution_figures.sql`, `supabase/migrations/20261025000100_resume_solutions.sql`
+- api: `config/env.ts`(+`env.test.ts`), `.env.example`, `tsconfig.build.json`(`src/test-support/**` 빌드 제외), `infrastructure/persistence/problemRepository.ts`, `infrastructure/store/inMemoryProblemStore.ts`, `infrastructure/store/resolveSolutionContext.ts`, `infrastructure/ai/adapter.ts`(`ChatRequest.figureContext?`·`ChatFigureContext`), `infrastructure/ai/openai-adapter.ts`(`buildChatUserMessage` 그림 섹션), `modules/figures/streamFigures.ts`(`onAccepted`), `modules/solutions/solutions.router.ts`, `modules/resume/resume.router.ts`(`ResumeRouteOptions.resumePersistEnabled`), `modules/chat/chat.router.ts`(`ChatRouteOptions.figuresEnabled`), 신규 `modules/chat/chatContext.ts`(history 상한·도형 맥락 — 계획 §4에 없던 보조 파일, 라우터에서 분리)
+- api 테스트(신규): `test-support/fakeSupabase.ts`(메모리 가짜 PostgREST), `contracts/chatOff.baseline.test.ts`, `contracts/persistenceOff.baseline.test.ts`, `contracts/figureChatSummary.contract.test.ts`(+`__snapshots__`), `persistence/solutionFigures.persist.test.ts`, `persistence/resumeSolutions.persist.test.ts`, `store/inMemoryProblemStore.test.ts`, `modules/solutions/solutions.router.persist.test.ts`, `modules/resume/resume.router.persist.test.ts`, `modules/chat/chat.router.figures.test.ts`
+- validation·shared-types: `validation/src/index.ts`(`chatRequestSchema.figureContext`, `problemHistoryDetailSchema.resumeSolution`), `validation/src/figures.ts`(export), 신규 `validation/src/figures/chatSummary.ts`, `shared-types/src/index.ts`(`ChatFigureContextRequest`·`ChatFigureSummary` 등)
+- web: `shared/api/chatMessage.ts`(+test), `features/follow-up-chat/useChatMessages.ts`(+test), `features/problem-input/ProblemInputContext.ts`(타입만 — Provider는 훅 함수를 그대로 넘겨 변경 불필요), `pages/solve/landscape/SolveLandscapePage.tsx`, `shared/api/problemHistory.test.ts`
+- web 테스트(신규): `follow-up-chat/__baseline__/chatRequest.baseline.*`, `pages/mypage/__baseline__/myPageDetailDom.baseline.*`, `figure-visualization/stepStateParity.test.ts`, `app/figuresChatStep.integration.test.tsx`, `app/figuresChatStepOff.integration.test.tsx`
+- 변경 금지 파일(계획 §4 끝) diff 0. 기존 테스트 수정·삭제 0(기존 파일에는 테스트 추가만: `env.test.ts`·`chatMessage.test.ts`·`useChatMessages.test.tsx`·`problemHistory.test.ts`). 새 의존성 0. 실제 OpenAI 호출 0, 실제 Supabase 연결 0.
+
+### 8.5 설계 메모(구현 중 결정, 계획과 다른 점)
+
+- **run id 연결 방식**: 계획 §3.4의 `saveSolutionFigures({problemId, runId, …})` 대신 `saveSolutionFigures({problemId, solution, …})`. 기존 `problemRepository.test.ts`가 `saveSolution(...)`이 `undefined`로 resolve함을 단언하고, `solutions.router.figures.test.ts`·`figuresOff.baseline`이 `saveSolution` 인자를 `{problemId, solution}`과 정확히 같게 단언해 반환값·인자를 바꿀 수 없었다. 저장소가 텍스트 upsert 때 발급한 run id를 **그 실행의 결과 객체에 묶어(WeakMap)** 두고, 같은 객체로 온 도형만 `problem_id`·`figures_run_id` 조건 update를 한다. 이전 실행 객체의 늦은 쓰기는 이전 run id로 가서 0행이 된다. resume도 같은 방식.
+- **메모리 도형 연결**: `StoredProblem.solution` 객체를 바꾸지 않고 결과 객체 → 도형 WeakMap에 둔다(done payload·`setSolution` 객체 불변, 기존 테스트의 "저장소 solution에 figures 키 없음" 유지). 재풀이로 객체가 바뀌면 이전 도형은 조회되지 않는다.
+- **도형 저장 시점**: `event: figures`를 실제로 쓴 뒤에만 `onAccepted`가 불린다(끊김·수용 0이면 저장 0, S5-D9). 콜백(메모리 연결 → DB update)은 `res.end()` 전에 await한다(best-effort, throw는 삼키고 로그).
+- **resume 저장 조건**: 라우터 `resumePersistEnabled`(기본 env)가 off면 저장소 메서드 호출 자체가 0(RS1). on이어도 `verified !== true`면 라우터·저장소 모두에서 쓰기 0.
+- **resume `ai_provider`/`ai_model`**: 어댑터가 공급자·모델을 노출하지 않아 `toSolutionFromResume`과 같은 env 값(`AI_PROVIDER` 없으면 "openai", `AI_MODEL`)을 쓴다 — **결정 필요**.
+- **history 상한 세부**: 최근 12개 → 합계 8,000자 넘으면 오래된 것부터 버림, 마지막 1개만으로 넘으면 그 본문 앞 8,000자(임시값, S5-D5).
+- **CHAT JSON 블록**: 한 줄 JSON, 백틱은 ```으로 이스케이프해 설명·라벨이 코드 블록을 닫지 못하게 했다.
+- **알려진 한계(기록)**: PERSIST 플래그를 껐다가 다시 켜면, 꺼져 있던 동안 재풀이된 행은 도형 키 없이 텍스트만 덮어써져 이전 실행의 도형·run id가 남는다(계획 "off면 payload 바이트 동일"의 결과). 다시 켠 뒤 재조회하면 이전 도형이 새 텍스트와 함께 보일 수 있다 — 운영에서 PERSIST를 끄지 않고 유지하는 것을 권장(계획 §3.9 "유지해도 무해")하거나, 끄고 켤 때 해당 기간 행의 도형을 비우는 운영 절차가 필요하다(**결정 필요**).
+- **design §18과의 차이(차단 요인)**: 이 요청 도중 작성된 `docs/FIGURE_DESIGN.md` §18.3에 "오너 결정 Q-A: 학생 풀이 줄(workLines, 가능하면 줄별 판정)을 Stage 5에서 저장하고 재조회에 보인다, 데이터 계약은 plan-agent"가 있다. 승인 계획 §3.2의 `resume_solutions`에는 workLines 컬럼이 없고 이번 구현도 계획대로다. **WU7 전에 plan-agent가 계약(컬럼·payload·상세 키)을 정해야 한다.** 마이그레이션은 아직 적용 전이라 파일 수정으로 반영할 수 있다.
+
+### 8.6 수용 기준별 자체 결과 (development-agent 자체 검증 — QA 판정 아님)
+
+| AC | 자체 결과 | 근거 |
+|---|---|---|
+| S5-1 | 이번 범위 항목 충족(MyPage DOM은 WU7에서 비교) | 플래그 4종 off(테스트 env 기본): `figuresOff.baseline` 무수정 통과(solve·resume SSE·saveSolution 인자), `persistenceOff.baseline`(saveSolution payload·resume 저장소 호출 0·상세 select·응답·목록 응답), `chatOff.baseline`(OpenAI chat 요청·어댑터 인자), 웹 `chatRequest.baseline`·`figuresChatStepOff`(본문 바이트·`figureContext` 키 0). `myPageDetailDom.baseline`은 현재 코드에서 통과(WU7 미착수) |
+| S5-2 | 충족 | `solutionFigures.persist.test` "마이그레이션 전 + on"(42703·PGRST204 두 모드, 탐지 1회, 텍스트 저장, 도형 키 쓰기·읽기 0, 5분 재탐지, 롤백 시 키 없이 재시도, 상세 42703 시 기존 select로 재조회), `solutions.router.persist.test` S5-2(SSE 바이트 = 컬럼 있음) |
+| S5-3 | 충족(가짜 DB; 실DB 왕복은 적용 후 오너) | 저장 행 figures = SSE figures deep-equal, 메모리 = SSE, `GET /problems/:id` 도형 = SSE, 그 사이 `generateFigures`·`repairFigure` 호출 0 |
+| S5-4 | 충족 | 저장소 단위(run1 → run2 → run1 늦은 쓰기 0행) + 라우터 동시 요청(run1 도형 단계 대기 중 run2 완료 → run1 도형 도착: 메모리·DB·재조회 모두 run2) |
+| S5-5 | 서버 부분 충족, 웹 parse는 WU3b 범위까지 | 변조 13종(비배열 객체·문자열·숫자·컬럼 schemaVersion 2·null·도형 내부 schemaVersion 2·HTML 라벨·양방향 제어문자 라벨·17자 초과 라벨·허용 안 되는 수식 노드·요소 10,000개(<2초)·중점 순환 참조·없는 참조)에서 상세 성공·텍스트 유지·도형 키 0, 정상+변조 섞이면 정상만. 웹: 서버가 내보내는 모양(키 없음/검증 도형)은 `problemHistory.test`에서 parse 성공 |
+| S5-6 | 충족 | `chat.router.figures.test`: 단계 원문·풀이 발췌·k 기준 요약(서버 메모리 값만), 클라이언트가 보낸 `figures`·탐색 필드 무시, 잘못된 step 5종 400, 발췌 4,000·단계 1,000 상한, history 12개·8,000자 상한, 도형 없으면 `figureContext` 키 0. OpenAI user 메시지 섹션 순서·JSON 파싱 가능·인젝션 문자열은 JSON 한 줄 안에만(코드 블록 2줄 유지) |
+| S5-7 | 충족 | resume에만 도형이 있는 문제의 CHAT: resume 도형 요약·이어풀기 발췌·단계 원문. 메모리 단위 `inMemoryProblemStore.test` |
+| S5-8 | 충족 | CHAT 4회 뒤 메모리 도형 deep-equal·solution 객체 동일, 응답 키 `answerMd`만(`chatResponseSchema.strict()`), CHAT 경로에 DB 도형 쓰기 경로 없음(`saveChatTurn`만) |
+| S5-12 | 충족(저장·재조회 경로) | 악성 라벨·수식·과도한 요소는 재조회 재파싱(`parseSolutionFigures`)에서 거부(S5-5 표). 저장 경로는 SSE로 보낸 최종 재파싱 결과만 쓰므로 검증 밖 값이 DB로 가지 않음(라우터 테스트: 저장 행 = SSE). 요약 경로의 라벨 재확인(`figureChatSummary.contract` 라벨 안전) |
+| RS1 | 충족 | `resumePersistEnabled` off: 저장소 메서드 호출 0·Supabase 호출 0·SSE 바이트 = on(테이블 있음) |
+| RS2 | 충족 | PGRST205·42P01: 쓰기 0·throw 0, 상세 200·`resumeSolution` 키 없음, 탐지 1회·5분 재탐지, solutions 쿼리 영향 0, 탐지 뒤 테이블 사라지면 사용 불가로 되돌림. 라우터: SSE 정상·error 0 |
+| RS3 | 충족 | verified: done 쓰기 **전** upsert 1회(쓰기 순서 기록), 행 = done payload + ai·updated_at·도형 null·run id. verified=false: 쓰기 0·이전 행 유지 |
+| RS4 | 충족 | own → alternative: 행 1개 교체·도형 null·새 run id, 이전 실행의 늦은 도형 쓰기 0행 |
+| RS5 | 충족 | 도형 update 후 상세 `resumeSolution.figures` = SSE, 어댑터 호출 0, 변조 3종은 도형만 빠짐, 깨진 행·조회 오류·throw면 키만 빠짐 |
+| RS6 | 충족 | 키 없음 응답 parse·바이트 동일, 예전 웹 스키마(`omit resumeSolution`)도 새 응답 parse 성공, 행 없음이면 키 없음, `null`은 거부(서버는 생략) |
+| RS9 | 충족 | resume 저장 throw → done 전송·error 0, solve 도형 저장·메모리 연결 throw → done·figures 그대로·error 0 |
+| RS10 | 충족 | 목록 `GET /problems` 호출·응답 = WU0 기준값(`persistenceOff.baseline`), `listProblems` 코드 무변경 |
+
+이번 범위 밖: S5-9·S5-10·S5-11·S5-13 일부·S5-14·S5-15·RS7·RS8·S5-R·S5-D(WU7·WU8·WU8b·WU10·WU11 또는 오너).
+
+### 8.7 변이 시험(OneDrive 밖 복사본에서만, 매번 원복)
+
+| 변이 | 결과 |
+|---|---|
+| 도형 update에서 `.eq("figures_run_id", runId)` 제거 | 실패(S5-4 늦은 쓰기·update 조건 단언) |
+| resume 라우터 `resumePersistEnabled` 조건 제거 | 실패(RS1) |
+| chat 라우터가 `figuresEnabled`와 무관하게 맥락 구성 | 실패(off 인자 동일) |
+| 메모리 연결의 "같은 객체" 조건 제거 | 실패(재풀이 뒤 이전 실행 연결 무시) |
+| 저장소 `verified !== true` 가드 제거 | 실패(RS3 verified=false 쓰기 0) |
+| 페이지 `chatFigureContextArgs`가 플래그와 무관하게 `[{ step }]` | 실패(웹 off 인자) |
+| `streamFiguresPhase`가 보내지 않은 도형도 콜백에 넘김(`sent` 미설정 → 콜백 0으로 바뀌는 변이) | 실패(저장·연결 1회) |
+| CHAT JSON의 백틱 이스케이프 제거 | 처음엔 **생존**(코드 블록 줄 수만 봤음) → 테스트에 "JSON 줄에 백틱 0" 단언 추가 후 실패 확인 |
+
+### 8.8 게이트
+
+| 실행 | typecheck | lint | test | build |
+|---|---|---|---|---|
+| 저장소 루트(OneDrive) **첫 실행** | 0 | 0 | 0 — api 69 파일/931, web 112 파일/1,181 | 0 — 메인 `index-DA3gjFQy.js` 972,912B, JS 청크 1, precache 8(1021.58 KiB) |
+| OneDrive 밖 복사본(`git ls-files -co` 트리 + `pnpm install --offline`) 첫 실행 | 0 | 0 | 0 — api 931, web 1,181 | 0 — 같은 해시 `index-DA3gjFQy.js` |
+| 저장소 루트 2차(변이 시험 뒤 테스트 단언 1개 추가 후) | 0 | 0 | 0 — api 931, web 1,181 | 0 — 같은 해시 |
+
+- §7.18.4 예외 적용 없음(실패 0). 두 환경 결과 동일 — 이번에는 비교할 차이가 없었다.
+- off 빌드: 메인 번들 +372B(Stage 4 후속 972,540B 대비, CHAT 인자 분기). 커널 문자열(`dependency_not_visible`)·`JXG`·`jsxgraph`·`SolutionFigures`·`buildFigureChatSummary` 0.
+
+### 8.9 stage-qa 재현 방법
+
+- 기준값: `pnpm -F api exec vitest run src/contracts` · `pnpm -F web exec vitest run src/features/follow-up-chat/__baseline__ src/pages/mypage/__baseline__`
+- 영속: `pnpm -F api exec vitest run src/infrastructure/persistence src/infrastructure/store src/modules/solutions/solutions.router.persist.test.ts src/modules/resume/resume.router.persist.test.ts`
+- CHAT: `pnpm -F api exec vitest run src/modules/chat src/contracts/figureChatSummary.contract.test.ts` · `pnpm -F web exec vitest run src/app/figuresChatStep.integration.test.tsx src/app/figuresChatStepOff.integration.test.tsx src/features/figure-visualization/stepStateParity.test.ts`
+- 가짜 Supabase(`apps/api/src/test-support/fakeSupabase.ts`)는 `tablesFor({ figureColumns, resumeTable })`로 마이그레이션 전/후를 고른다. `setTables`로 테스트 중 적용·롤백을 흉내낸다.
+- WU1 계측 setup은 복사본 전용이었다(제품 트리에 없음). 같은 계측이 필요하면 §8.3의 설명대로 vitest `setupFiles`에 서버 일련번호 헤더 대조를 넣는다.
+
+### 8.10 진행 순서 메모
+
+WU0 캡처는 코드 변경 전에 했다. WU1 계측은 HEAD 복사본에서 진행했고, 계측 실행(백그라운드 부하 12라운드)이 도는 동안 제품 트리에서 WU2(마이그레이션 파일·저장소)를 시작했다 — 계측 대상은 HEAD 복사본이라 결과에 영향이 없다. 원인 미확정이라 WU1이 요구한 수정은 없다.
+
+### 8.11 남은 일·결정 필요
+
+- **차단(WU7 전)**: design §18.3 오너 결정 Q-A(workLines 저장)를 반영한 데이터 계약 — plan-agent. 마이그레이션 `20261025000100_resume_solutions.sql`에 컬럼이 필요하면 적용 전에 수정한다.
+- 결정 필요(임시값): 재탐지 5분(S5-D4), history 12개·8,000자(S5-D5), 발췌 4,000·단계 1,000·도형당 3,000·합계 6,000(S5-D6), resume `ai_provider`/`ai_model` 출처, PERSIST 끄고 켤 때 남는 이전 도형 처리(§8.5).
+- 오너: 마이그레이션 2종 적용(적용 전엔 S5-2·RS2로 보증), 적용 뒤 서버 재시작, RS7(cascade)·S5-3 실DB 왕복 확인.
+- 다음 요청: WU7(design §18 확정 뒤), WU8·WU8b(R3 실제 30회)·WU10(문서: FIGURE_SPEC §8·§10·§17, API_SPEC, PRD, DEPLOYMENT 플래그 4종 조합표, COMPONENT_MAP, PROJECT_STATUS)·WU11.
+
+---
+
+### 8.12 2차 요청(2026-10-25) — §12 보완·WU7a·WU7·WU8·WU8b·WU10·WU11
+
+#### 8.12.1 오케스트레이터 결정(기록)
+
+| 결정 | 처리 |
+|---|---|
+| resume 저장 행의 `ai_provider`/`ai_model`은 env 값 | 그대로(`resume.router.ts` `persistVerifiedResume` 주석). 어댑터가 공급자·모델을 노출하지 않음 |
+| PERSIST를 껐다 켜면 이전 도형이 남는 한계는 수용·문서화 | `docs/DEPLOYMENT.md`(환경변수 표·Stage 5 플래그 절)에 "한번 켜면 끄지 않는 것을 권장", `docs/FIGURE_SPEC.md` §10 |
+| 임시값 유지 + 코드 "결정 필요" 주석 | 재탐지 5분(`PERSIST_REDETECT_AFTER_MS`), history 12개·8,000자·발췌 4,000·단계 1,000(`chatContext.ts`), 도형당 3,000·합계 6,000(`chatSummary.ts`), workLines 50줄·500자·32KB(`RESUME_WORK_*`, 마이그레이션 주석) — 모두 "결정 필요" 주석 있음 |
+| run id를 WeakMap으로 묶는 방식 수용 | 근거(§8.5 첫 항목): 기존 `problemRepository.test.ts`가 `saveSolution`의 반환값 `undefined`를, `solutions.router.figures.test.ts`·`figuresOff.baseline`이 인자 `{problemId, solution}` 정확 일치를 단언 → 반환값·인자를 바꾸면 기존 테스트 완화가 필요. 실행 결과 객체를 키로 쓰면 시그니처 무변경 + "같은 실행의 도형만 같은 run id로" 가 자연히 성립(이전 실행 객체 → 이전 run id → 0행) |
+
+#### 8.12.2 §12 보완(WU2b·WU2c·WU3·WU3b)
+
+- 마이그레이션 `20261025000100_resume_solutions.sql` create table에 `work_lines jsonb`·`last_valid_line smallint`·`stall_line smallint` + check 3개(§12.1 그대로). 적용·연결 0.
+- 저장소: upsert에 세 컬럼 항상 포함(값이 없거나 검사 실패면 셋 다 null — 모드 변경 시 이전 줄이 남지 않게). 검사 `resumeWorkContextSchema`(validation, lineNo 1~999 정수·중복 없음·오름차순, latex ≤500자, ≤50줄, JSON ≤32KB UTF-8). 실패 로그는 issue code·path만, resume 쓰기 오류 로그는 DB 오류 code만(Postgres "Failing row contains" 문구에 줄 내용이 들어갈 수 있어서). 상세는 관대 파싱(실패 시 `workContext` 키만 생략). 탐지 쿼리 `select("id, work_lines").limit(0)`.
+- WU2c: `inMemoryProblemStore.diagnosedWorkLines`/`setDiagnosedWorkLines`, `diagnosis.router.ts` 진단 직후 1줄. resume 저장은 `diagnosedWorkLines ?? workLines`(lineNo 정렬). resume 프롬프트·priorWork는 기존처럼 인식 원본 `workLines` — `diagnosis.workLines.test.ts`가 진단 응답·resume SSE·resume 어댑터 요청·priorWork를 "새 줄 무력화 실행"과 문자열 비교로 확인.
+- WU3b: `problemHistoryDetailSchema.resumeSolution.workContext?`, `shared-types` `ResumeWorkContext`.
+- **Stage 5 내 기대값 수정 2건(내가 만든 테스트, §12 계약 추가 때문)**: `resumeSolutions.persist.test.ts` RS3 payload 단언에 `work_lines/last_valid_line/stall_line: null` 추가, 상세 select 문자열에 work 컬럼 3개 추가.
+
+#### 8.12.3 WU7a·WU7(화면)
+
+- `HistoryDetailPanel`: 루트 `fixed inset-x-0 top-0 h-dvh`. 첫 렌더에서 `document.activeElement`를 잡아 두고 마운트 시 "목록으로"에 포커스, 언마운트(닫기 3경로 모두) **passive effect 정리 단계**에서 복귀 — 같은 커밋에서 MyPage가 배경 `inert`를 걷어낸 뒤라야 포커스가 막히지 않는다(layout 정리 단계는 inert 제거보다 먼저 돈다). 잡아 둔 요소가 사라졌거나 `body`(Safari는 버튼 클릭에 포커스를 주지 않음)면 `getFallbackFocus`(MyPage: 연 행 상세 버튼 → 목록 첫 행 → NavTabBar 현재 탭). JS 트랩·전역 keydown 추가 0.
+- MyPage: `header`·`main`에 `inert={selectedProblemId !== null}`. 상세 조립: `ResultPanel`에 `resumeContent`(새 prop, 답 다음·대화 앞)와 `answerMd: string | null`(null이면 AnswerBox 없음). resume 섹션 = `<section aria-labelledby>` h3 "이어풀기 결과"(solve 있을 때만 보임 + `pt-3`, 아니면 `sr-only`) → WorkLineList(읽기 전용, `deriveWorkLineJudgments(workContext.lines, workContext)`) 또는 own + workContext 없음이면 S5-V3 문구 → ResumeResultCard(무수정, `currentStep=resumeStep`, `figureContent=savedFigureSlot(...)`). 단계 state 결과별(`solveStep`·`resumeStep`), 문제 전환·닫기 시 최종.
+- `LazySolutionFigures`: 페이지의 `figureSlotContent`·lazy 정의를 옮김(`splitSolutionSteps(...).ok` 직접 사용) + 재조회 `savedFigureSlot`(도형 0이면 `undefined`). 지연 청크 진입점은 `lazyEntry.ts` 하나. `SavedSolutionFigures`는 렌더러와 같은 `parseFigureSpec`로 원소를 다시 확인(figureId 중복 제거, 최대 3).
+  - **번들 함정(발견·수정)**: 처음엔 `SavedSolutionFigures`가 `validation`의 `parseSolutionFigures`를 불렀는데, 이 함수가 메인 번들도 쓰는 모듈(`figures.ts`)에 있어 on 빌드에서 검증 커널이 메인이 정적으로 불러오는 공통 청크(`FigureErrorBoundary-*`)로 옮겨졌다(`dependency_not_visible` 1 — HEAD·WU6 상태 on 빌드는 지연 청크에만). `parseFigureSpec`로 바꾼 뒤 커널은 `lazyEntry-*` 청크에만(§8.15).
+- 한 줄 배치(S5-V7·V8·V10): `RecognizedProblemBar`(행 `items-start`, 배지 `shrink-0 whitespace-nowrap`, 본문 `min-w-0 pt-0.5 wrap-anywhere`, 버튼 `whitespace-nowrap pt-0.5` + 포커스 링 `outline-none focus-visible:ring-2 ring-brand ring-offset-2 rounded-[6px]`), `RecognizedChip`(배지 래퍼 `shrink-0`, 배지 `whitespace-nowrap`), `WorkLineList`(판정 배지 2곳에 `shrink-0 whitespace-nowrap`만 — diff 2줄). `deriveWorkLineJudgments`는 매개변수 타입만 `Pick`으로 넓힘.
+- **WU0 DOM 기준값 차이 처리(사유 기록)**: `resultDom.baseline`(Stage 4 WU0)·`myPageDetailDom.baseline`(Stage 5 WU0)·`elevatedCardUsage.test`가 RecognizedProblemBar 클래스 변경으로 실패 → diff를 확인하니 **차이가 S5-V7·V8·V10 클래스 토큰뿐**(카드 `items-center`→`items-start`, 배지 +2, 본문 +3, 버튼 +7). 기준값 JSON은 고치지 않고 `src/test/stage5OneLineDelta.ts`가 비교 직전 **기준값 쪽 그 노드에만** 승인 토큰 증감을 적용 — 그 밖의 태그·속성·텍스트·토큰이 하나라도 다르면 여전히 실패. `elevatedCardUsage`의 RecognizedProblemBar 기대 토큰은 `items-start`로 바꿈(주석). MyPage 기준값 비교는 class 토큰 순서만 무시(resultDom과 같은 방식)하게 바꿈. 실시간 화면 기존 통합 테스트는 수정 0으로 통과.
+
+#### 8.12.4 WU8 통합 QA
+
+- 서버 왕복 `apps/api/src/contracts/figuresStage5.integration.test.ts`(73 테스트): 테스트 전용 stub 어댑터(fake-adapter 무변경)로 사례 1~9 × 컬럼 있음/없음: SSE figures = 서버 재파싱 기대값, 메모리 = SSE, DB 행 = SSE(컬럼 있음)·도형 키 0(없음), 상세 parse(웹 스키마) = SSE, 상세 동안 생성 호출 0, CHAT k = null·1·2·3에서 어댑터가 받은 요약의 점 좌표 = fixture 손 계산값 + 사례별 독립 사실(F01 각 45° 제약, F02 H·CH⊥AB, F04 OM·AB 내적 0, F05 외적 부호 반대, F07 V·근, F08 점근선 요소, F09 k별 강조·숨김), CHAT 뒤 도형 불변. 사례 10 = F10a~j + F11a~ad **37건**: `validateFigureCandidate`가 fixture의 code·path로 거부, done 있음·figures·error 0, 텍스트 저장·도형 null·update 0, 상세 키 없음, CHAT `figureContext` 없음. resume 대표(F09): SSE → 메모리 → resume_solutions → 상세(`workContext` 포함) → CHAT 요약.
+- 웹 렌더 좌표 `apps/web/src/features/figure-visualization/stage5Cases.render.test.ts`(**실제 JSXGraph**, 648px 보드): 서버 재파싱 → 상세 parse → 다시 검증 → 장면 → 보드, 그려진 SVG 점 중심을 보드 좌표로 되돌린 값 = 손 계산값(소수 둘째 자리), 각도는 그려진 세 점으로 atan2 독립 계산(F01 45°, F02 90°, F05 OT⊥TP 90°), F04 내적 0, F05 외적 부호, F08 곡선 조각 2, F09 k=1·2·3·최종 라벨 표시.
+- 헤드리스(`.omc/research/figures-stage5-headless/{server.mts,run.mjs}`, 결과 `out/stage5.json`, 캡처 `out/shots/`, **물리 iPad 아님**): Playwright 1.63 Chromium·WebKit, hasTouch, 1194×834. 서버는 저장소 라우터 조립 + 메모리 가짜 PostgREST(마이그레이션 2종 적용 상태) + 가짜 Supabase 인증(HTTPS 54398), 긴 문제·긴 학생 줄·3번째 줄 오류 CAS. 웹 vite 5199(플래그 on). 오너 dev 서버(5173·4000·8000)는 건드리지 않음.
+
+| 항목 | Chromium | WebKit |
+|---|---|---|
+| "인식됨" 배지(결과 패널, 카드 안 346px, 본문 6~7줄) | 1줄·22px | 1줄·22px |
+| "수정" 버튼(결과 패널·진단 화면) | 1줄 | 1줄 |
+| "인식됨"(RecognizedChip, 필기 화면) | 1줄·20px | 1줄·20px |
+| "막힌 지점"·"확인"(진단 화면 WorkLineList, 긴 줄) | 1줄 | 1줄 |
+| 오버레이(카드 안 646px) "인식됨"·"다시 풀기" | 1줄 | 1줄 |
+| 마이페이지 resume만: "저장된 풀이가 없는 문제예요" 없음 · h3 sr-only · 학생 줄 · "막힌 지점" 1줄 · "확인" 2 · "수정" 링크 0 | 충족 | 충족 |
+| 열 때 포커스 "목록으로", header·main inert | 충족 | 충족 |
+| 닫기 3경로(목록으로·Escape·배경) → 연 행 상세 버튼 복귀·inert 해제 | 3/3 | 3/3 |
+| Tab 20회 동안 대화상자 밖(배경) 포커스 | 0 (대화상자 15·문서 끝 body 5) | 0 (WebKit 기본 설정은 Tab이 버튼에 가지 않아 body 20 — 버튼 순환은 실기기 확인 필요) |
+| `h-dvh`: 높이 834 → 500 → 834에서 오버레이 루트 높이 | 834 → 500 → 834, 대화상자 아래끝 ≤ 500 | 같음 |
+| 같은 단계 = 같은 그림(solve 그림, 최종→3→2 vs 1→2, 보이는 요소 속성) | 같음, k=1과는 다름 | 같음 |
+| 오버레이 10회 열고 닫기(3경로 섞음) — 열린 동안 보드/닫은 뒤 보드 | 1/0 × 10, 최종 0 | 1/0 × 10, 최종 0 |
+| CHAT: 스테퍼 2단계에서 질문 → 서버가 받은 본문 | `{question, history, figureContext:{step:2}}` | 같음 |
+| 콘솔 오류 | 기존 suggestions 400 1건(resume 문제, Stage 4 헤드리스에도 있던 동작)만 | 같음 |
+
+- 관찰(LOW, 기존 렌더러 동작): 강조된 적 없는 숨김 언더레이(`-u`)는 처음 기본 stroke를 갖고 있다가 한 번 강조된 뒤엔 언더레이 색을 유지한다 — `display:none`이라 화면 차이 0. 그래서 스냅샷 비교는 보이는 요소만(숨김 여부는 비교). 보드 폭은 설계 파생값 648이 아니라 **644px**(오버레이 테두리 1px·카드 테두리 등) — 새 값을 만든 것이 아니라 파생 계산 차이(design 확인 필요).
+- 하니스 경로 버그 수정: Stage 4 `run.mjs`의 `new URL("./out/", import.meta.url).pathname`은 한글 경로를 %인코딩해 `~/Library/CloudStorage/OneDrive-%E1…` 폴더를 만든다(§7.18.5에서 QA가 찾던 그 폴더). Stage 5 `run.mjs`도 처음엔 같은 코드라 그 폴더를 만들었고(내용은 Stage 5 출력뿐, 생성 12:09), 출력은 올바른 위치로 옮기고 그 폴더는 지웠다. `fileURLToPath`로 고침. Stage 4 `run.mjs`는 고치지 않았다(기록).
+
+#### 8.12.5 WU8b — R3 실제 호출(오너 승인), 결과 `.omc/research/figures-stage5-textcheck.json`
+
+스크립트 `apps/api/scripts/evalTextMarkers.ts`(게이트 밖). 먼저 `EVAL_DRY_RUN=1`(Fake, 비용 0, `figures-stage5-textcheck.dryrun.json`). 실제: 모델 `gpt-5.6-terra`, 2026-10-25, **어댑터 호출 30/30**(하드 카운터 30, 요청별 `maxRetries: 0`·30초), 실패 0, **도형 호출 0**, 재실행 0. 로컬 CAS(127.0.0.1:8000) 실제 검증. 키 문자열·`sk-` 결과 파일·로그 grep 0. off 대조군 없음.
+
+| 지표 | 결과(비율은 Wilson 95% CI) |
+|---|---|
+| solve 20: 개념 JSON 위치 | 맨 끝 20 / `## 최종 답` 바로 아래 0 / 중간 0 / 없음 0 |
+| conceptTags 파싱 | 20/20 (0.839~1) |
+| answerMd 빈 값·혼입(`concept_tags`·`{"`·`**N단계**`) | 0 · 0 |
+| D-4 폴백(boxed·empty) | 0 · 0 |
+| 단계 분할 성공 | 19/20 (0.764~0.991) — 실패 1 = X4(그림 없는 "그림과 같이" 문제, `no_markers`) |
+| `## 풀이` 있음 | 20/20 |
+| 파서 정상화 효과(74ddd3b 파서 실패 → 현재 정상) | 0건(이 표본에서는 이전 파서도 실패 0) |
+| resume 10(own 5·alt 5): 최종 답 순수 LaTeX | 10/10 (0.722~1) |
+| resume CAS verified | 8/10 (0.49~0.943) — 미통과 2 = 좌표쌍 답 `(2,2)`·`(1,3)`(기대값과 수학적으로 같음, CAS가 순서쌍을 비교 못 하는 것으로 보임 → 이런 결과는 저장되지 않는다, §8.16) |
+| resume 단계 분할 | 10/10 |
+| 지연(호출 1회 전체) | p50 3,836ms · p95 5,742ms · 최대 5,997ms |
+| 토큰(30회 합) | 입력 18,282 · 출력 13,096 |
+
+R1(CHAT 도형 맥락 실평가)·R2(22건 재평가): **NOT RUN — 오너 미승인**.
+
+#### 8.12.6 WU10 측정(`.omc/research/figures-stage5-report/`)
+
+- 상세 조회 서버 파싱(도형 3 × 요소 60, 로컬 300회): `parseSolutionFigures` p50 0.361ms·p95 0.445ms, `getProblemDetail` 전체(가짜 DB) p50 0.356ms·p95 0.413ms. **원본은 `measure.json`**(재작업 1, QA LOW-3 정정 — 처음 적은 0.388/0.467·0.406/0.499는 스크립트 정리 전 첫 실행 값이었고, 파일은 정리 후 재실행 값으로 덮였다. 행 바이트·CHAT 문자 수는 결정적이라 두 실행이 같다).
+- 행당 도형 JSON 바이트: F01 955 · F02 1,497 · F03 1,280 · F04 1,361 · F05 1,686 · F06 792 · F07 1,112 · F08 919 · F09 1,850 · 3×60 상한 근처 18,667.
+- CHAT user 메시지 문자 수(on/off, 단계 2, 빈 history): off 60자 기준 on +686(F08)~+1,777(F09), 도형 없음 +0.
+- 번들: off 빌드 메인 `index-Cor4xjlb.js` 976,028B(HEAD 972,540B 대비 +3,488B), JS 청크 1, precache 8, 커널·JXG·jsxgraph·SolutionFigures·lazyEntry 문자열 0, `sw.js` CacheFirst 0. on 빌드: 메인 886,293B(커널 0), 공통 `FigureErrorBoundary-*` 90,131B(커널 0), `lazyEntry-*` 51,895B(커널 여기만), `jsxgraph-*` 1,040,973B, precache 12.
+- 최종 JSON 예시(F09, 실제 코드 생성): `f09-examples.json` — SSE figures 이벤트, solutions 행 도형 4컬럼, GET 상세, CHAT user 메시지 그림 섹션. SSE = DB = 상세 확인.
+
+### 8.13 WU1 원인 확정·수정(2차 요청)
+
+- 재현: 게이트 2차(OneDrive) test에서 새 통합 테스트 F11s가 5초 타임아웃, 이어서 같은 파일 6개 동시 실행 24회 중 2회가 **401·404 단언 실패**(F09·F02, 정상이면 200). 복사본에서 §8.3 계측(서버 일련번호 헤더 대조)을 붙여 30회 동시 실행 → 실패 1건 포착: `port 49316, status 401, foreignTag null`(우리 테스트 서버의 응답이 아님).
+- 49316은 VS Code helper(PID 1228)가 `127.0.0.1:49316`에 묶은 리스너다(조사 첫날 `lsof`로 본 3개 중 하나). 결정적 확인: `listen(49316)`(supertest 방식, `::`) **성공** → `127.0.0.1:49316` 요청이 외부 서버의 `401 authentication_error`를 받음, `listen(49316, "127.0.0.1")`은 **EADDRINUSE**. 1차 요청 때의 "다른 프로세스면 커널이 건너뛴다" 실험은 Node가 만든 리스너(SO_REUSEADDR)로 한 것이라 VS Code helper 경우와 달랐다(1차 판단 정정).
+- 판정: **테스트 하니스 결함.** supertest가 `app.listen(0)`(`::`)으로 띄우고 `127.0.0.1`로 접속하는데, macOS가 외부 프로세스의 127.0.0.1 전용 리스너와 같은 포트를 내줄 수 있다 → 요청이 외부 서버로 가서 401·404(§7.18.4 chat 404, 56ms)를 받거나 응답이 없어 타임아웃. Stage 4의 api 5초 타임아웃들(work 라우터·figures throw)도 같은 기제와 맞지만 개별 증명은 못 했다(웹 jsdom의 6초대 집단 타임아웃은 다른 현상 — 소켓 없음).
+- 수정: `apps/api/src/test-support/loopbackListen.ts`(vitest `setupFiles`, `apps/api/vitest.config.ts`): supertest가 서버를 직접 띄우는 경우만 `listen(0, "127.0.0.1")`로 묶고(같은 주소면 커널이 충돌을 감지해 다른 포트를 줌), 호스트 지정 listen이 비동기라 listening 뒤 URL을 정해 `end`를 잇는다. 제품 코드·기존 테스트 무변경.
+- 검증: 수정 후 같은 동시 실행 48회 **실패 0**, 모든 리스너 127.0.0.1(12,960건), VS Code helper 포트 배정 0. 수정 전 같은 조건 54회 중 3회 실패.
+- 남은 범위: `app.listen(0)` + `http.request({ port })`(호스트 기본 localhost)를 쓰는 테스트 4곳은 그대로(`::` + ::1/127.0.0.1 자동 선택) — 외부 IPv6 루프백 리스너가 생기면 같은 부류가 다시 가능하다(기록).
+
+### 8.14 변경 파일(2차 요청 추가분)
+
+- DB: `supabase/migrations/20261025000100_resume_solutions.sql`(work 컬럼·제약 추가, 미적용)
+- api: `infrastructure/persistence/problemRepository.ts`(workContext·탐지·로그), `infrastructure/store/inMemoryProblemStore.ts`(`diagnosedWorkLines`), `modules/diagnosis/diagnosis.router.ts`(1줄), `modules/resume/resume.router.ts`(workContext), `vitest.config.ts`(setupFiles), 신규 `src/test-support/loopbackListen.ts`, `test-support/fakeSupabase.ts`(work 컬럼·행 check), 신규 테스트 `contracts/figuresStage5.integration.test.ts`·`modules/diagnosis/diagnosis.workLines.test.ts`, 추가 테스트(`resumeSolutions.persist.test.ts` RS11, `resume.router.persist.test.ts` RS11), 신규 `scripts/evalTextMarkers.ts`(게이트 밖)
+- validation·shared-types: `resumeWorkContextSchema`·`RESUME_WORK_*`, detail `workContext`, `ResumeWorkContext`
+- web: `features/learning-history/HistoryDetailPanel.tsx`(+test), `features/ai-solution/{ResultPanel.tsx(+test), RecognizedProblemBar.tsx, WorkLineList.tsx(배지 2곳 클래스만)}`, `features/solve-session/RecognizedChip.tsx`, `features/figure-visualization/{LazySolutionFigures.tsx, SavedSolutionFigures.tsx, lazyEntry.ts}`(신규), `shared/lib/solve/deriveWorkLineJudgments.ts`(타입), `pages/mypage/MyPage.tsx`, `pages/solve/landscape/SolveLandscapePage.tsx`(lazy 정의 이동), 신규 테스트 `pages/mypage/{MyPage.stage5.test.tsx, MyPage.figures.test.tsx}`·`features/figure-visualization/stage5Cases.render.test.ts`·`test/stage5OneLineDelta.ts`, 기준값 비교 조정(`resultDom.baseline.test.tsx`·`myPageDetailDom.baseline.test.tsx`·`elevatedCardUsage.test.tsx` — §8.12.3 사유), `shared/api/problemHistory.test.ts`(workContext)
+- 문서: `FIGURE_SPEC.md`(§8 버전 구조·§10 저장·§17 CHAT), `API_SPEC.md`(Stage 5 추가), `DEPLOYMENT.md`(PERSIST 2종·4종 조합표·켜는 순서·끄지 않기 권장), `PRD_WHYMATH.md`(FIG-12·13), `COMPONENT_MAP.md`(LazySolutionFigures·사용처), `PROJECT_STATUS.md`, 이 장부. `FIGURE_DESIGN.md` §18은 design-agent 작성분(수정하지 않음).
+- 연구 산출물: `.omc/research/figures-stage5-headless/`, `.omc/research/figures-stage5-r3/parseSolveOutput.74ddd3b.ts`(비교용 이전 파서 사본), `.omc/research/figures-stage5-textcheck{,.dryrun}.json`, `.omc/research/figures-stage5-report/{measure.mts,measure.json,f09-examples.mts,f09-examples.json}`
+- 변경 금지(계획 §4 + §12.7) diff 0: `WorkLineList.tsx`는 허용된 클래스 2개만, `diagnosis.router.ts`는 허용된 1줄만. `ResumeResultCard`·`DiagnosisCard`·`Modal`·`button/*`·`work.router`·`cas/*`·`parseResumeOutput`·`parseSolveOutput`·`prompts/*`·`figuresJsonSchema`·`figuresOff.baseline.*`·drawing-canvas·`shared/lib/canvas`·`shared/styles`·`ChatFooter`·`ChatBubble`·`SolutionFigures.tsx`·`render.yaml`·package.json·락 0. 새 의존성 0. `node_modules`의 OneDrive 충돌 사본·dataless 항목은 건드리지 않음.
+
+### 8.15 수용 기준 자체 결과 — Stage 5 전체(development-agent 자체 검증, **QA 판정 아님**)
+
+| AC | 자체 결과 | 근거(테스트·헤드리스) |
+|---|---|---|
+| S5-1 | 충족 | 플래그 4종 off(테스트 기본): `figuresOff.baseline` 무수정, `persistenceOff`·`chatOff`·`chatRequest` 기준값, `figuresChatStepOff`, MyPage DOM 기준값(승인 클래스 증감만 적용, §8.12.3) |
+| S5-2 | 충족 | §8.6 |
+| S5-3 | 가짜 DB 충족(실DB는 적용 후 오너) | §8.6 + 통합 하니스 사례 1~9(컬럼 있음) + `f09-examples.json` |
+| S5-4 | 충족 | §8.6 |
+| S5-5 | 충족 | 서버 변조 13종 + workContext 변조 6종, 웹 parse(`problemHistory.test`), MyPage 변조 도형 → 카드 0·보드 0(`MyPage.figures.test`) |
+| S5-6 | 충족 | §8.6 + 헤드리스 CHAT 본문 `{step:2}` |
+| S5-7 | 충족 | §8.6 + 통합 하니스 resume 대표 |
+| S5-8 | 충족 | §8.6 + 통합 하니스(CHAT 4회 뒤 메모리·DB 도형 불변) |
+| S5-9 | A·H 충족, D 미확인 | `MyPage.figures.test`(기본 최종·10회 후 보드 0·문제 전환 시 최종), 헤드리스(같은 k 같은 그림·10회 후 JXG 보드 0, 콘솔 오류는 기존 suggestions 400만) |
+| S5-10 | A·H 충족 | jsdom: solve+resume 그림 2 = 보드 2, 닫으면 0. 헤드리스: 열린 동안 1(그림 1), 닫으면 0. StrictMode 중복 0은 기존 `FigureView.test`(Stage 2) |
+| S5-11 | 충족(QA 독립 재계산 전) | 통합 하니스 73 + 웹 렌더 좌표 10 |
+| S5-12 | 충족 | §8.6 + 사례 10(37건) |
+| S5-13 | 충족 | 기존 테스트 수정은 §8.12.3의 기준값 비교 3곳(승인 클래스 증감)뿐, 실시간 통합 테스트 무수정 통과. 필기 회귀 통합 테스트 통과 |
+| S5-14 | 충족 | 웹 off → MyPage DOM 기준값(도형 키 있는 행 포함) 동일, 웹 on이어도 도형 없는 행 DOM 동일(`MyPage.figures.test`) |
+| S5-15 | 충족 | off 빌드 커널·JXG 0, on 빌드 커널은 `lazyEntry` 청크에만(메인·정적 공통 청크 0) — §8.12.6 |
+| RS1~RS6, RS9, RS10 | 충족 | §8.6 |
+| RS7 | NOT VERIFIED — 실DB(마이그레이션 적용 후 오너) | |
+| RS8 | A·H 충족 | `MyPage.stage5.test`(resume 카드·대체 문구·"저장된 풀이가 없는 문제예요" 없음), 헤드리스(같은 확인 + 10회 후 보드 0), resume 없으면 DOM 동일(기준값) |
+| RS11 | 충족 | 저장·재조회 = 진단 입력 deep-equal(저장소·라우터·통합), 51줄·501자·32KB 초과·중복·역순·lineNo 0 → 셋 다 null, 변조 6종 → 키만 빠짐, `\href`/`\htmlId`는 문자열 통과·웹 렌더에서 링크·id 0(`MyPage.stage5.test`, KaTeX trust=false), 로그 줄 내용 0 |
+| RS11b | 충족 | 과거 행 키 없음, own → S5-V3 문구·WorkLineList 없음, alternative → 없음 |
+| RS11c | A·H 충족 | 같은 함수(`deriveWorkLineJudgments`)·같은 컴포넌트, "수정" 링크 0, 헤드리스 실시간·재조회 모두 "막힌 지점" 1줄·"확인" 2 |
+| RS12 | A·H 충족, D 미확인 | jsdom 3경로 복귀·inert·Safari형(body) 복귀, 헤드리스 두 엔진 3경로 복귀·Tab 밖 0(WebKit은 Tab이 버튼에 안 가는 기본 설정 — VoiceOver·실기기 NOT VERIFIED) |
+| RS13 | A·H 충족, D 미확인 | 클래스 단언, 헤드리스 834→500 추종. iOS 하단 막대 가림은 실기기 NOT VERIFIED |
+| S5-R | 실행 | §8.12.5(R3 30회). R1·R2 NOT RUN — 오너 미승인 |
+| S5-D | NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED | 그림 위 터치 스크롤, VoiceOver 순서, Split View |
+
+### 8.16 남은 일·결정 필요(2차)
+
+- CAS가 순서쌍 답(`(2,2)` vs `(2, 2)`)을 같다고 보지 못해 이런 이어풀기는 `verified=false` → 저장되지 않는다(R3 2/10). CAS 쪽 과제(이번 범위 밖, 결정 필요).
+- 오버레이 보드 실측 644px(설계 파생 648) — design 확인.
+- 실기기: Stage 4 §7.5 12항목 + Stage 5 마이페이지 3항목(터치 스크롤·VoiceOver·Split View) + iOS 하단 막대.
+- 마이그레이션 2종 적용(오너) → RS7·실DB 왕복.
+
+### 8.17 WU11 게이트(2차 요청)
+
+| 실행 | typecheck | lint | test | build | 비고 |
+|---|---|---|---|---|---|
+| OneDrive 3차 | 0 | **1** | 0 | 0 | 새 테스트 `diagnosis.workLines.test.ts`의 불필요한 타입 단언(내 코드) → 고침 |
+| OneDrive 4차 | 0 | 0 | **1** | 0 | 새 통합 테스트 F11s 5초 타임아웃(diff 안) → 예외 처리하지 않고 조사 → WU1 원인 확정·하니스 수정(§8.13) |
+| OneDrive 5차(수정 뒤 첫 실행) | 0 | 0 | 0 — api 71/1,027, web 115/1,209 | 0 | |
+| **OneDrive 6차(최종 변경 뒤 첫 실행)** | 0 | 0 | 0 — api 71 파일/1,027, web 115 파일/1,210 | 0 — 메인 `index-Cor4xjlb.js` 976,028B, precache 8 | §7.18.4 예외 적용 없음 |
+| **OneDrive 밖 복사본 첫 실행**(같은 트리, `git ls-files -co` + `pnpm install --offline`) | 0 | 0 | 0 — api 1,027, web 1,210 | 0 — 같은 해시 | load 23~38 |
+
+- 두 환경 결과 동일. 5차·6차는 WU1 수정 뒤라 api supertest 경로의 외부 포트 충돌은 막힌 상태다.
+
+
+### 8.18 Stage 5 QA 판정 (stage-qa-agent, 2026-10-25, 재작업 0/3)
+
+**판정: STAGE CONDITIONAL PASS — FIX REQUIRED** (BLOCKER 0 · HIGH 0 · MEDIUM 2 · LOW 10). 구현 결함으로 FAIL인 수용 기준은 없다. 조건부인 이유는 ① 실DB 항목(RS7·S5-3 실DB·RLS·SQL 실행)이 마이그레이션 미적용(오너 결정)이라 BLOCKED, ② 실기기(S5-D, RS12·RS13 일부)가 NOT VERIFIED, ③ 아래 MEDIUM 2건과 최종 보고 자료(§9) 누락 때문이다. 제품 코드는 수정하지 않았다(검증은 scratchpad 복사본·`git worktree`·QA 자체 하니스).
+
+범위 분리: **자동**(vitest·가짜 PostgREST HTTP·실제 supabase-js/openai SDK) 통과 / **헤드리스**(Playwright Chromium·WebKit, hasTouch, 1194×834, **물리 iPad 아님**) 통과 / **실기기** NOT VERIFIED / **실DB** BLOCKED / **실제 AI** R3 기록 검토만(새 OpenAI 호출 0, R1·R2 NOT RUN은 오너 결정이라 FAIL 아님).
+
+#### 8.18.1 독립 검증 방법(개발자 fakeSupabase·기준값에 의존하지 않음)
+
+1. **QA 독립 가짜 PostgREST+Auth+OpenAI(HTTP)**: 실제 라우터 + 실제 `problemRepository` + **실제 `@supabase/supabase-js`·`openai` SDK**가 HTTP로 붙는다(스키마 전/후, 42703·PGRST204·PGRST205·42P01, check 위반·FK, merge-duplicates upsert 의미, 결함 주입). 라우터 조립은 운영 `createApp`.
+2. **off 동일성**: `git worktree add --detach <경로> 091ae2a` + 현재 트리 복사본(`pnpm install --offline`)에서 **같은 캡처 스크립트**를 돌려 `cmp`. 플래그 3종 off × DB 스키마 2종(마이그레이션 전/후) = 4개 조합 JSON 바이트 동일(solve 4옵션 SSE·저장 요청 본문, resume own/alt × CAS 통과/실패 SSE·저장소 호출 0, 진단 응답, 상세 3종·404·타 사용자, 목록, CHAT history 0/3/30/긴 30 어댑터 인자·OpenAI 요청 본문(SDK→가짜 서버), 어댑터 `diagnose/resume/generateFigures`(priorWork 포함) 인자). 플래그 값 `false/1/TRUE/" true"/""/yes`도 동일, `true`는 달라짐(비공허). `FIGURES_ENABLED=true`(영속 off)에서는 CHAT만 달라지고 나머지 전부 HEAD와 동일. PERSIST on에서도 SSE·응답 본문은 동일(상세에 `resumeSolution` 키만 추가, 목록 동일).
+3. **기준값 진본성**: 개발자의 WU0 기준값 파일(api `chatOff`·`persistenceOff`, 웹 `chatRequest`·`myPageDetailDom`)을 **HEAD worktree에 복사해 돌려** 통과(= 기준값이 변경 전 출력). MyPage 기준값은 HEAD에서 delta 적용을 뺀 채 4/4 통과.
+4. **`stage5OneLineDelta.ts` 은폐 검사**: (a) 실제 HEAD 기준값 ↔ 현재 렌더 DOM을 노드 단위로 diff → 차이는 `RecognizedProblemBar`의 4노드 class 토큰뿐(카드 `items-center→items-start`, 배지 `+shrink-0 whitespace-nowrap`, 본문 `+min-w-0 pt-0.5 wrap-anywhere`, 버튼 `+focus-visible:ring-brand rounded-[6px] pt-0.5 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-offset-2`) = S5-V7·V8·V10과 정확히 일치, 태그·속성·텍스트·자식 수 차이 0. (b) 컴포넌트에 무관한 변이 11종(p `font-bold`, `gap-4`, 버튼 `pt-0.5` 제거, `data-qa` 속성, 배지 size, `whitespace-pre-wrap` 제거, 라벨 접미사, `aria-label`, 배지 `mt-1`, `min-w-0` 제거, 카드 `mb-2`) → **11/11 모두 기준값 비교 실패**(헬퍼가 다른 차이를 숨기지 않음). `elevatedCardUsage`의 기대 토큰 변경은 `items-center→items-start` 한 토큰이며 승인된 S5-V8이다.
+5. **개발자 테스트의 비공허성**: 제품 코드 변이 api 17종·web 12종을 복사본에서 주입 → 28/29 검출. 생존 1건(M03: resume 라우터의 `verified !== true` 조기 반환 제거)은 저장소의 같은 가드(M02는 검출)가 받쳐 관측 가능한 쓰기는 0 — 중복 방어층 미검증(LOW). 모든 변이는 원복 후 `cmp` 확인.
+
+#### 8.18.2 게이트
+
+| 실행 | typecheck | lint | test | build |
+|---|---|---|---|---|
+| 저장소 루트(OneDrive) **첫 실행** | 0 | 0 | 0 — api 71 파일/1,027, web 115/1,210 | 0 — 메인 `index-Cor4xjlb.js` 976,028B |
+| OneDrive 밖 복사본(`git ls-files -co` − ProblemDB) **첫 실행** | 0 | 0 | **1** — web `src/app/devFiguresRoute.test.tsx` 스위트 로드 실패(`supabaseUrl is required`), 나머지 api 1,027·web 1,208 통과 | 0 |
+| 같은 복사본, `apps/web/.env`(gitignored, VITE_* 4줄) 제공 후 `pnpm test` | — | — | 0 — api 1,027, web 1,210 | — |
+
+- 밖 복사본의 실패는 **단언 실패가 아니라 환경 로드 실패**이고 diff 밖 파일이다. HEAD worktree에서 `.env`를 빼고 같은 파일을 돌려 **그대로 재현**(Stage 2 도입 테스트가 gitignored `.env`에 암묵 의존, LOW-6). §7.18.4의 단언 실패(chat 404 등)는 어느 실행에서도 0이었다 — 예외로 넘긴 것이 없다.
+- 새 의존성 0(`package.json`·락 diff 0, supertest 7.2.2 고정), 기존 테스트 삭제 0·단언 약화 0(기존 파일 수정은 위 §8.18.1-4의 기준값 비교 3곳뿐), 변경 금지 파일 diff 0(허용 예외 `WorkLineList` 클래스 2개·`diagnosis.router` 1줄만).
+
+#### 8.18.3 수용 기준별 결과
+
+| AC | 판정 | 근거(자동 / 헤드리스) |
+|---|---|---|
+| S5-1 | PASS(자동) | §8.18.1-2·3·4. 웹 chat 본문: HEAD에서 기준값 통과 + 변이(off에서도 figureContext 직렬화) 2종 검출 |
+| S5-2 | PASS(자동) | 마이그레이션 전+on: 탐지 1회(42703), upsert 키 = 텍스트 7개(HEAD 키 집합과 동일), PATCH 0, 상세 200·도형·resume 키 0, +4분 재탐지 0 |
+| S5-3 | PASS(자동) / **실DB BLOCKED** | 행 도형 = SSE deep-equal, 상세 = SSE, 어댑터 호출 0, +5분1초에 재탐지로 마이그레이션 적용 감지(서버 재시작 없이). 사례 9종 × 컬럼 있음/없음 |
+| S5-4 | PASS(자동) | 재풀이 중 이전 run 도형이 늦게 도착(동시 요청): 행·메모리 모두 run2, PATCH 2회 중 run1은 0행. 도형 update 필터 `problem_id`+`figures_run_id` |
+| S5-5 | PASS(자동·헤드리스) | solutions 변조 11종(객체·문자열·숫자·null 원소·버전 컬럼 2·"1"·내부 버전 2·script 라벨·요소 10,000·순환 midpoint·expr 문자열)+혼합(정상만 남음), resume 변조 9종, 모두 200·텍스트 유지. 웹: 변조 행 열기 → 보드 0·콘솔 오류 0(Chromium·WebKit) |
+| S5-6 | PASS(자동) | **실제 OpenAIAdapter→SDK 요청 본문** 직접 검사: 섹션 순서, JSON 한 줄 파싱, 상한(도형 1개 ≤3,000자·3개 합계 ≤6,000·발췌 ≤4,000·history 12개/8,000자/단일 거대 메시지 8,000자 절단), 서버 `figureContext.step` 1~99 정수/null만(0·100·-1·1.5·"2"·true·[]·{} → 400), 클라이언트 도형·탐색 필드 문자열은 요청 본문에 0, 시스템 지시(`instructions`) 도형 유무·단계와 무관하게 불변 |
+| S5-7 | PASS(자동) | resume만 있는 문제: 그림 섹션·이어풀기 발췌. 단 solve와 resume가 함께 있으면 solve 맥락 우선(문서화된 동작, LOW-8) |
+| S5-8 | PASS(자동) | CHAT 4회 뒤 메모리·DB 행(run id 포함) 불변, CHAT wire는 `chat_messages` POST뿐, 응답 키 `answerMd`. "CHAT은 도형을 생성하지 않는다"는 FIGURE_SPEC §8·§17에 명시 |
+| S5-9 | PASS(자동·헤드리스) / **실기기 NOT VERIFIED** | 같은 단계=같은 그림, 기본 최종, 10회 열고 닫기(3경로 섞음) 후 보드 0, 콘솔 오류 0 |
+| S5-10 | PASS(자동·헤드리스) | solve 그림 3 + resume 그림 1 = JXG 보드 4 = 보이는 그림 4, 닫으면 0 |
+| S5-11 | PASS | 아래 §8.18.4 |
+| S5-12 | PASS(자동) | 악성 라벨·수식·요소 과다·순환·`\href`/`\htmlId`가 저장·재조회·웹 경로 모두에서 거부/무해화 |
+| S5-13 | PASS(자동·헤드리스) | 전체 스위트 통과, 필기(drawing-canvas·canvas·styles) diff 0, 인식 칩 배지 1줄 |
+| S5-14 | PASS(자동·헤드리스) | 웹 `VITE_FIGURES_ENABLED=false` + 서버 저장 도형 있는 행: 도형 슬롯·보드·`window.JXG` 0, 지연 청크 요청 0(이어풀기 텍스트 섹션은 서버 `RESUME_PERSIST` 독립 기능이라 보임 — 설계대로) |
+| S5-15 | PASS | 직접 만든 off·on 빌드의 dist grep(§8.18.5) |
+| RS1~RS6, RS9, RS10 | PASS(자동) | RS2: PGRST205·42P01 둘 다 탐지 1회·쓰기 0·상세 200·키 없음·+5분 재탐지·저장, RS3: done 전 upsert 1회, RS4: 모드 변경 시 1행 교체·늦은 도형 쓰기 무시, RS9: 저장 400·PATCH 500에도 done·error 0, RS10: 목록 응답·wire 동일 |
+| RS7 | **BLOCKED**(실DB, 오너) | 가짜 DB의 cascade는 모사일 뿐 |
+| RS8 | PASS(자동·헤드리스) | resume만: "저장된 풀이가 없는 문제예요" 0, h3 sr-only, 학생 줄·배지, solve+resume: h3 눈에 보임·순서 결과→그림→답→이어풀기 |
+| RS11 | PASS(자동·헤드리스) + LOW-1 | 저장 줄 = **진단에 쓴(수정된) 줄**(인식 원본 아님)·진단 근거 2값 = 진단 응답, 부가 필드 미저장, 한도 경계 50줄·500자 저장 / 51줄·501자·32KB 초과·중복·소수·0·1000·빈 배열 → 세 값 null + resume 저장·SSE 정상 + 로그 줄 내용 0 + 상세 키 없음. KaTeX 경로 직접 확인: 줄·풀이·답·방법명·개념에 `$\href{javascript:…}$`·`\htmlId`·`\htmlClass`·`\htmlStyle`·`\includegraphics`·`\url`·`<script>`·`<img onerror>`를 `$…$`로 감싸 넣은 행을 마이페이지에서 열어 링크·id·class·style·img·script·onerror 0, `alert` 대화상자 0, `<script>`는 글자로만 표시(Chromium·WebKit). 구분자 없는 줄은 KaTeX를 거치지 않아 이 검사에 쓰지 않았다 |
+| RS11b/c | PASS | 판정 배지 확인 2 + 막힌 지점 1이 실시간과 같은 함수·같은 입력, 재조회 "수정" 링크 0 |
+| RS12 | PASS(자동·헤드리스) / **실기기·VoiceOver NOT VERIFIED** | 열면 "목록으로" focus, 3경로 닫기 복귀, header·main inert, Chromium Tab 20회 중 밖 0. WebKit 헤드리스는 기본 설정상 Tab이 버튼에 가지 않아 이 항목은 확인 불가 |
+| RS13 | PASS(자동·헤드리스) / 실기기 NOT VERIFIED | 루트 `fixed inset-x-0 top-0 h-dvh`, 높이 834→500→834 추종, 대화상자 하단 ≤ 500 |
+| S5-R | PASS(기록 검토) | §8.18.6. R1·R2 NOT RUN(오너 미승인) |
+| S5-D | **NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED** | 그림 위 터치 스크롤, VoiceOver 순서, Split View, iOS 하단 막대 |
+| G | PASS | §8.18.2 |
+
+#### 8.18.4 10개 사례(자동 + 헤드리스, 고정 fixture — 실제 AI 결과 아님)
+
+기대값은 fixture의 `expected`가 아니라 **별도 수치 코드**로 다시 계산했다(자유점 좌표에서 수선의 발=사영, 중점, 접점 `a=r²/d, h=r√(d²−r²)/d`와 외적 부호, Cramer 교점, 자체 수식 평가기+구간 스캔, 단계 가시성·강조 규칙 독자 구현). 왕복 = SSE → 메모리 → DB 행 → `GET` 상세 → CHAT 요약(k=최종·1·2·3) 전부 deep-equal, 웹은 **실제 JSXGraph 보드의 점 좌표**(`board.objectsList` X()/Y())와 대조.
+
+| 사례 | 독립 기대값 | 결과 |
+|---|---|---|
+| 1 F01 | ∠BAC = acos(AB·AC/(\|AB\|\|AC\|)) = 45° | 렌더 좌표에서도 45°(오차 1e-6) |
+| 2 F02 | H = (2,0), ∠CHB = 90°, CH⊥AB | 일치(서버 CHAT 요약·렌더) |
+| 3 F03 | M = (1,0), BM = MC | 일치 |
+| 4 F04 | M = (1.5,1.5), OM·AB = 0, \|OA\|=\|OB\|=3 | 일치 |
+| 5 F05 | T=(1,±√3), \|OT\|=2, OT⊥TP, ccw 외적 > 0·cw < 0 | 일치(오차 1e-9) |
+| 6 F06 | P = (2,2) (x+y=4, x−y=0 모두 만족) | 일치 |
+| 7 F07 | V=(2,−1)=정의역 최솟점, R1=(1,0), R2=(3,0) | 일치 |
+| 8 F08 | x=1 불연속, 곡선 조각 ≥2·어느 조각도 x=1을 가로지르지 않음, x<1 조각 y<2 · x>1 조각 y>2, 점근선 x=1·y=2 | 일치(Chromium·WebKit) |
+| 9 F09 | k=최종·1·2·3의 보이는/숨김/강조 집합 + H=(0,0), M=(1,0), ∠AHC=90° | 서버 CHAT 요약·웹 보드 가시성 모두 독립 규칙과 일치 |
+| 10 안전한 실패 | 거부 fixture **53건**(F10a~j, F11a~ad, Stage 1 reject 포함) | 53/53: done·텍스트 저장, figures 이벤트 0, 도형 컬럼 null·PATCH 0, 상세 도형 키 0, CHAT 그림 섹션 0. 거부 사유 code·path 목록으로 눈 확인(예: F10a `unknown_reference`, F10b `forward_reference`, F10c `constraint_violation`, F11a `no_tangent`, F11e `degenerate`) |
+
+기하 도형 보드 축 단위 비율 1:1(F01~F06·F09) 확인.
+
+#### 8.18.5 번들(S5-15, 직접 빌드)
+
+- off 빌드: JS 1개 `index-Cor4xjlb.js` 976,028B, `sw.js` 포함 **커널 문자열(`dependency_not_visible`·`forward_reference`·`no_tangent`)·JXG·jsxgraph·SolutionFigures·lazyEntry·stepStateAt·buildFigureChatSummary 전부 0**, precache 8.
+- on 빌드(`VITE_FIGURES_ENABLED=true`): 메인 886,293B(커널·JXG·jsxgraph 0, `lazyEntry` 지연 import 참조만), 정적 공통 청크 `FigureErrorBoundary-*` 90,131B(커널 0), 커널은 `lazyEntry-*` 51,895B에만, JSXGraph는 `jsxgraph-*` 1,040,973B에만, precache 12. MyPage는 별도 청크 없이 메인에 있고 커널을 포함하지 않는다. `validation`의 `chatSummary`는 웹 번들에 0(트리 셰이킹).
+- 개발자 기록(§8.12.6)의 바이트 수와 전부 일치.
+
+#### 8.18.6 R3 기록 검토(새 OpenAI 호출 0)
+
+- `.omc/research/figures-stage5-textcheck.json`: `dryRun:false`, 어댑터 호출 30/30(하드 카운터), 도형 호출 0, 실패 0, off 대조군 없음 명시. **지표를 `results[]` 원문에서 독립 재계산**: 개념 JSON 위치 맨 끝 20/20, conceptTags 20/20(Wilson 0.839~1.0), 답 빈 값·혼입 0, 단계 분할 19/20(0.764~0.991, 실패 1 = X4 `no_markers`), resume 최종 답 순수 LaTeX 10/10(0.722~1.0), 단계 분할 10/10, CAS 8/10(0.49~0.943), 토큰 합 입력 18,282·출력 13,096, 지연 최대 5,997ms — 모두 기록과 일치(p50/p95는 분위수 정의 차이로 3,836→3,933ms, 5,742→5,711ms 수준). `apps/api/.env`의 키 값을 고정 문자열로 결과 JSON 2개·스크립트·장부에서 검색 → 0건, `sk-` 패턴은 스크립트의 제거 코드와 장부 설명 문구뿐.
+- **CAS 순서쌍 미통과의 판정 반영**: 미통과 2건(`(2,2)`·`(1,3)`)은 답이 수학적으로 기대값과 같고 CAS가 비교하지 못한 것이라 **AI 텍스트 품질 지표에서 분리**해 "CAS 한계"로 읽는다(범위 밖이므로 FAIL 사유 아님). 다만 제품 영향은 있다 — `verified=false`는 웹이 카드로 보이지 않고 저장도 하지 않으므로, **좌표 답(교점·중점·접점 — 그림이 가장 필요한 유형)의 이어풀기는 실시간에서도 마이페이지에서도 결과가 없다.** 후속 CAS 과제로 이월(MEDIUM-2).
+- 이 표본은 도형 호출 0이므로 "도형 생성 성공률"이 아니라 텍스트 경로(단계 표지·개념 JSON 위치·답 오염)만 말한다. 고정 fixture 통과(자동)와 실제 AI 결과는 분리해 보고한다.
+
+#### 8.18.7 WU1(chat 404 / 타임아웃) 원인 판정
+
+- **원인 타당**: 직접 재현 — (E1) 외부 프로세스가 `127.0.0.1:P`만 잡은 상태에서 `listen(P)`(`::`)는 성공하고 `127.0.0.1:P` 접속은 외부 서버가 받음, (E2) `listen(P,"127.0.0.1")`은 EADDRINUSE, (E3) 임시 포트 배정은 순차적이라 외부 리스너 5개를 둔 40,000회 `listen(0)` 중 10회 그 포트를 배정받고 `listen(0,"127.0.0.1")`은 0회. (E4) **제품 테스트 스위트로 재현**: 외부 `127.0.0.1` 리스너 400개를 배정 경로에 두고 api 전체를 돌리면 수정 전(setup 제거 설정) 새 통합 테스트 F02가 실패, 수정 후 1,027/1,027 통과(수정 없이는 우연히 안 걸리는 실행도 있음 — 배정 위치 의존).
+- **테스트 완화 아님**: `loopbackListen.ts`는 supertest가 서버를 직접 띄울 때 `listen(0,"127.0.0.1")`만 바꾸고 단언·fixture·타임아웃은 건드리지 않는다. 결합도: supertest 내부(`serverAddress`·`end`·`_server`)에 의존 — 7.2.2 고정이라 지금은 안전, 업그레이드 시 재확인 필요(LOW-5).
+- **남은 4곳**(`resume.router.figures.test`·`solutions.router.figures.test`·`figuresDeadline.router.test` ×2: `app.listen(0)` + `http.request({port})`, 호스트 기본 `localhost`): Node 24는 `::1`을 먼저 시도하고 우리 서버(`::` 듀얼스택)가 받으므로 외부 `127.0.0.1` 리스너가 가로챌 수 없다. 외부 `::1` 전용 리스너가 같은 포트에 있을 때만 가능 — 낮은 위험(LOW).
+
+#### 8.18.8 발견 사항
+
+- **BLOCKER 0 · HIGH 0**
+- **MEDIUM-1** `WorkLineList`(기존 컴포넌트, 변경 금지 목록)의 줄 본문 `<p class="flex-1 …">`에 `min-w-0`·줄바꿈 규칙이 없어 **공백 없는 긴 토큰**(300자 재현, 대략 80~90자 이상 무공백 수식)이 한 줄을 1,841px로 넓힌다. 마이페이지 오버레이에서는 **대화상자 본문 전체가 가로로 스크롤**되고(scrollWidth 1,948 vs 718, Chromium·WebKit, 1194/507/375px) 줄 오른쪽의 "확인"/"막힌 지점" 배지가 화면 밖(x=2,186)으로 밀린다. 실시간 진단 화면도 같은 컴포넌트·같은 클래스라 같은 한계(패널 폭 346px이라 더 일찍 발생, 개발자 하니스의 긴 줄은 공백이 있어 이 경우를 건드리지 않았다). Stage 5가 만든 결함은 아니지만 재조회 화면이 노출을 늘린다. 수정은 `WorkLineList`(Q-F로 클래스 2개만 허용) 변경 또는 MyPage 래퍼 → **오너 결정 필요**. 재현: QA 하니스 `overflow2.mjs`(긴 줄 행 열기).
+- **MEDIUM-2** (이월·범위 밖) CAS 순서쌍 미통과 → 좌표 답 이어풀기는 저장·표시 모두 안 됨(§8.18.6).
+- LOW-1 `updateFigures`(resume 도형 PATCH)가 PostgREST 오류 객체 전체(message·details·hint)를 로그 — 오류에 "Failing row contains (…)"가 실리면 학생 풀이 줄이 로그에 남는다(upsert 경로는 코드만 남기도록 가렸는데 이 경로만 빠짐). 주입한 오류로 재현, 실제 트리거(check 위반)는 희박. `logResumeWriteError`를 같이 쓰면 해소.
+- LOW-2 resume 라우터의 `verified !== true` 조기 반환은 변이 생존(저장소 가드가 받쳐 쓰기 0은 유지) — 중복 방어층 미검증.
+- LOW-3 `measure.json`(p50 0.361/p95 0.445, 상세 0.356/0.413)과 장부 §8.12.6(0.388/0.467, 0.406/0.499) 수치가 다르다(저장 파일과 장부의 측정 시점 불일치).
+- LOW-4 `apps/api/api-none.out`(Stage 4 하니스 로그)이 추적되지 않은 채 제품 폴더에 남음.
+- LOW-5 `loopbackListen`은 supertest 내부에 결합(7.2.2 고정).
+- LOW-6 `devFiguresRoute.test.tsx`가 gitignored `apps/web/.env`에 의존(HEAD에서도 재현, Stage 5 이전 결함) — 깨끗한 체크아웃·CI에서 첫 test가 실패.
+- LOW-7 DB 제약 `pg_column_size(work_lines) <= 32768`(jsonb 이진 크기)과 서버 상한(UTF-8 JSON 텍스트 32,768B)의 기준이 달라 약 1KB 구간에서 서버는 통과·DB는 거부할 수 있다. 거부되면 resume 행 전체가 저장 안 됨(로그 1줄, done 정상). 실DB 미실행이라 NOT VERIFIED.
+- LOW-8 solve와 resume가 같은 문제에 모두 있으면 CHAT 맥락은 solve 우선(FIGURE_SPEC §17에 명시)이라, 웹이 이어풀기 화면에서 보낸 `step`이 solve의 단계로 해석될 수 있다. UI가 같은 `problemId`에 둘 다 만들 수 있는지는 확인하지 못함.
+- LOW-9 `ResolvedSolutionContext.solutionSource`는 운영 코드에서 쓰이지 않는다(테스트만).
+- LOW-10 마이그레이션: `create table if not exists`라 이전 버전 파일을 이미 적용한 DB에 다시 실행해도 `work_lines` 등 컬럼이 추가되지 않는다(현재는 미적용이라 해당 없음). SQL은 비파괴(DROP은 새 테이블의 자기 정책 `drop policy if exists`뿐), 괄호·`$$` 균형 확인, `notify pgrst`·RLS select-own·FK `on delete cascade`·재실행 안전 구조는 정적으로 확인. **SQL 구문 자체는 Postgres가 없어 실행하지 못함(NOT VERIFIED).**
+
+#### 8.18.9 NOT VERIFIED / BLOCKED
+
+- BLOCKED(오너 결정): 마이그레이션 적용 후 실DB 왕복(S5-3 실DB), RS7(cascade 삭제), RLS select-own 교차 사용자, `pg_column_size` 경계(LOW-7), SQL 실행.
+- NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED: S5-D(그림 위 터치 스크롤, VoiceOver 순서·대화상자 밖 이동 차단, Split View), iOS Safari 하단 막대(RS13), Safari 키보드 Tab 순환(WebKit 헤드리스는 확인 불가), Stage 4 실기기 체크리스트(`.omc/plans/figures-stage4.md` §7.5)와 Stage 5 3항목.
+- NOT RUN(오너): R1(CHAT 도형 맥락 실평가)·R2(22건 재평가) — CHAT 도형 맥락이 실제 모델 답변 품질을 올리는지는 자동(stub/실제 SDK 요청 본문) 검사로만 확인했고 **효과는 미평가**.
+
+#### 8.18.10 최종 보고 자료(§9) 점검 — `.omc/research/figures-stage5-report/`
+
+채워짐: 4 최종 JSON 예시(`f09-examples.json` — SSE·DB 행·상세·CHAT 섹션 4종, SSE=DB=상세 `checks`), 9 중 측정 일부(`measure.json`). 장부로 채울 수 있음: 1·2·6·7·10.
+**누락/보강 필요**: ③ **데이터 흐름도**(인식 → solve·resume SSE → done 저장 → 도형 단계 → 검증 → SSE·메모리·DB → 재조회 파싱 → 렌더 / CHAT 맥락)가 어디에도 없음, ⑤ **지원·미지원 도형과 검증 범위** 한 장 요약(FIGURE_SPEC §3.3·§6·§13에 흩어져 있고 미지원 목록은 PRD 범위 제외 문장뿐), ⑧ **iPad 체크리스트 통합본**(Stage 4 12항목은 계획 문서에, Stage 5 3항목은 FIGURE_DESIGN §18에 각각), ⑨ 수치 출처 불일치(LOW-3)와 "금액 미산정 사유" 한 줄 통합, 수정 후 QA 결과·재작업 횟수 갱신. 보고 문서 본체(`report.md` 같은 단일 문서)가 아직 없다.
+
+#### 8.18.11 다음 단계 전 필수
+
+1. 오너: MEDIUM-1 처리 방식 결정(WorkLineList 클래스 허용 또는 MyPage 래퍼). 처리 후 긴 무공백 줄 헤드리스 재확인.
+2. 최종 보고 자료 누락 보강(§8.18.10), LOW-3 정정, LOW-1 로그 가리기(권장).
+3. 오너: 마이그레이션 적용(2종, 적용 후 서버 재시작) → RS7·S5-3 실DB·RLS·SQL 실행 확인 → 실기기 체크리스트 수행 후 플래그 켜기(순서: 장부 §8·DEPLOYMENT).
+
+#### 8.18.12 QA 재현 방법(scratchpad는 휘발성 — 방법만 기록)
+
+- off 동일성: `git worktree add --detach <dir> 091ae2a` + 현재 트리 `git ls-files -co`(ProblemDB 제외) 복사, 각각 `pnpm install --offline --frozen-lockfile`, **같은 `offcapture.mts`**(실제 `createApp` + QA 가짜 PostgREST/OpenAI HTTP 서버)를 `cd apps/api && QA_SCHEMA=pre|post [플래그 env] npx tsx …`로 돌려 `cmp`.
+- 영속·CHAT·사례: 같은 가짜 서버에 시계(`Date.now`) 주입으로 5분 재탐지, 게이트 어댑터로 늦은 쓰기 경쟁, 응답 결함 주입.
+- 헤드리스: 개발자 하니스(§8.12.4) 그대로 + QA 자체 API 서버(HTTPS 4199, 사례를 문제 텍스트 `case:F05`로 선택)·vite 5199. 오너 서버(5173·4000·8000)는 건드리지 않음, 종료 후 5199·4199·54398 해제 확인.
+- WU1: 외부 `127.0.0.1` 리스너 N개 보유 프로세스 + `listen(0)` 순차 배정 위치 맞추기(`position.mjs`) 후 api 전체 실행.
+
+### 8.19 재작업 1/3 (development-agent, 2026-10-25) — stage-qa CONDITIONAL PASS(§8.18) + design 사후 검수(PASS, P2 1·P3) 대응
+
+#### 8.19.1 항목별 처리
+
+| 항목 | 처리 | 근거·테스트 |
+|---|---|---|
+| **[QA MEDIUM-1]** 긴 무공백 학생 줄이 대화상자·진단 패널을 가로로 넓힘 | 오너 승인 S5-V7 규칙 적용: `WorkLineList` 줄 본문 `<p>`에 `min-w-0 wrap-anywhere` 추가(이 파일의 허용 변경 = 배지 2곳 + 본문 1곳, diff 3줄) | `features/ai-solution/oneLineLayout.test.tsx`(클래스 규칙). 헤드리스 §8.19.2: 300자 무공백 줄에서 스크롤 컨테이너 scrollWidth = clientWidth(오버레이 718=718, 진단 패널 418=418), 줄 폭 = 카드 안(614/314px, 4~7줄로 꺾임), 배지 3개 모두 카드·화면 안 — Chromium·WebKit |
+| **[QA LOW-1]** 도형 PATCH(`updateFigures`) 오류 로그에 PostgREST 오류 전체 | `logResumeWriteError`로 코드만 남김(solutions·resume 공통), throw는 이름만. 탐지 "사용 불가" 전환 로그도 코드만(쓰기 오류로도 불리므로) | `resumeSolutions.persist.test.ts` 신규 3: "Failing row contains (SECRET…)" 오류·throw 주입 → 로그에 `23514`·`PGRST205`만, `SECRET`·`Failing row` 0(solutions·resume 둘 다) |
+| **[QA §9]** 최종 보고 자료 누락 | **`docs/FIGURES_FINAL_REPORT.md`** 신설(수풀잉, §4 10개 항목 구조, mermaid 흐름도, 통합 체크리스트 17항목 모두 미실행, 수치 원본 표, 금액 미산정 사유) | — |
+| **[QA LOW-3]** `measure.json`과 장부 수치 불일치 | 원본 = `measure.json`으로 정함, §8.12.6을 0.361/0.445·0.356/0.413으로 정정(처음 값은 스크립트 정리 전 첫 실행 값이었고 파일이 재실행 값으로 덮였음). 최종 보고서도 같은 값 | — |
+| **[QA LOW-2]** 라우터 `verified !== true` 조기 반환 미검증 | 저장소 가드 없이 무조건 쓰는 대체 구현으로 `saveResumeSolution`을 바꾼 테스트: verified=false면 라우터가 부르지 않음·행 0, verified=true 대조에서는 1회·행 1 | `resume.router.persist.test.ts` 신규 1. 변이(라우터 가드 제거) → 실패 확인 후 원복 |
+| **[QA LOW-4]** `apps/api/api-none.out` | 삭제 | — |
+| **[QA LOW-6]** `devFiguresRoute.test.tsx`가 gitignored `.env`에 의존 | 다른 라우트 테스트와 같은 관례로 `shared/lib/supabase/client`를 mock | 밖 복사본에서 `.env` 없이 게이트 통과(§8.19.4) |
+| **[QA LOW-7]** DB `pg_column_size ≤ 32768`과 서버 32KB(UTF-8 텍스트) 기준 불일치 | DB 제약을 65,536으로 느슨하게 — 서버 상한이 항상 먼저 걸림(마이그레이션 주석에 근거). 가짜 DB도 같게 | `resumeSolutions.persist.test.ts` 신규 1: 서버 상한 바로 아래(50줄·UTF-8 약 31KB) 저장 성공 |
+| **[QA LOW-10]** 이전 버전 적용 DB 재실행 시 새 컬럼 없음 | 마이그레이션 머리말에 "이전 버전 적용 DB면 별도 alter 필요, 현재 미적용이라 해당 없음" 명시 | — |
+| [QA LOW-5] `loopbackListen`이 supertest 내부 결합 | 기록만: supertest 7.2.2 고정(락), 업그레이드 시 `serverAddress`·`end`·`_server` 재확인 필요 | — |
+| [QA LOW-8] solve·resume 공존 시 CHAT step 해석 | **코드 확인: 웹에서 실제로 공존 가능.** `ProblemInputProvider.returnToWorkFromResult`(결과 화면 "수정")는 solve·진단·이어풀기 화면 상태만 초기화하고 `problemId`를 유지한다 → 같은 문제로 "아직 못 풀겠어요"(solve) 뒤 "수정" → "봐 주세요" → 진단 → 이어풀기 가능. 서버 메모리에는 solve 풀이가 남아 CHAT 맥락은 solve 우선 → 이어풀기 화면에서 보낸 `resumeStep`이 solve 단계로 해석된다(도형도 solve 그림). 채팅 이력(`resetChat`)도 이 경로에서 초기화되지 않는다(기존 성질). 기록만(결정 필요: 요청에 `source` 키를 더하거나 이어풀기 시작 시 solve 맥락을 비우는 안) | — |
+| [QA LOW-9] `solutionSource` 운영 미사용 | 기록만(LOW-8 해결안에서 쓸 수 있어 유지) | — |
+| **[design P2]** 오버레이 보드 648 | `FIGURE_DESIGN.md` §18.4·§18.7·§18.9·§18.11·§18.12를 "액자 646(테두리 포함) / 그리기 644"로 정정, 분해 근거(720 − 대화상자 테두리 2 − `px-5` 40 − `p-4` 32 = 646, 액자 `border` 2 제외 = 644). **§7.4도 같은 누락** — Default 348 → 액자 346 / 그리기 344, Extend 676 → 674 / 672로 정정(`ResultPanelShell` 테두리 2). 헤드리스 실측과 일치(§8.19.2). 코드의 측정 전 자리 상수 `PLACEHOLDER_BOARD_WIDTH = 348`은 바꾸지 않음(측정 뒤 실제 폭으로 다시 맞춤) | — |
+| **[design P3]** 포커스 링 조합 3회 반복 | `shared/ui/text-link/textLinkStyle.ts`에 `TEXT_LINK_FOCUS_RING`(`rounded-[6px] outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2`) — `TEXT_LINK_STYLE`과 `RecognizedProblemBar`가 함께 씀(밑줄 링크도 모서리 6px로 통일). `Button`은 그대로. `RecognizedProblemBar` 버튼의 `pt-0.5` → **`mt-0.5`**(링 바깥 여백, 새 래퍼 노드 없이 DOM 구조 유지) | `oneLineLayout.test.tsx`. 기준값 비교의 승인 토큰 증감(`stage5OneLineDelta.ts`)도 `pt-0.5` → `mt-0.5`로 갱신(같은 S5-V8 정렬, 위치만 링 밖). 헤드리스: 글자 위 − 버튼 위 = 1 / 버튼 아래 − 글자 아래 = 1(Chromium, WebKit 1.3/1.3) → 링 안 글자 치우침 없음, 글자 위 − 배지 위 = 3(이전 `pt-0.5` 때도 2 + 1 = 3 → 글자 위치 동일), 버튼 상자 높이 20 → 18 |
+| [design P3, 기존] MyPage `min-h-screen` | `min-h-dvh` | `MyPage.stage5.test.tsx` 신규 1 |
+| 오버레이 뒤 목록 비침(유리 패널·tint) | **결정 필요**(기록만, 기존 `HistoryDetailPanel` 표면 — design/오너) | — |
+
+#### 8.19.2 헤드리스(Chromium·WebKit, hasTouch, 1194×834, **물리 iPad 아님**) — `.omc/research/figures-stage5-headless/out/stage5.json`
+
+하니스 서버에 300자 무공백 학생 줄(4번째 줄)을 추가해 다시 실행했다.
+
+| 항목 | Chromium | WebKit |
+|---|---|---|
+| 진단 화면: 스크롤 컨테이너 scrollWidth/clientWidth | 418 / 418 | 418 / 418 |
+| 진단 화면: 긴 줄 폭(카드 378) · 줄 수 · 배지 3개 카드·화면 안 | 314 · 6줄 · 예 | 314 · 7줄 · 예 |
+| 마이페이지 오버레이: scrollWidth/clientWidth | 718 / 718 | 718 / 718 |
+| 오버레이: 긴 줄 폭(카드 678) · 줄 수 · 배지 3개 카드·화면 안 | 614 · 4줄 · 예 | 614 · 4줄 · 예 |
+| 인식 바 버튼 정렬(글자 위−버튼 위 / 버튼 아래−글자 아래 / 글자 위−배지 위) | 1 / 1 / 3 | 1.3 / 1.3 / 3.3 |
+| "다시 풀기" 키보드 포커스(Tab 1회) | 링 표시(box-shadow brand), 모서리 6px | WebKit 기본 설정은 Tab이 버튼으로 가지 않음 — 확인 불가 |
+| 보드 실측(결과 패널 / 오버레이) | 액자 346 · 그리기 344 / 646 · 644 | 같음 |
+| 기존 항목 재확인: 한 줄 배지·버튼, 닫기 3경로 복귀·inert, Tab 밖 0, `h-dvh` 834→500→834, 같은 단계 같은 그림, 10회 열고 닫기 후 보드 0 | 모두 같음 | 모두 같음 |
+| 콘솔 오류 | 기존 suggestions 400만 | 같음 |
+
+하니스 서버는 끝난 뒤 종료(4199·5199·54398), 오너 dev 서버(5173·4000·8000)는 건드리지 않음.
+
+#### 8.19.3 변경 파일(재작업 1)
+
+- api: `infrastructure/persistence/problemRepository.ts`(PATCH·탐지 로그 코드만), `test-support/fakeSupabase.ts`(65,536), 테스트 추가 `infrastructure/persistence/resumeSolutions.persist.test.ts`(4), `modules/resume/resume.router.persist.test.ts`(1), 삭제 `apps/api/api-none.out`(추적 안 됨)
+- DB: `supabase/migrations/20261025000100_resume_solutions.sql`(65,536·머리말 주의, 미적용)
+- web: `features/ai-solution/{WorkLineList.tsx(본문 1줄), RecognizedProblemBar.tsx}`, `shared/ui/text-link/textLinkStyle.ts`, `pages/mypage/MyPage.tsx`(`min-h-dvh`), `test/stage5OneLineDelta.ts`(`mt-0.5`), `app/devFiguresRoute.test.tsx`(supabase mock), 신규 `features/ai-solution/oneLineLayout.test.tsx`, 추가 `pages/mypage/MyPage.stage5.test.tsx`(1)
+- 문서: 신규 `docs/FIGURES_FINAL_REPORT.md`, `docs/FIGURE_DESIGN.md`(§7.4·§18 보드 폭 정정 — design P2 지시), 이 장부
+- 하니스: `.omc/research/figures-stage5-headless/{server.mts, run.mjs}`(긴 무공백 줄·넘침·정렬 측정)
+- 변경 금지 diff 0 유지(허용 예외: `WorkLineList` 배지 2곳 + 본문 1곳, `diagnosis.router` 1줄). 기존 테스트 삭제·완화 0(`devFiguresRoute.test.tsx`는 mock 추가만, 단언 동일). 새 의존성 0.
+
+#### 8.19.4 게이트(재작업 1)
+
+| 실행 | typecheck | lint | test | build |
+|---|---|---|---|---|
+| **OneDrive 첫 실행** | 0 | 0 | 0 — api 71 파일/1,032, web 116 파일/1,214 | 0 — 메인 `index-P_tNks0Z.js` 975,975B, precache 8, 커널·JXG·jsxgraph·SolutionFigures·lazyEntry 0 |
+| OneDrive 밖 복사본(`git ls-files -co` + `pnpm install --offline`, `apps/web/.env` 넣음) 첫 실행 | 0 | 0 | 0 — api 1,032, web 1,214 | 0 — 같은 해시 `index-P_tNks0Z.js` |
+| OneDrive 밖 복사본(**`.env` 없음**, 깨끗한 체크아웃 상당) 첫 실행 | 0 | 0 | 0 — api 1,032, web 1,214(LOW-6 해소) | 0 — `index-DzxsB5TF.js` 975,980B(빌드에 박히는 `VITE_*` 값이 없어 해시만 다름) |
+
+- §7.18.4 예외 적용 없음(세 실행 모두 실패 0). 하니스 서버 종료 후 실행.
+
+
+### 8.20 Stage 5 QA 재검증 (stage-qa-agent, 2026-10-25, 재작업 1/3 이후)
+
+**판정: STAGE CONDITIONAL PASS — FIX REQUIRED (문서 보정 3건뿐) — 구현·테스트 수준의 미해소 항목 0.** 1차 지적(MEDIUM-1, LOW-1·2·3·4·6·7·10, design P2·P3)은 모두 해소 확인. 남은 것은 ① 최종 보고 문서의 사실 오류 3건(LOW) ② 실DB BLOCKED ③ 실기기 NOT VERIFIED ④ 이월 MEDIUM-2(CAS 순서쌍). 제품 코드·문서(이 장부 제외) 수정 0.
+
+범위 분리: **자동** 통과 / **헤드리스**(Chromium·WebKit, hasTouch, 1194×834, 물리 iPad 아님) 통과 / **실기기** NOT VERIFIED / **실DB** BLOCKED(마이그레이션 미적용, 오너) / **실제 AI** 새 호출 0, R1·R2 NOT RUN(오너 미승인)·R3는 §8.18.6 검토 그대로.
+
+#### 8.20.1 항목별 재검증
+
+| 항목 | 판정 | 직접 확인 |
+|---|---|---|
+| MEDIUM-1 긴 무공백 줄 | **해소** | (a) 마이페이지 오버레이, 지난번 하니스(공백 없는 300자 줄, 이어풀기 행): **수정 전 코드(복사본 vite)** scrollWidth 1,948/2,236 vs clientWidth 718, 줄 폭 1,841/2,129, 배지 카드 밖 → **현재**: 718=718(Chromium·WebKit), 줄 폭 571로 4~5줄 꺾임, 배지 카드 안. (b) 실시간 진단 화면(개발자 서버의 4번째 줄 300자): 수정 전 1,924/2,086 vs 418 → 현재 418=418, 줄 폭 314, 배지 3개 카드·화면 안. (c) 회귀: 짧은 줄만 있는 행의 줄·번호·배지·카드 기하(좌표·폭·높이) **수정 전과 동일**, 공백 있는 긴 줄·짧은 줄 폭 동일. (d) 같은 입력의 "내가 쓴 풀이" 머리·1·3번째 줄·인식 바 스크린샷 old/new **픽셀 동일**(두 엔진) |
+| LOW-1 도형 PATCH 로그 | 해소 | 변경 코드: `logResumeWriteError`(코드만), 탐지 "사용 불가" 로그도 코드만. 내 하니스 P11("Failing row contains" 주입, resume PATCH) **지난번 FAIL → 현재 PASS**, 영속 시나리오 113/113. 신규 테스트 3종은 로그를 되돌리는 변이에서 실패(2건) |
+| LOW-2 라우터 가드 | 해소 | 신규 라우터 테스트: 라우터 가드 제거 변이 → 해당 테스트만 실패(지난번엔 생존) |
+| LOW-3 수치 | 해소 | 장부 §8.12.6 = `measure.json`(0.361/0.445, 0.356/0.413) |
+| LOW-4 `api-none.out` | 해소 | 파일 없음 |
+| LOW-6 `.env` 의존 | 해소 | **`.env` 없는** 밖 복사본에서 web 116/1,214 통과(§8.20.3). `devFiguresRoute.test.tsx`는 mock 추가만(단언 diff 0) |
+| LOW-7 DB 크기 제약 | 해소(설계) | 마이그레이션 65,536으로 완화 + 주석, 가짜 DB 동일, 서버 상한 바로 아래 저장 성공 테스트. 실DB 확인은 BLOCKED |
+| LOW-10 | 해소 | 머리말 주의 문구 확인 |
+| design P2 | 해소 | 실측 결과 패널 액자 346/그리기 344, 오버레이 646/644(두 엔진). FIGURE_DESIGN §7.4·§18 정정 확인. **잔여**: §17 본문 574·670행의 "Default 보드는 항상 348px"·"348px로 맞춘다"는 정정되지 않음(LOW-11) |
+| design P3 포커스 링·`mt-0.5` | 해소 | `TEXT_LINK_FOCUS_RING` 하나를 `TEXT_LINK_STYLE`·인식 바가 공유, 버튼 `pt-0.5`→`mt-0.5`(글자 위−버튼 위 1·버튼 아래−글자 아래 1, 글자 위−배지 위 3 — 두 엔진), "다시 풀기" Tab 포커스 링 box-shadow 확인(Chromium, 모서리 6px) |
+| design P3 `min-h-dvh` | 해소 | MyPage 루트 클래스 + 테스트 |
+| WorkLineList 변경 범위 | 허용 범위 내 | `git diff HEAD`: 줄 본문 `<p>`에 `min-w-0`·`wrap-anywhere`, 배지 2곳 `shrink-0 whitespace-nowrap` — 3줄(+3/−3), 그 밖 diff 0. 변경 금지 목록 diff 0(예외 `diagnosis.router` 1줄뿐), package.json·락 diff 0, 기존 테스트 삭제·단언 약화 0(§8.20.2) |
+
+**포커스 링 정리의 다른 화면 영향**: `TEXT_LINK_STYLE`을 쓰는 곳은 `WorkLineList` "수정"(실시간 진단)과 `PasswordResetModal` 링크뿐이다. 두 링크에 정적으로 `rounded-[6px]`가 더해졌지만 배경·테두리가 없어 안 보이고(computed: radius 0→6px, background 투명, border 0, 폭·높이 25.95×20 동일) "수정" 링크·머리·줄 스크린샷이 수정 전과 픽셀 동일하다. 바뀌는 것은 **키보드 포커스 링 모서리**(직각→6px)뿐이다. `PasswordResetModal`은 복구 세션이 필요해 직접 열어 보지 못했다(클래스 동일 상수라는 근거로만). 또 하나의 off 상태 변화: MyPage 루트 `min-h-screen`→`min-h-dvh`(데스크톱 동일, iOS에서만 의도된 차이)는 MyPage DOM 기준값이 대화상자만 비교해 기준값 밖이다 — S5-1의 "바이트 동일"에 대한 문서화된 예외로 보고(오너 확인 권장, 장부 §8.19 기록은 있음).
+
+#### 8.20.2 off 동일성·기준값(S5-1) 재확인
+
+- 지난번 캡처 스크립트로 현재 트리를 다시 캡처: HEAD(091ae2a) 대비 스키마 전/후 **모두 바이트 동일**(어댑터 `diagnose/resume/generateFigures` 인자 포함). 영속 113/113, CHAT 51/51, 10개 사례(스키마 전/후) 55/55 — 변화 없음.
+- 기준값 비교 느슨함 점검: 이번 변경으로 `stage5OneLineDelta.ts`의 버튼 증감 `pt-0.5`→`mt-0.5` 한 토큰만 바뀌었고(기준값 JSON 불변), **실제 HEAD 기준값 ↔ 현재 렌더 DOM diff**는 `RecognizedProblemBar` 4노드뿐: 카드 `items-center→items-start`, 배지 +`shrink-0 whitespace-nowrap`, 본문 +`min-w-0 pt-0.5 wrap-anywhere`, 버튼 +`mt-0.5 whitespace-nowrap rounded-[6px] outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2` — delta와 정확히 일치, 태그·속성·텍스트·자식 수 차이 0. 무관 변이 13종(본문 `font-bold`, `gap-4`, 버튼 `mt-0.5` 제거, **`pt-0.5`로 되돌림**, `data-qa`, 배지 size, `whitespace-pre-wrap` 제거, 라벨 접미사, `aria-label`, 배지 `mt-1`, `min-w-0` 제거, 카드 `mb-2`, 포커스 상수의 `rounded-[6px]` 제거·`ring-offset-4`) → **13/13 비교 실패**(느슨해지지 않음). WorkLineList 클래스 제거 변이는 신규 `oneLineLayout.test.tsx`가 잡는다.
+
+#### 8.20.3 게이트(첫 실행)
+
+| 실행 | typecheck | lint | test | build |
+|---|---|---|---|---|
+| 저장소 루트(OneDrive) | 0 | 0 | 0 — api 71/1,032, web 116/1,214 | 0 — 메인 `index-P_tNks0Z.js` 975,975B(off, 커널·JXG·jsxgraph·SolutionFigures·lazyEntry 0, `sw.js` 포함), precache 8 |
+| OneDrive 밖 복사본(`git ls-files -co` − ProblemDB, **`apps/web/.env` 없음**) | 0 | 0 | 0 — api 1,032, web 1,214 | 0 — `index-DzxsB5TF.js`(빌드에 박히는 VITE 값 차이로 해시만 다름) |
+
+단언 실패·예외 적용 0. on 빌드(`VITE_FIGURES_ENABLED=true`, `.env` 포함): 메인 **886,248B**(커널·JXG 0), 공통 `FigureErrorBoundary` 90,131B(커널 0), 커널은 `lazyEntry` 51,895B에만, `jsxgraph` 1,040,973B, precache 12.
+
+#### 8.20.4 최종 보고 문서(`docs/FIGURES_FINAL_REPORT.md`) 검토
+
+- **§4 10개 항목 전부 존재**: 1 Stage 결과·재작업 / 2 design 실행·생략 / 3 변경 파일+mermaid 흐름도 / 4 F09 JSON 예시 / 5 지원·미지원 / 6 QA·재작업 / 7 실제 AI / 8 iPad 체크리스트 / 9 지연·비용 / 10 남은 제약·비활성화.
+- **표기**: Stage 1~4 판정·재작업(0/1·0/1·…)이 장부 §2와 일치, Stage 5는 "재검증 대기·1/3"(이번 재검증으로 갱신 필요). 실기기는 전부 "미실행"이며 "실기기 PASS" 표현 없음, 헤드리스는 "물리 iPad 확인이 아니다"로 구분. R1·R2 **NOT RUN — 오너 미승인**, 실DB **BLOCKED(오너 결정)**, 금액 미산정 사유 명시 — 모두 맞음.
+- **원본 대조 일치**: 커밋별 파일 수(61·43·92), Stage 3 평가 22건 지표·지연·토큰(16/16, 0/6, 13/13, 6,383/14,260/16,126ms, 80,448/15,595), Stage 4 보정 4/4·토큰 15,881/2,154·지연 3.3~5.4s, R3 지표·p50/p95(스크립트 정의 vs QA 재계산 병기), `measure.json` 수치, 행당 JSON 바이트, CHAT 증가량, 플래그 표·켜는 순서, F09 JSON 예시(SSE=DB=상세 확인값, CHAT 섹션의 H foot highlight (0,0)·M midpoint visible:false (1,0)), iPad 항목 1~12(계획 §7.5)+13~17.
+- **사실과 다른 서술(LOW 3건, 보정 필요)**: (1) §9 **웹 번들(on) 메인 886,293B** — 재작업 뒤 실측 886,248B(off만 975,975로 갱신되고 on은 재작업 전 값, "같음"으로 표기). (2) §5 "**지원 요소(12)**" — 나열·FIGURE_SPEC §3.3 기준 요소 타입은 **14개**(표 행이 12행). (3) §1·§6의 Stage 5 "재검증 대기"는 이 절 판정으로 갱신 필요. 또 `FIGURE_DESIGN.md` §17 본문 2곳의 348px(LOW-11).
+
+#### 8.20.5 남은 항목
+
+- **필수(문서)**: 위 LOW 3건 + LOW-11 정정, 최종 보고 §1·§6에 이 판정 반영.
+- **BLOCKED(오너)**: 마이그레이션 2종 적용 → RS7 cascade·S5-3 실DB·RLS select-own·SQL 실행·`pg_column_size` 경계(65,536 완화 포함).
+- **NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED**: 최종 보고 §8의 17항목 전부(그림 위 터치 스크롤, VoiceOver, Split View, iOS 하단 막대, Safari Tab 순환 등). WebKit 헤드리스는 Tab이 버튼에 가지 않아 "다시 풀기" 포커스 링은 Chromium으로만 확인.
+- 이월: MEDIUM-2(CAS 순서쌍 → 좌표 답 이어풀기 미저장·미표시), LOW-5·8·9(기록만, LOW-8은 같은 problemId에 solve·resume 공존 가능성을 개발자가 코드로 확인 — 결정 필요), 오버레이 뒤 목록 비침(결정 필요).
+- 하니스: 개발자 `run.mjs`를 scratchpad 복사본으로 그대로 실행해 §8.19.2 수치와 일치(콘솔 오류는 기존 suggestions 400뿐). 포트 5199·4199·54398만 사용, 종료·해제 확인. 오너 서버(5173·4000·8000) 무변경.

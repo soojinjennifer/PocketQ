@@ -125,8 +125,9 @@ export function RecognizedChip({
       삐져나가는 결함이 있었다(오너 iPad 실기기 스크린샷 발견, design-agent 코드 추적으로 근본 원인
       확인). */}
       <div className="flex w-full items-start gap-[8px]">
-        <div className="mt-[1px]">
-          <Badge variant="tint-green" size="recognized-chip">
+        {/* 한 줄 배치(S5-V7, §18.12): 배지는 줄바꿈·축소 없음. 접힘 상태 본문 1줄 말줄임은 그대로. */}
+        <div className="mt-[1px] shrink-0">
+          <Badge variant="tint-green" size="recognized-chip" className="whitespace-nowrap">
             인식됨
           </Badge>
         </div>

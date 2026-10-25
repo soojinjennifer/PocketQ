@@ -33,6 +33,7 @@ export * from "./figures/format";
 export * from "./figures/semantics";
 export * from "./figures/steps";
 export * from "./figures/candidate";
+export * from "./figures/chatSummary";
 
 /* ---------------------------------------------------------------------------------------------
  * 상한 상수

@@ -77,3 +77,42 @@ describe("env.figuresEnabled (도형 시각화 기능 플래그, 기본 off)", (
     expect(env.figuresEnabled).toBe(true);
   });
 });
+
+describe.each([
+  ["FIGURES_PERSIST_ENABLED", "figuresPersistEnabled"],
+  ["RESUME_PERSIST_ENABLED", "resumePersistEnabled"],
+] as const)("env.%s (Stage 5 영속 플래그, 기본 off)", (name, key) => {
+  const original = process.env[name];
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = original;
+    }
+    vi.resetModules();
+  });
+
+  it("없으면 false다", async () => {
+    delete process.env[name];
+    const { env } = await import("./env");
+    expect(env[key]).toBe(false);
+  });
+
+  it.each(["", "1", "TRUE", "True", "yes", "on", " true", "true "])("%j는 false다(정확히 \"true\"만 허용)", async (value) => {
+    process.env[name] = value;
+    const { env } = await import("./env");
+    expect(env[key]).toBe(false);
+  });
+
+  it("true일 때만 true이고 다른 플래그에 영향을 주지 않는다", async () => {
+    process.env[name] = "true";
+    const { env } = await import("./env");
+    expect(env[key]).toBe(true);
+    expect(env.figuresEnabled).toBe(process.env["FIGURES_ENABLED"] === "true");
+  });
+});

@@ -15,7 +15,13 @@ interface ResultPanelProps {
   editLabel?: string;
   conceptMd: string | null;
   solutionMd: string | null;
-  answerMd: string;
+  /** 최종 답. `null`이면 `AnswerBox`를 렌더하지 않는다(Stage 5 — 마이페이지에서 이어풀기 결과만 있는 문제). 기존 호출부는 문자열이라 DOM이 같다. */
+  answerMd: string | null;
+  /**
+   * 최종 답 다음·`chatContent` 앞에 둘 이어풀기 결과 섹션(Stage 5, `docs/FIGURE_DESIGN.md` §18.1). 페이지가 조립해 넘긴다.
+   * 없으면 아무것도 렌더하지 않는다(기존 DOM 동일).
+   */
+  resumeContent?: ReactNode;
   /** Body 최하단(최종 답 아래)에 렌더링할 후속 질문 콘텐츠 — 제안 질문 pill + 대화 버블 목록
    *  (`features/follow-up-chat`). `ResultPanel`(`features/ai-solution`)은 이 슬롯을 통해서만
    *  받는다 — feature 간 직접 참조를 금지하는 규칙(`.claude/rules/frontend.md` §1) 때문에
@@ -60,6 +66,7 @@ export function ResultPanel({
   chatFooter,
   figureContent,
   currentStep = null,
+  resumeContent,
 }: ResultPanelProps) {
   return (
     <>
@@ -78,7 +85,8 @@ export function ResultPanel({
         {conceptMd ? <ResultCard kind="concept" body={conceptMd} /> : null}
         {solutionMd ? <ResultCard kind="steps" body={solutionMd} currentStep={currentStep} /> : null}
         {figureContent !== undefined ? <FigureSlot>{figureContent}</FigureSlot> : null}
-        <AnswerBox answerMd={answerMd} />
+        {answerMd !== null ? <AnswerBox answerMd={answerMd} /> : null}
+        {resumeContent}
         {chatContent}
       </div>
 

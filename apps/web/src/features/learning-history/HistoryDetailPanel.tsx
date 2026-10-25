@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../shared/ui/button/Button";
 
 interface HistoryDetailPanelProps {
@@ -9,6 +9,12 @@ interface HistoryDetailPanelProps {
    *  feature를 직접 import하면 `.claude/rules/frontend.md` §1 위반이기 때문이다
    *  (`SolveLandscapePage`가 `ResultPanelShell`에 children을 주입하는 것과 동일한 패턴). */
   children: ReactNode;
+  /**
+   * 닫을 때 포커스를 돌려줄 대체 대상(Stage 5, `docs/FIGURE_DESIGN.md` §18.13). 열 때 포커스가 있던 요소가 문서에 남아 있으면
+   * 그 요소로 돌아가고, 없거나(삭제 등) 본문(`body`)이었으면(Safari는 버튼 클릭에 포커스를 주지 않는다) 이 함수가 돌려준 요소로 간다.
+   * 페이지가 정한다(연 행 → 목록 첫 행 → 현재 탭 순).
+   */
+  getFallbackFocus?: () => HTMLElement | null;
 }
 
 /**
@@ -26,8 +32,31 @@ interface HistoryDetailPanelProps {
  *   폭(760px)보다 살짝 좁게 잡아 오버레이임이 드러나게 했다.
  *
  * 닫기 경로는 3가지다: 헤더 좌측 "목록으로" 버튼, `Escape` 키, 배경(딤) 클릭.
+ *
+ * Stage 5(§18.7·§18.13, 오너 결정 Q-E):
+ * - 루트는 `fixed inset-x-0 top-0 h-dvh`(`.claude/rules/frontend.md` §3-6 — iOS Safari에서 `inset-0` 고정 요소가 보이는 화면보다 커지는 회귀 방지).
+ * - 열 때 "목록으로" 버튼에 포커스, 닫을 때(세 경로 모두 언마운트) 열기 직전 포커스 요소로 복귀(없으면 `getFallbackFocus`).
+ *   복귀는 passive effect 정리 단계에서 한다 — 같은 커밋에서 페이지가 배경 `inert`를 걷어낸 뒤라 포커스가 막히지 않는다.
+ * - 별도 JS 포커스 트랩·전역 keydown 추가는 없다(배경 `inert`는 페이지가 준다).
  */
-export function HistoryDetailPanel({ onClose, children }: HistoryDetailPanelProps) {
+export function HistoryDetailPanel({ onClose, children, getFallbackFocus }: HistoryDetailPanelProps) {
+  // 마운트 직전(첫 렌더 시점) 포커스 요소 — 커밋에서 "목록으로"로 옮기기 전에 잡아 둔다.
+  const [opener] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.activeElement));
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const fallbackRef = useRef(getFallbackFocus);
+  useEffect(() => {
+    fallbackRef.current = getFallbackFocus;
+  }, [getFallbackFocus]);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    return () => {
+      const target =
+        opener instanceof HTMLElement && opener !== document.body && opener.isConnected ? opener : (fallbackRef.current?.() ?? null);
+      target?.focus();
+    };
+  }, [opener]);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -41,7 +70,7 @@ export function HistoryDetailPanel({ onClose, children }: HistoryDetailPanelProp
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-x-0 top-0 z-40 flex h-dvh items-center justify-center bg-black/40 p-4">
       {/* 배경 클릭으로도 닫히게 하되, 키보드/스크린리더 사용자는 "목록으로" 버튼과 Escape를
           쓰므로 이 요소는 보조 수단이며 접근성 트리에서 제외한다. */}
       <button
@@ -59,7 +88,7 @@ export function HistoryDetailPanel({ onClose, children }: HistoryDetailPanelProp
         className="bg-glass-fill border-glass-border relative flex max-h-full w-[min(720px,100%)] flex-col overflow-hidden rounded-[24px] border shadow-[0px_4px_0px_rgba(35,43,56,0.21),0px_13px_24px_rgba(35,43,56,0.18),0px_25px_45px_rgba(35,43,56,0.1),inset_0px_2px_0px_rgba(255,255,255,0.9),inset_0px_-2px_0px_rgba(35,43,56,0.07)]"
       >
         <div className="flex shrink-0 items-center px-5 pt-4">
-          <Button variant="select" onClick={onClose}>
+          <Button ref={closeButtonRef} variant="select" onClick={onClose}>
             목록으로
           </Button>
         </div>

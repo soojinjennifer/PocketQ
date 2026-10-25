@@ -1,5 +1,6 @@
 import { Badge } from "../../shared/ui/badge/Badge";
 import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
+import { TEXT_LINK_FOCUS_RING } from "../../shared/ui/text-link/textLinkStyle";
 
 interface RecognizedProblemBarProps {
   recognizedText: string;
@@ -22,18 +23,22 @@ export function RecognizedProblemBar({
   editLabel = "수정",
 }: RecognizedProblemBarProps) {
   return (
-    <ElevatedCard className="flex items-center gap-3">
-      <Badge variant="tint-green" size="chip">
+    // 한 줄 배치(S5-V7·V8, `docs/FIGURE_DESIGN.md` §18.12): 배지·버튼은 줄바꿈·축소 없음, 남는 폭은 본문만 쓰고 본문 안에서만 꺾인다
+    // (말줄임 없음). 여러 줄 본문에서 배지·버튼이 가운데 뜨지 않게 위 정렬 + 본문 위 여백·버튼 위 바깥 여백 2px(첫 줄을 22px 배지 가운데에 맞춤, S5-V8).
+    <ElevatedCard className="flex items-start gap-3">
+      <Badge variant="tint-green" size="chip" className="shrink-0 whitespace-nowrap">
         인식됨
       </Badge>
-      <p className="text-label-primary flex-1 text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
+      <p className="text-label-primary min-w-0 flex-1 pt-0.5 text-[13px] leading-[18px] font-normal wrap-anywhere whitespace-pre-wrap">
         {recognizedText}
       </p>
+      {/* S5-V10: 텍스트 링크 공용 포커스 링(`TEXT_LINK_FOCUS_RING`). 첫 줄 정렬 2px는 링 바깥 여백(`mt-0.5`)이 맡는다 —
+          안쪽 여백이면 링 안에서 글자가 아래로 치우친다(design P3, 재작업 1). */}
       <button
         type="button"
         onClick={onEdit}
         disabled={!onEdit}
-        className="text-brand shrink-0 text-[13px] leading-[18px] font-[590] disabled:opacity-50"
+        className={`text-brand mt-0.5 shrink-0 text-[13px] leading-[18px] font-[590] whitespace-nowrap disabled:opacity-50 ${TEXT_LINK_FOCUS_RING}`}
       >
         {editLabel}
       </button>

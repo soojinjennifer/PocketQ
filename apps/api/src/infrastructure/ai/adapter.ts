@@ -1,6 +1,7 @@
 import type {
   AiProvider,
   CasStepVerification,
+  ChatFigureSummary,
   ChatMessage,
   Diagnosis,
   Grade,
@@ -27,6 +28,21 @@ export interface SolveRequest {
 
 export type SolveStreamEvent = { delta: string } | { done: true; result: Solution };
 
+/**
+ * CHAT 도형 맥락(Stage 5, `docs/FIGURE_SPEC.md` §17). 서버 `FIGURES_ENABLED` on이고 대화 맥락이 된 결과에 검증 도형이
+ * 있을 때만 라우터가 채운다(없으면 `ChatRequest`에 키 자체가 없다 — 기존 요청과 바이트 동일). 모든 값은 서버가 만든다.
+ */
+export interface ChatFigureContext {
+  /** 학생이 보고 있는 단계(1..99) 또는 null(최종). */
+  currentStep: number | null;
+  /** 그 단계 블록의 원문(최대 `CHAT_STEP_TEXT_MAX_CHARS`). 최종이거나 단계 분할 실패면 null. */
+  stepText: string | null;
+  /** 풀이 본문 앞부분(최대 `CHAT_SOLUTION_EXCERPT_MAX_CHARS`). */
+  solutionExcerpt: string;
+  /** 검증 도형 요약(`buildFigureChatSummaries`, 도형당 ≤3,000자·합계 ≤6,000자). */
+  figures: ChatFigureSummary[];
+}
+
 /** 후속 질문(채팅) 요청 — 문제/최초 풀이 컨텍스트와 이전 대화 이력, 이번 질문을 함께 전달한다. */
 export interface ChatRequest {
   problem: RecognizedProblem;
@@ -34,6 +50,8 @@ export interface ChatRequest {
   history: ChatMessage[];
   question: string;
   grade: Grade;
+  /** Stage 5 도형 맥락(선택). CHAT은 도형을 생성하지 않는다 — 응답은 여전히 answerMd 하나다. */
+  figureContext?: ChatFigureContext;
 }
 
 /** 후속 질문 제안 pill 문구 생성 요청 — 문제/풀이 컨텍스트만 있으면 된다(대화 이력 불필요). */

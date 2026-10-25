@@ -19,8 +19,13 @@ interface WorkLineJudgment {
  * - `lineNo <= diagnosis.lastValidLine`이면 `true`("확인").
  * - `lineNo === diagnosis.stallLine`이면 `false`("막힌 지점").
  * - 그 외에는 `null`(배지 없음 — 아직 검증 대상이 아닌 줄, 예: 막힌 지점 이후의 줄).
+ *
+ * Stage 5(§12.4): 매개변수 타입만 넓혔다 — 마이페이지 재조회는 저장된 `{lineNo, latex}`와 진단 근거 2값만 있다. 계산은 그대로다.
  */
-export function deriveWorkLineJudgments(workLines: WorkLine[], diagnosis: Diagnosis): WorkLineJudgment[] {
+export function deriveWorkLineJudgments(
+  workLines: readonly Pick<WorkLine, "lineNo" | "latex">[],
+  diagnosis: Pick<Diagnosis, "lastValidLine" | "stallLine">,
+): WorkLineJudgment[] {
   return workLines.map((line) => ({
     lineNo: line.lineNo,
     latex: line.latex,

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "./ApiError";
+import { NetworkError } from "./NetworkError";
 
 vi.mock("../lib/supabase/client", () => ({
   supabase: {
@@ -74,6 +75,32 @@ describe("recognizeProblem", () => {
 
     await expect(recognizeProblem({ imageBlob: blob, inputType: "photo", grade: "M2" })).rejects.toMatchObject(
       new ApiError("validation_error", "이미지가 필요합니다.", 400),
+    );
+
+    vi.unstubAllGlobals();
+  });
+  it("서버에 도달하지 못하면(fetch TypeError) NetworkError(unreachable)를 던진다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    const blob = new Blob(["fake-image"], { type: "image/jpeg" });
+
+    await expect(recognizeProblem({ imageBlob: blob, inputType: "photo", grade: "M2" })).rejects.toBeInstanceOf(
+      NetworkError,
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("서버가 500으로 응답하면 NetworkError가 아니라 ApiError를 던진다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(500, { error: { code: "internal_error", message: "서버 오류" } })),
+    );
+
+    const blob = new Blob(["fake-image"], { type: "image/jpeg" });
+
+    await expect(recognizeProblem({ imageBlob: blob, inputType: "photo", grade: "M2" })).rejects.toBeInstanceOf(
+      ApiError,
     );
 
     vi.unstubAllGlobals();

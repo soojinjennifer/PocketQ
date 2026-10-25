@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase/client";
+import { NetworkError } from "./NetworkError";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
@@ -24,6 +25,35 @@ export const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
 /** `fetch()`의 `signal`로 바로 전달할 수 있는, 지정한 시간 후 자동 abort되는 `AbortSignal`을 만든다. */
 export function createTimeoutSignal(ms: number = DEFAULT_FETCH_TIMEOUT_MS): AbortSignal {
   return AbortSignal.timeout(ms);
+}
+
+function getErrorName(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("name" in error)) return null;
+  return typeof error.name === "string" ? error.name : null;
+}
+
+/**
+ * `fetch()` 호출 자체만 감싸 "서버에 도달하지 못한" 실패를 `NetworkError`로 바꾼다. 응답 처리
+ * (`response.json()`/스키마 파싱 등)는 감싸지 않아, 코드 버그로 생긴 `TypeError`가 연결 오류로
+ * 잘못 분류되지 않는다.
+ *
+ * - `TypeError` → `NetworkError("unreachable")`(네트워크 단절, CORS, TLS, 잘못된 IP)
+ * - `TimeoutError`(`AbortSignal.timeout`) → `NetworkError("timeout")`
+ * - 그 외(`AbortError` 등 사용자 취소 포함)는 그대로 다시 던진다.
+ * - 서버가 응답한 경우(4xx/5xx 포함)는 `Response`를 그대로 돌려준다.
+ */
+export async function fetchWithNetworkError(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new NetworkError("unreachable", { cause: error });
+    }
+    if (getErrorName(error) === "TimeoutError") {
+      throw new NetworkError("timeout", { cause: error });
+    }
+    throw error;
+  }
 }
 
 /**

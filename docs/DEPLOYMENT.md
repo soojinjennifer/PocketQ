@@ -54,6 +54,8 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `OPENAI_API_KEY` | 운영용 OpenAI API 키 | 로컬 개발 키와 분리 권장(사용량 추적) |
 | `CAS_SERVICE_URL` | `pocketq-cas`의 Internal Address | 비워두면 CAS는 결정론적 스텁으로 자동 폴백(`resolveCasClient.ts`) — RESUME/DIAG 검증이 실제 SymPy가 아니라 스텁으로 동작하니 운영에서는 반드시 채울 것 |
 | `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 서버 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **웹 `VITE_FIGURES_ENABLED`보다 먼저 켜지 않는다**(아래 "도형 시각화 플래그 조합", D-9). 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 넣지 않았다(D-8) |
+| `FIGURES_PERSIST_ENABLED` | **설정하지 않음(= off)** | Stage 5 도형 저장. 정확히 `true`일 때만 on. `supabase/migrations/20261025000000_solution_figures.sql` 적용 **후** 켠다(적용 전에 켜도 컬럼 탐지 실패로 텍스트만 저장 — 안전). 적용 직후 서버 재시작 권장. **한번 켜면 끄지 않는 것을 권장**: 꺼진 동안 재풀이된 행에 이전 도형이 남아 다시 켰을 때 새 텍스트와 함께 보일 수 있다(오케스트레이터 결정, `docs/FIGURE_SPEC.md` §10) |
+| `RESUME_PERSIST_ENABLED` | **설정하지 않음(= off)** | Stage 5 이어풀기 결과 저장·마이페이지 재조회. 정확히 `true`일 때만 on. `20261025000100_resume_solutions.sql` 적용 후 켠다. CAS 검증 통과 결과만 저장. 위와 같은 이유로 켠 뒤에는 유지 권장 |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000` | render.yaml 기본값 그대로 두면 됨(버스트 방지용, §3.37 소프트 캡과는 별개) |
 
 ### `pocketq-web` (Static Site)
@@ -64,6 +66,21 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `VITE_SUPABASE_ANON_KEY` | 운영 Supabase **anon** 키 | service role 키 아님(클라이언트에 노출되는 값이라 anon 키만 사용) |
 | `VITE_API_BASE_URL` | `https://pocketq-api.groundmoyo.com`(도메인 연결 전 임시로는 `pocketq-api`의 `onrender.com` 공개 URL) | 빌드 타임에 번들에 고정되므로, 값이 바뀌면 반드시 재배포(재빌드) 필요 |
 | `VITE_FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화 화면(Stage 4). 정확히 `true`일 때만 결과 패널·이어풀기 결과에 그림 카드와 단계 이동을 보인다. 빌드 타임 값이라 바꾸면 재빌드 필요. 미설정 빌드에는 도형 UI·렌더러·JSXGraph 청크가 없다. `render.yaml`에는 넣지 않았다(D-8) |
+
+
+#### Stage 5 플래그 4종과 켜는 순서
+
+| 서버 `FIGURES_ENABLED` | `FIGURES_PERSIST_ENABLED` | `RESUME_PERSIST_ENABLED` | 웹 `VITE_FIGURES_ENABLED` | 결과 |
+|---|---|---|---|---|
+| off | off | off | off | Stage 5 전과 바이트 동일(기본·운영 현재값) |
+| off | on | on | off | 텍스트는 그대로, 이어풀기 결과가 저장되고 마이페이지에 보임(그림 없음). 도형 컬럼은 null로 비워짐 |
+| on | on | on | on | 목표 상태 — 그림 저장·마이페이지 그림 복원·CHAT 도형 맥락 |
+| on | off | * | on | 그림은 실시간 화면에만(저장 0), CHAT 맥락은 서버 메모리로 동작 |
+| on | * | * | off | ❌ **금지**(Stage 4 D-9와 같음) |
+
+- 켜는 순서: **마이그레이션 2종 적용(오너) → `FIGURES_PERSIST_ENABLED`·`RESUME_PERSIST_ENABLED` on(서버 재시작) → 웹 `VITE_FIGURES_ENABLED=true` 재빌드·배포 → 서버 `FIGURES_ENABLED=true`(재시작)**.
+- 끄는 순서: 서버 `FIGURES_ENABLED` → 웹 → (PERSIST는 유지 권장, 유지해도 무해).
+- 마이그레이션 롤백은 오너 판단(각 파일 끝 주석). 롤백 전에 해당 PERSIST 플래그를 먼저 끈다.
 
 #### 도형 시각화 플래그 조합 (Stage 4 D-9)
 

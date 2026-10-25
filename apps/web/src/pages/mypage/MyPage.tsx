@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ResultPanel } from "../../features/ai-solution/ResultPanel";
+import { ResumeResultCard } from "../../features/ai-solution/ResumeResultCard";
+import { WorkLineList } from "../../features/ai-solution/WorkLineList";
 import { getUserGrade } from "../../features/auth/getUserGrade";
 import { getUserNickname } from "../../features/auth/getUserNickname";
 import { useAuth } from "../../features/auth/useAuth";
 import { useAuthActions } from "../../features/auth/useAuthActions";
+import { savedFigureSlot } from "../../features/figure-visualization/LazySolutionFigures";
 import { ChatBubble } from "../../features/follow-up-chat/ChatBubble";
 import { GRADE_OPTIONS } from "../../features/grade-setup/useGradeSetup";
 import { DeleteHistoryButton } from "../../features/learning-history/DeleteHistoryButton";
@@ -15,6 +18,7 @@ import { ProfileHeaderCard } from "../../features/learning-history/ProfileHeader
 import { useProblemHistoryDetail } from "../../features/learning-history/useProblemHistoryDetail";
 import { useProblemHistoryList } from "../../features/learning-history/useProblemHistoryList";
 import { bulkDeleteProblemHistory } from "../../shared/api/problemHistory";
+import { deriveWorkLineJudgments } from "../../shared/lib/solve/deriveWorkLineJudgments";
 import { Button } from "../../shared/ui/button/Button";
 import { FilterPill } from "../../shared/ui/filter-pill/FilterPill";
 import { LoadingMark } from "../../shared/ui/loading-mark/LoadingMark";
@@ -83,6 +87,40 @@ export function MyPage() {
     reload: reloadDetail,
   } = useProblemHistoryDetail(selectedProblemId);
 
+  // Stage 5(§18.4, S5-V5): 그림·단계 블록의 현재 단계는 결과별로 따로 둔다(1~N, null = 최종, 기본). 다른 문제를 열거나 닫으면
+  // 최종으로 돌린다(렌더 중 이전 값 비교 패턴 — 아래 prevSelectedTag와 같은 방식).
+  const [solveStep, setSolveStep] = useState<number | null>(null);
+  const [resumeStep, setResumeStep] = useState<number | null>(null);
+  const [prevSelectedProblemId, setPrevSelectedProblemId] = useState(selectedProblemId);
+  if (selectedProblemId !== prevSelectedProblemId) {
+    setPrevSelectedProblemId(selectedProblemId);
+    setSolveStep(null);
+    setResumeStep(null);
+  }
+  const resumeHeadingId = useId();
+
+  // Stage 5(§18.13): 오버레이를 닫을 때 포커스 복귀 대체 대상 — 연 행의 상세 버튼 → 목록 첫 행 → NavTabBar 현재 탭.
+  // (열기 직전 포커스 요소가 남아 있으면 HistoryDetailPanel이 그쪽으로 먼저 돌려준다.)
+  const headerRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const lastOpenedIdRef = useRef<string | null>(null);
+  const visibleIdsRef = useRef<string[]>([]);
+  const getFallbackFocus = useCallback((): HTMLElement | null => {
+    const rows = listRef.current ? [...listRef.current.children] : [];
+    const openedIndex = lastOpenedIdRef.current ? visibleIdsRef.current.indexOf(lastOpenedIdRef.current) : -1;
+    const rowButton = (row: Element | undefined) => row?.querySelector<HTMLElement>("button") ?? null;
+    return (
+      (openedIndex >= 0 ? rowButton(rows[openedIndex]) : null) ??
+      rowButton(rows[0]) ??
+      headerRef.current?.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
+      null
+    );
+  }, []);
+  const openDetail = (problemId: string) => {
+    lastOpenedIdRef.current = problemId;
+    setSelectedProblemId(problemId);
+  };
+
   // 필터 Pill 라벨은 Figma의 정적 예시가 아니라 실제 목록에 등장한 개념 태그에서 뽑는다.
   const tagOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -101,6 +139,9 @@ export function MyPage() {
         : items.filter((item) => item.conceptTags.includes(selectedTag)),
     [items, selectedTag],
   );
+  useEffect(() => {
+    visibleIdsRef.current = visibleItems.map((item) => item.problemId);
+  }, [visibleItems]);
 
   const toggleChecked = (problemId: string) => {
     setCheckedProblemIds((prev) => {
@@ -157,8 +198,9 @@ export function MyPage() {
   const profileSubtitle = [gradeLabel, user?.email].filter(Boolean).join(" · ");
 
   return (
-    <div className="bg-bg-canvas min-h-screen">
-      <header className="relative flex items-center justify-center px-6 pt-6 pb-4">
+    <div className="bg-bg-canvas min-h-dvh">
+      {/* 오버레이가 열린 동안 배경(header·main)은 inert — Tab·VoiceOver가 대화상자 밖으로 나가지 않는다(§18.13, JS 트랩 없음). */}
+      <header ref={headerRef} inert={selectedProblemId !== null} className="relative flex items-center justify-center px-6 pt-6 pb-4">
         <div className="absolute top-6 left-6">
           <Logo size="small" />
         </div>
@@ -173,7 +215,7 @@ export function MyPage() {
         />
       </header>
 
-      <main className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 pb-10">
+      <main inert={selectedProblemId !== null} className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 pb-10">
         <ProfileHeaderCard
           // 닉네임이 없는 사용자(소셜 로그인 등)를 위한 대체 표기 — Figma 없음, 결정 필요.
           name={nickname ?? "학생"}
@@ -238,7 +280,7 @@ export function MyPage() {
         ) : null}
 
         {listStatus === "success" && items.length > 0 ? (
-          <section className="overflow-hidden rounded-[16px]">
+          <section ref={listRef} className="overflow-hidden rounded-[16px]">
             {visibleItems.map((item) => (
               <HistoryRow
                 key={item.problemId}
@@ -246,7 +288,7 @@ export function MyPage() {
                 recognizedText={item.recognizedText}
                 conceptTags={item.conceptTags}
                 createdAt={item.createdAt}
-                onClick={() => setSelectedProblemId(item.problemId)}
+                onClick={() => openDetail(item.problemId)}
                 isSelected={checkedProblemIds.has(item.problemId)}
                 onToggleSelect={toggleChecked}
                 onRetry={handleRetry}
@@ -262,7 +304,7 @@ export function MyPage() {
       </main>
 
       {selectedProblemId ? (
-        <HistoryDetailPanel onClose={() => setSelectedProblemId(null)}>
+        <HistoryDetailPanel onClose={() => setSelectedProblemId(null)} getFallbackFocus={getFallbackFocus}>
           {detailStatus === "loading" ? (
             <div className="flex flex-1 items-center justify-center p-10">
               <LoadingMark label="풀이를 불러오는 중" />
@@ -279,13 +321,69 @@ export function MyPage() {
           ) : null}
 
           {detailStatus === "success" && detail ? (
-            detail.solution ? (
+            detail.solution || detail.resumeSolution ? (
+              // Stage 5(§18.1): 탭 없이 풀이(solve) → 이어풀기(resume) → 대화 기록 순서로 한 스크롤에 쌓는다. solve만 있으면
+              // 기존과 같은 DOM이고(저장 도형이 있고 웹 플래그 on이면 답 앞에 그림 슬롯만 더해진다), resume만 있으면 머리 "풀이 결과"
+              // 아래 바로 이어풀기 섹션이 온다("저장된 풀이가 없는 문제예요"를 띄우지 않는다).
               <ResultPanel
-                category={detail.solution.conceptTags[0]}
+                category={detail.solution?.conceptTags[0]}
                 recognizedText={detail.recognizedText}
-                conceptMd={detail.solution.conceptMd}
-                solutionMd={detail.solution.solutionMd}
-                answerMd={detail.solution.answerMd}
+                conceptMd={detail.solution?.conceptMd ?? null}
+                solutionMd={detail.solution?.solutionMd ?? null}
+                answerMd={detail.solution?.answerMd ?? null}
+                currentStep={solveStep}
+                figureContent={
+                  detail.solution
+                    ? savedFigureSlot(detail.solution.figures, detail.solution.solutionMd, solveStep, setSolveStep)
+                    : undefined
+                }
+                resumeContent={
+                  detail.resumeSolution ? (
+                    <section aria-labelledby={resumeHeadingId} className="flex flex-col gap-3">
+                      {/* S5-V1·V2: solve도 있을 때만 보이는 머리말(답 배너 두 개를 색이 아니라 텍스트로 구분), resume만이면 sr-only. */}
+                      <h3
+                        id={resumeHeadingId}
+                        className={
+                          detail.solution
+                            ? "text-label-primary pt-3 text-[15px] leading-[20px] font-[590]"
+                            : "sr-only"
+                        }
+                      >
+                        이어풀기 결과
+                      </h3>
+                      {detail.resumeSolution.workContext ? (
+                        // §18.3: 실시간 진단 화면의 그 컴포넌트를 읽기 전용(onEdit 없음)으로. 판정은 저장된 진단 근거로 같은 함수가 계산한다.
+                        <WorkLineList
+                          lines={deriveWorkLineJudgments(
+                            detail.resumeSolution.workContext.lines,
+                            detail.resumeSolution.workContext,
+                          )}
+                        />
+                      ) : detail.resumeSolution.mode === "own" ? (
+                        // S5-V3: own 모드인데 저장된 줄이 없는 행(Stage 5 이전 저장·저장 실패)만 대체 안내.
+                        <p className="text-label-primary text-[13px] leading-[18px] font-normal">
+                          내가 쓴 풀이 줄은 저장되지 않아 여기에는 보이지 않아요.
+                        </p>
+                      ) : null}
+                      <ResumeResultCard
+                        solution={{
+                          mode: detail.resumeSolution.mode,
+                          methodName: detail.resumeSolution.methodName,
+                          solutionMd: detail.resumeSolution.solutionMd,
+                          answerMd: detail.resumeSolution.answerMd,
+                          verified: detail.resumeSolution.verified,
+                        }}
+                        currentStep={resumeStep}
+                        figureContent={savedFigureSlot(
+                          detail.resumeSolution.figures,
+                          detail.resumeSolution.solutionMd,
+                          resumeStep,
+                          setResumeStep,
+                        )}
+                      />
+                    </section>
+                  ) : undefined
+                }
                 // 다시 보기 오버레이는 조회 전용이라 후속 질문 입력은 제공하지 않고, 인식된 문제
                 // 바의 액션만 "다시 풀기"(MYPAGE-2 후속)로 쓴다. 클릭하면 사진/필기 재입력 없이
                 // `/solve/landscape`에서 곧바로 다시 풀이하도록 라우터 state로 의도를 넘긴다

@@ -1,5 +1,13 @@
 import { createContext } from "react";
-import type { ChatMessage, Diagnosis, ResumeMode, ResumeSolution, Solution, WorkLine } from "shared-types";
+import type {
+  ChatFigureContextRequest,
+  ChatMessage,
+  Diagnosis,
+  ResumeMode,
+  ResumeSolution,
+  Solution,
+  WorkLine,
+} from "shared-types";
 import type { RecognizeStatus } from "../problem-recognition/useRecognizeProblem";
 import type { RecognizeWorkInput, RecognizeWorkStatus } from "../problem-recognition/useRecognizeWork";
 import type { SolveStreamStatus } from "../ai-solution/useSolveStream";
@@ -75,6 +83,10 @@ export interface ProblemInputContextValue {
 
   // recognize → solve 제출 오케스트레이션
   recognizeStatus: RecognizeStatus;
+  /** `recognizeStatus === "error"`의 원인이 연결 오류(`NetworkError`, 서버 미도달/타임아웃)인지.
+   *  recognize와 마이페이지 "다시 풀기"(reopen) 실패에 공통으로 쓰인다. 에러 Modal이 연결 오류
+   *  문구(`features/problem-recognition/connectionErrorMessage`)로 분기할 때만 참조한다. */
+  isRecognizeConnectionError: boolean;
   /** recognize 성공 시 채워지는 문제 ID. `follow-up-chat`(`POST /api/problems/:problemId/chat`)이
    *  참조한다. recognize 전/실패 시에는 `null`. */
   problemId: string | null;
@@ -142,8 +154,9 @@ export interface ProblemInputContextValue {
   chatStatus: ChatStatus;
   chatErrorMessage: string | null;
   /** 빈 질문/전송 중 중복 제출은 내부에서 차단한다. 성공하면 `true`, 실패/차단이면 `false`를
-   *  반환한다(호출 측이 입력값을 초기화할지 유지할지 판단할 때 사용). */
-  sendChatMessage: (question: string) => Promise<boolean>;
+   *  반환한다(호출 측이 입력값을 초기화할지 유지할지 판단할 때 사용). `figureContext`(Stage 5)는 학생이 보고 있는
+   *  결과의 단계 — `VITE_FIGURES_ENABLED` on일 때만 페이지가 넘긴다. */
+  sendChatMessage: (question: string, figureContext?: ChatFigureContextRequest) => Promise<boolean>;
   resetChat: () => void;
 
   // 학생 풀이 인식/진단(WORK/DIAG) — `features/problem-recognition/useRecognizeWork`,

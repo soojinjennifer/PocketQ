@@ -60,16 +60,16 @@ export function WorkLineList({ lines, onEdit }: WorkLineListProps) {
             }
           >
             <span className="text-label-tertiary w-[16px] shrink-0 text-[11px] font-bold">{line.lineNo}</span>
-            <p className="text-label-primary flex-1 text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
+            <p className="text-label-primary min-w-0 flex-1 text-[13px] leading-[18px] font-normal wrap-anywhere whitespace-pre-wrap">
               {renderMathText(line.latex)}
             </p>
             {line.isValid === true ? (
-              <Badge variant="tint-green" size="judgment">
+              <Badge variant="tint-green" size="judgment" className="shrink-0 whitespace-nowrap">
                 확인
               </Badge>
             ) : null}
             {line.isValid === false ? (
-              <Badge variant="tint-red" size="judgment">
+              <Badge variant="tint-red" size="judgment" className="shrink-0 whitespace-nowrap">
                 막힌 지점
               </Badge>
             ) : null}

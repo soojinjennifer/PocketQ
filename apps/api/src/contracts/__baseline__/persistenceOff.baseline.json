@@ -1,0 +1,292 @@
+{
+  "solveCalls": [
+    {
+      "table": "solutions",
+      "ops": [
+        {
+          "method": "upsert",
+          "args": [
+            {
+              "problem_id": "99999999-9999-4999-8999-999999999991",
+              "concept_md": "## 개념 설명\n이차함수의 최솟값은 꼭짓점의 y좌표입니다.",
+              "solution_md": "## 풀이\n1. 완전제곱식으로 변형합니다.\n2. 꼭짓점의 좌표를 구합니다.",
+              "answer_md": "최솟값은 -1입니다.",
+              "concept_tags": [
+                "이차함수 > 최대·최소"
+              ],
+              "ai_provider": "claude",
+              "ai_model": "fake-whymath-v0"
+            },
+            {
+              "onConflict": "problem_id"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "resumeCalls": [],
+  "resumeSse": "event: chunk\ndata: {\"delta\":\"## 이어풀기\\n\"}\n\nevent: chunk\ndata: {\"delta\":\"2번째 줄부터 이어서 진행합니다.\\n\\n\"}\n\nevent: chunk\ndata: {\"delta\":\"최솟값은 -1입니다.\"}\n\nevent: done\ndata: {\"mode\":\"own\",\"methodName\":\"2번째 줄부터 이어가기\",\"solutionMd\":\"## 이어풀기\\n2번째 줄부터 이어서 진행합니다.\\n\\n최솟값은 -1입니다.\",\"answerMd\":\"-1\",\"verified\":true}\n\n",
+  "detail": {
+    "withSolution": {
+      "status": 200,
+      "text": "{\"problemId\":\"99999999-9999-4999-8999-999999999991\",\"recognizedText\":\"이차함수의 최솟값\",\"recognizedLatex\":\"y=x^2-4x+3\",\"createdAt\":\"2026-10-25T01:00:00.000Z\",\"solution\":{\"conceptMd\":\"개념\",\"solutionMd\":\"## 풀이\\n1. a\",\"answerMd\":\"-1\",\"conceptTags\":[\"이차함수 > 최대·최소\"],\"aiProvider\":\"openai\",\"aiModel\":\"gpt-test\"},\"chatMessages\":[{\"role\":\"user\",\"content\":\"왜요?\",\"createdAt\":\"2026-10-25T01:00:02.000Z\"},{\"role\":\"assistant\",\"content\":\"그래서요.\",\"createdAt\":\"2026-10-25T01:00:03.000Z\"}]}",
+      "calls": [
+        {
+          "table": "problems",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "id, recognized_text, recognized_latex, created_at, user_id"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "id",
+                "99999999-9999-4999-8999-999999999991"
+              ]
+            },
+            {
+              "method": "maybeSingle",
+              "args": []
+            }
+          ]
+        },
+        {
+          "table": "solutions",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "concept_md, solution_md, answer_md, concept_tags, ai_provider, ai_model"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "problem_id",
+                "99999999-9999-4999-8999-999999999991"
+              ]
+            },
+            {
+              "method": "maybeSingle",
+              "args": []
+            }
+          ]
+        },
+        {
+          "table": "chat_messages",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "role, content, created_at"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "problem_id",
+                "99999999-9999-4999-8999-999999999991"
+              ]
+            },
+            {
+              "method": "order",
+              "args": [
+                "created_at",
+                {
+                  "ascending": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "noSolution": {
+      "status": 200,
+      "text": "{\"problemId\":\"99999999-9999-4999-8999-999999999992\",\"recognizedText\":\"풀이 없는 문제\",\"recognizedLatex\":null,\"createdAt\":\"2026-10-25T00:00:00.000Z\",\"solution\":null,\"chatMessages\":[]}",
+      "calls": [
+        {
+          "table": "problems",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "id, recognized_text, recognized_latex, created_at, user_id"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "id",
+                "99999999-9999-4999-8999-999999999992"
+              ]
+            },
+            {
+              "method": "maybeSingle",
+              "args": []
+            }
+          ]
+        },
+        {
+          "table": "solutions",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "concept_md, solution_md, answer_md, concept_tags, ai_provider, ai_model"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "problem_id",
+                "99999999-9999-4999-8999-999999999992"
+              ]
+            },
+            {
+              "method": "maybeSingle",
+              "args": []
+            }
+          ]
+        },
+        {
+          "table": "chat_messages",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "role, content, created_at"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "problem_id",
+                "99999999-9999-4999-8999-999999999992"
+              ]
+            },
+            {
+              "method": "order",
+              "args": [
+                "created_at",
+                {
+                  "ascending": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "missing": {
+      "status": 404,
+      "text": "{\"error\":{\"code\":\"validation_error\",\"message\":\"풀이 기록을 찾을 수 없습니다.\"}}",
+      "calls": [
+        {
+          "table": "problems",
+          "ops": [
+            {
+              "method": "select",
+              "args": [
+                "id, recognized_text, recognized_latex, created_at, user_id"
+              ]
+            },
+            {
+              "method": "eq",
+              "args": [
+                "id",
+                "99999999-9999-4999-8999-999999999993"
+              ]
+            },
+            {
+              "method": "maybeSingle",
+              "args": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "list": {
+    "status": 200,
+    "text": "{\"items\":[{\"problemId\":\"99999999-9999-4999-8999-999999999991\",\"recognizedText\":\"이차함수의 최솟값\",\"conceptTags\":[\"이차함수 > 최대·최소\"],\"createdAt\":\"2026-10-25T01:00:00.000Z\"},{\"problemId\":\"99999999-9999-4999-8999-999999999992\",\"recognizedText\":\"풀이 없는 문제\",\"conceptTags\":[],\"createdAt\":\"2026-10-25T00:00:00.000Z\"}]}",
+    "calls": [
+      {
+        "table": "problems",
+        "ops": [
+          {
+            "method": "select",
+            "args": [
+              "id, recognized_text, created_at"
+            ]
+          },
+          {
+            "method": "eq",
+            "args": [
+              "user_id",
+              "user-1"
+            ]
+          },
+          {
+            "method": "order",
+            "args": [
+              "created_at",
+              {
+                "ascending": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "table": "solutions",
+        "ops": [
+          {
+            "method": "select",
+            "args": [
+              "problem_id, concept_tags"
+            ]
+          },
+          {
+            "method": "in",
+            "args": [
+              "problem_id",
+              [
+                "99999999-9999-4999-8999-999999999991",
+                "99999999-9999-4999-8999-999999999992"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "repositorySaveSolution": [
+    {
+      "table": "solutions",
+      "ops": [
+        {
+          "method": "upsert",
+          "args": [
+            {
+              "problem_id": "99999999-9999-4999-8999-999999999991",
+              "concept_md": null,
+              "solution_md": "## 풀이\n1. a",
+              "answer_md": "-1",
+              "concept_tags": [],
+              "ai_provider": "claude",
+              "ai_model": "fake-whymath-v0"
+            },
+            {
+              "onConflict": "problem_id"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

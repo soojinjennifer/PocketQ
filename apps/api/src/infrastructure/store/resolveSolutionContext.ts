@@ -1,4 +1,4 @@
-import type { Grade, RecognizedProblem, ResumeSolution, Solution } from "shared-types";
+import type { FigureSpec, Grade, RecognizedProblem, ResumeSolution, Solution, StepFigureRef } from "shared-types";
 import { env } from "../../config/env";
 import { AppError } from "../../shared/errors/AppError";
 import { inMemoryProblemStore } from "./inMemoryProblemStore";
@@ -7,6 +7,14 @@ export interface ResolvedSolutionContext {
   problem: RecognizedProblem;
   solution: Solution;
   grade: Grade;
+  /** 대화 맥락이 된 결과(Stage 5). solve 풀이가 있으면 "solve", 이어풀기 결과만 있으면 "resume". */
+  solutionSource: "solve" | "resume";
+  /**
+   * 그 결과의 도형 단계에서 검증을 통과해 SSE로 보낸 도형(Stage 5, 서버 메모리). 없으면 키 자체가 없다.
+   * 클라이언트가 보낸 도형은 받지 않는다 — CHAT 맥락은 항상 이 값만 쓴다.
+   */
+  figures?: FigureSpec[];
+  stepFigureRefs?: StepFigureRef[];
 }
 
 /**
@@ -40,6 +48,9 @@ function toSolutionFromResume(resumeSolution: ResumeSolution): Solution {
  *    이 분기가 없으면 이어풀기를 끝낸 뒤의 채팅/질문 추천이 항상 400으로 막힌다.
  *    CAS 검증 통과 여부(`verified`)와 무관하게 사용한다 — 학생에게는 이미 결과 카드로 보여진 풀이다.
  * 4. 둘 다 없으면(예: 풀이 진행 전에 chat을 먼저 호출) 404와 구분해 400을 던진다.
+ *
+ * Stage 5: 고른 결과에 연결된 검증 도형(`attachSolutionFigures`/`attachResumeFigures`)이 있으면 `figures`·`stepFigureRefs`를
+ * 함께 돌려준다(없으면 키 없음). `solution` 객체에는 넣지 않는다 — 도형 플래그 off면 `adapter.chat` 인자가 기존과 같다.
  */
 export function resolveSolutionContext(problemId: string, userId: string): ResolvedSolutionContext {
   const stored = inMemoryProblemStore.get(problemId);
@@ -49,7 +60,13 @@ export function resolveSolutionContext(problemId: string, userId: string): Resol
   }
 
   if (stored.solution) {
-    return { problem: stored.problem, solution: stored.solution, grade: stored.grade };
+    return {
+      problem: stored.problem,
+      solution: stored.solution,
+      grade: stored.grade,
+      solutionSource: "solve",
+      ...inMemoryProblemStore.getSolutionFigures(problemId),
+    };
   }
 
   if (stored.resumeSolution) {
@@ -57,6 +74,9 @@ export function resolveSolutionContext(problemId: string, userId: string): Resol
       problem: stored.problem,
       solution: toSolutionFromResume(stored.resumeSolution),
       grade: stored.grade,
+      solutionSource: "resume",
+      // 이어풀기 결과의 도형도 함께 옮긴다(S5-7) — `Solution` 모양 변환과 별개로, 그 결과에 연결된 도형만.
+      ...inMemoryProblemStore.getResumeFigures(problemId),
     };
   }
 

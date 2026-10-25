@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { Grade } from "shared-types";
 import { ApiError } from "../../shared/api/ApiError";
+import { isNetworkError } from "../../shared/api/NetworkError";
 import { reopenProblemHistory } from "../../shared/api/problemHistory";
 import { recognizeProblem } from "../../shared/api/recognizeProblem";
 
@@ -17,6 +18,9 @@ interface UseRecognizeProblemResult {
   problemId: string | null;
   recognizedText: string | null;
   errorMessage: string | null;
+  /** 마지막 recognize/resumeFromHistory 실패가 서버에 도달하지 못한 연결 오류(`NetworkError`:
+   *  네트워크 단절/CORS/TLS/잘못된 IP/타임아웃)였는지. 서버가 응답한 4xx/5xx 실패는 `false`다. */
+  isConnectionError: boolean;
   /** 소프트 캡(하루 10회, 오너 확정) 안내용 — 서버가 응답에 실어 보낸 오늘 누적 인식 횟수. 서버가
    *  값을 생략했으면(예: 카운트 조회 실패) `null`이다. 이 값만으로는 절대 인식을 막지 않는다 —
    *  화면이 `dailyUsageCount > dailyUsageLimit`일 때만 가벼운 안내를 보여줄지 판단한다. */
@@ -40,12 +44,14 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
   const [problemId, setProblemId] = useState<string | null>(null);
   const [recognizedText, setRecognizedText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isConnectionError, setIsConnectionError] = useState(false);
   const [dailyUsageCount, setDailyUsageCount] = useState<number | null>(null);
   const [dailyUsageLimit, setDailyUsageLimit] = useState<number | null>(null);
 
   const recognize = useCallback(async (input: RecognizeProblemInput): Promise<string | null> => {
     setStatus("loading");
     setErrorMessage(null);
+    setIsConnectionError(false);
 
     try {
       const response = await recognizeProblem(input);
@@ -58,6 +64,7 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "문제 인식 중 오류가 발생했습니다.";
       setErrorMessage(message);
+      setIsConnectionError(isNetworkError(error));
       setStatus("error");
       return null;
     }
@@ -71,6 +78,7 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
   const resumeFromHistory = useCallback(async (historyProblemId: string): Promise<string | null> => {
     setStatus("loading");
     setErrorMessage(null);
+    setIsConnectionError(false);
 
     try {
       const response = await reopenProblemHistory(historyProblemId);
@@ -85,6 +93,7 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "문제를 다시 불러오는 중 오류가 발생했습니다.";
       setErrorMessage(message);
+      setIsConnectionError(isNetworkError(error));
       setStatus("error");
       return null;
     }
@@ -95,6 +104,7 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
     setProblemId(null);
     setRecognizedText(null);
     setErrorMessage(null);
+    setIsConnectionError(false);
     setDailyUsageCount(null);
     setDailyUsageLimit(null);
   }, []);
@@ -104,6 +114,7 @@ export function useRecognizeProblem(): UseRecognizeProblemResult {
     problemId,
     recognizedText,
     errorMessage,
+    isConnectionError,
     dailyUsageCount,
     dailyUsageLimit,
     recognize,

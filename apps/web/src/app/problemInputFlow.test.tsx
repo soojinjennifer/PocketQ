@@ -465,6 +465,40 @@ describe("recognize/solve API 연동(모킹) — Result Panel 표시", () => {
     expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "문제 인식하기" })).not.toBeDisabled();
   });
+
+  it("recognize가 연결 오류(NetworkError)로 실패하면 오너 문구가 표시되고, 확인을 누르면 닫혀서 다시 인식할 수 있다", async () => {
+    const { recognizeProblem } = await import("../shared/api/recognizeProblem");
+    const { NetworkError } = await import("../shared/api/NetworkError");
+    vi.mocked(recognizeProblem).mockRejectedValueOnce(new NetworkError("unreachable"));
+
+    const { container } = renderApp(["/solve/pencilcanvas"]);
+    const canvas = await waitFor(() => {
+      const found = container.querySelector("canvas");
+      if (!found) throw new Error("canvas not found");
+      return found;
+    });
+    drawOneStroke(canvas);
+
+    fireEvent.click(screen.getByRole("button", { name: "문제 인식하기" }));
+
+    expect(await screen.findByText("연결 오류 입니다.")).toBeInTheDocument();
+    expect(screen.getByText("네트웍 연결을 확인해주세요")).toBeInTheDocument();
+    expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(screen.queryByText("연결 오류 입니다.")).not.toBeInTheDocument();
+
+    // 재시도: 입력은 유지되어 있으므로 다시 "문제 인식하기"를 누를 수 있고, 이번에는 성공한다.
+    const retryButton = screen.getByRole("button", { name: "문제 인식하기" });
+    expect(retryButton).not.toBeDisabled();
+    fireEvent.click(retryButton);
+
+    await waitFor(() => expect(vi.mocked(recognizeProblem)).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "아직 못 풀겠어요" })).not.toBeDisabled(),
+    );
+    expect(screen.queryByText("연결 오류 입니다.")).not.toBeInTheDocument();
+  });
 });
 
 describe("후속 질문(채팅) 연동 — problemId 노출 및 chat API 연결", () => {
@@ -697,6 +731,18 @@ describe("마이페이지 '다시 풀기' — 사진/필기 없이 재수화 후
 
     expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
   });
+
+  it("재수화가 연결 오류(NetworkError)로 실패하면 연결 오류 문구로 표시된다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { NetworkError } = await import("../shared/api/NetworkError");
+    vi.mocked(reopenProblemHistory).mockRejectedValueOnce(new NetworkError("timeout"));
+
+    renderApp([{ pathname: "/solve/landscape", state: { resumeProblemId: "problem-x" } }]);
+
+    expect(await screen.findByText("연결 오류 입니다.")).toBeInTheDocument();
+    expect(screen.getByText("네트웍 연결을 확인해주세요")).toBeInTheDocument();
+    expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
+  });
 });
 
 describe("마이페이지 개선 4번 '다시풀기' — 사진/필기 없이 재수화 후 WORK 단계로 곧바로 진입한다", () => {
@@ -735,6 +781,20 @@ describe("마이페이지 개선 4번 '다시풀기' — 사진/필기 없이 �
     ]);
 
     expect(await screen.findByText("문제를 인식하지 못했습니다")).toBeInTheDocument();
+  });
+
+  it("재수화가 연결 오류(NetworkError)로 실패하면 연결 오류 문구로 표시된다", async () => {
+    const { reopenProblemHistory } = await import("../shared/api/problemHistory");
+    const { NetworkError } = await import("../shared/api/NetworkError");
+    vi.mocked(reopenProblemHistory).mockRejectedValueOnce(new NetworkError("unreachable"));
+
+    renderApp([
+      { pathname: "/solve/pencilcanvas", state: { resumeToWorkProblemId: "problem-x" } },
+    ]);
+
+    expect(await screen.findByText("연결 오류 입니다.")).toBeInTheDocument();
+    expect(screen.getByText("네트웍 연결을 확인해주세요")).toBeInTheDocument();
+    expect(screen.queryByText("문제를 인식하지 못했습니다")).not.toBeInTheDocument();
   });
 });
 

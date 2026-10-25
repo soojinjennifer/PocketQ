@@ -42,6 +42,18 @@ export const env = {
    * 보낸다. 끄면 프롬프트·SSE가 기존과 바이트 단위로 같다(`docs/API_SPEC.md`).
    */
   figuresEnabled: process.env["FIGURES_ENABLED"] === "true",
+  /**
+   * 검증된 도형을 solutions 행에 저장·재조회하는 플래그(Stage 5, `docs/FIGURE_SPEC.md` §8). 정확히 "true"일 때만 on.
+   * on이어도 첫 사용 시 `20261025000000_solution_figures.sql`의 컬럼을 탐지하지 못하면 도형 키를 쓰거나 읽지 않는다
+   * (`problemRepository.figureColumnsAvailable`). off면 저장 payload·상세 select·응답이 기존과 바이트 단위로 같다.
+   */
+  figuresPersistEnabled: process.env["FIGURES_PERSIST_ENABLED"] === "true",
+  /**
+   * CAS 검증을 통과한 이어풀기 결과를 `resume_solutions`에 저장하고 상세 조회에 `resumeSolution`으로 돌려주는 플래그
+   * (Stage 5). 정확히 "true"일 때만 on. on이어도 `20261025000100_resume_solutions.sql`의 테이블을 탐지하지 못하면
+   * 저장·조회하지 않는다(`problemRepository.resumeTableAvailable`). off면 resume 라우터의 저장소 호출 0.
+   */
+  resumePersistEnabled: process.env["RESUME_PERSIST_ENABLED"] === "true",
   rateLimitMax: readNumber(process.env["RATE_LIMIT_MAX"], 30),
   rateLimitWindowMs: readNumber(process.env["RATE_LIMIT_WINDOW_MS"], 60_000),
 } as const;

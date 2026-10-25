@@ -15,6 +15,7 @@ import type { ResumeSolution } from "shared-types";
 import { ResultCard } from "../ResultCard";
 import { ResultPanel } from "../ResultPanel";
 import { ResumeResultCard } from "../ResumeResultCard";
+import { applyStage5OneLineDelta } from "../../../test/stage5OneLineDelta";
 import baselineJson from "./resultDom.baseline.json";
 import casesJson from "./resultDom.cases.json";
 
@@ -90,6 +91,7 @@ describe("결과 카드 DOM 기준값(변경 전 캡처, 단계 표지 없음)",
 
   it.each(cases.map((c) => [c.id, c] as const))("%s", (id, c) => {
     const { container } = render(element(c));
-    expect(normalizeClassOrder(container.innerHTML)).toBe(normalizeClassOrder(baseline[id] ?? ""));
+    // Stage 5: RecognizedProblemBar의 승인 클래스 변경(S5-V7·V8·V10)만 기준값에 적용한 뒤 비교한다(`test/stage5OneLineDelta.ts`, 장부 §8).
+    expect(normalizeClassOrder(container.innerHTML)).toBe(normalizeClassOrder(applyStage5OneLineDelta(baseline[id] ?? "")));
   });
 });
