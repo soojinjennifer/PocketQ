@@ -53,4 +53,39 @@
   --color-modal-subtitle: var(--color-modal-subtitle);
   --color-modal-divider: var(--color-modal-divider);
   --color-modal-border: var(--color-modal-border);
+
+  /* 랜딩(/home.html) 전용 — tokens.css의 `landing-` 토큰을 그대로 노출한다. */
+  --color-landing-bg-page: var(--color-landing-bg-page);
+  --color-landing-bg-nav: var(--color-landing-bg-nav);
+  --color-landing-brand-deep: var(--color-landing-brand-deep);
+  --color-landing-brand-deeper: var(--color-landing-brand-deeper);
+  --color-landing-brand-green: var(--color-landing-brand-green);
+  --color-landing-brand-mint: var(--color-landing-brand-mint);
+  --color-landing-brand-tint: var(--color-landing-brand-tint);
+  --color-landing-label-ink: var(--color-landing-label-ink);
+  --color-landing-label-on-deep: var(--color-landing-label-on-deep);
+  --color-landing-label-on-deep-secondary: var(--color-landing-label-on-deep-secondary);
+  --color-landing-border-hairline: var(--color-landing-border-hairline);
+  --color-landing-border-edge: var(--color-landing-border-edge);
+  --color-landing-status-error: var(--color-landing-status-error);
+  --color-landing-status-error-row: var(--color-landing-status-error-row);
+  --font-landing-sans: var(--font-landing-sans);
+  --font-landing-hand: var(--font-landing-hand);
+  --font-landing-math: var(--font-landing-math);
+  --font-landing-system: var(--font-landing-system);
+  --radius-landing-icon-sm: var(--radius-landing-icon-sm);
+  --radius-landing-icon: var(--radius-landing-icon);
+  --radius-landing-well: var(--radius-landing-well);
+  --radius-landing-chip: var(--radius-landing-chip);
+  --radius-landing-video-inner: var(--radius-landing-video-inner);
+  --radius-landing-media: var(--radius-landing-media);
+  --radius-landing-card: var(--radius-landing-card);
+  --radius-landing-panel: var(--radius-landing-panel);
+  --radius-landing-cta: var(--radius-landing-cta);
+  --shadow-landing-rest: var(--shadow-landing-rest);
+  --shadow-landing-raised: var(--shadow-landing-raised);
+  --shadow-landing-button-deep: var(--shadow-landing-button-deep);
+  --shadow-landing-well: var(--shadow-landing-well);
+  --shadow-landing-video-frame: var(--shadow-landing-video-frame);
+  --shadow-landing-chip: var(--shadow-landing-chip);
 }

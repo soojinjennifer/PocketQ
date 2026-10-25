@@ -95,4 +95,59 @@
   /* (2026-09, 오너 실기기 피드백 + Figma 재실측, `260:101` Solve/Action Bar) `Problem_nosolve_font`
      — "아직 못 풀겠어요" 라벨/아이콘 색. */
   --color-action-notyet-fg: #6f7b75;
+  /* ───────── 랜딩(/home.html) 전용 토큰 — 2026-10-25 오너 결정 D-3 A안 ─────────
+     Figma `MathService`(fileKey `ltyPrCk8UT8DsB3tFuw7Sr`) `3. Landing Page` 변수 실측(`docs/LANDING_DESIGN.md` §2).
+     앱의 `--color-brand-deep`/`--color-brand-tint`(블루그레이)와 이름이 겹치므로 `landing-` 접두사로 분리한다.
+     앱 화면에서는 쓰지 않는다. */
+  --color-landing-bg-page: #f3f1ea;
+  --color-landing-bg-nav: #f3f1eae0;
+  --color-landing-brand-deep: #233538;
+  --color-landing-brand-deeper: #0f1c1e;
+  --color-landing-brand-green: #4f7d71;
+  --color-landing-brand-mint: #8fbfae;
+  --color-landing-brand-tint: #cfe3db;
+  --color-landing-label-ink: #2f3743;
+  --color-landing-label-on-deep: #f3f1ea;
+  --color-landing-label-on-deep-secondary: #f3f1eab8;
+  --color-landing-border-hairline: #2335381a;
+  /* `border/edge` — 값이 `--color-modal-border`와 같아 별칭으로 둔다(값 이중 정의 방지). */
+  --color-landing-border-edge: var(--color-modal-border);
+  --color-landing-status-error: #a85b4e;
+  --color-landing-status-error-row: #c97b6e1f;
+
+  /* 랜딩 글꼴(D-4) — 웹폰트는 `apps/web/home.html`에서만 CDN `<link>`로 불러온다(font-display: swap). */
+  --font-landing-sans: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  --font-landing-hand: Gaegu, "Pretendard Variable", sans-serif;
+  /* 수식 줄 안의 한글은 STIX에 없어 Pretendard(고딕)로 대체한다(검수 M-6, Figma와 일치). */
+  --font-landing-math: "STIX Two Math", "STIX Two Text", "Cambria Math", "Pretendard Variable", Pretendard, serif;
+  /* 푸터 `Text/Footnote`만 SF Pro다(Figma 원본 유지, D-9). 앱 전역 글꼴 스택과 같다. */
+  --font-landing-system: "SF Pro", -apple-system, "Apple SD Gothic Neo", sans-serif;
+
+  /* 랜딩 모서리(D-20) — `docs/LANDING_DESIGN.md` §2.4 Figma 실측값만 등록한다. */
+  --radius-landing-icon-sm: 8px;
+  --radius-landing-icon: 11px;
+  --radius-landing-well: 16px;
+  --radius-landing-chip: 18px;
+  --radius-landing-video-inner: 22px;
+  --radius-landing-media: 24px;
+  --radius-landing-card: 28px;
+  --radius-landing-panel: 30px;
+  --radius-landing-cta: 36px;
+
+  /* 랜딩 그림자(D-20) — `docs/LANDING_DESIGN.md` §2.5. Rest/Raised는 앱의 `Math/Shadow Rest`(=Floating Bar)와
+     `Elevation/Glass Panel`(ResultPanelShell) 값을 그대로 옮겼다. drop 레이어도 box-shadow로 합친다. */
+  --shadow-landing-rest:
+    0px 3px 0px rgba(35, 43, 56, 0.21), 0px 8px 16px rgba(35, 43, 56, 0.14),
+    0px 20px 34px rgba(35, 43, 56, 0.08), inset 0px 2px 0px rgba(255, 255, 255, 0.9),
+    inset 0px -2px 0px rgba(35, 43, 56, 0.07);
+  --shadow-landing-raised:
+    0px 4px 0px rgba(35, 43, 56, 0.21), 0px 13px 24px rgba(35, 43, 56, 0.18),
+    0px 25px 45px rgba(35, 43, 56, 0.1), inset 0px 2px 0px rgba(255, 255, 255, 0.9),
+    inset 0px -2px 0px rgba(35, 43, 56, 0.07);
+  --shadow-landing-button-deep:
+    0px 4px 0px #0f1c1e, 0px 10px 22px #23353838, inset 0px 2px 0px #ffffff2e;
+  --shadow-landing-well: inset 0px 2px 4px #232b381c, inset 0px 1px 2px #232b3814;
+  --shadow-landing-video-frame: 0px 24px 60px #00000059;
+  /* Status Chip / Kakao / Google — Figma에서 확인된 두 레이어만 옮겼다(세 번째 레이어는 결정 필요, §2.5). */
+  --shadow-landing-chip: 0px 8px 8px #232b3824, 0px 3px 0px #232b3836;
 }

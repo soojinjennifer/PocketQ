@@ -5,6 +5,45 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+/**
+ * 멀티 페이지 진입점. `home.html`은 랜딩(`/home.html`)으로, 앱(`index.html`)과 번들을 나눈다.
+ * 테스트(`src/app/landing/viteConfig.test.ts`)가 이 값을 그대로 검증한다.
+ */
+export const BUILD_INPUT = {
+  main: fileURLToPath(new URL("./index.html", import.meta.url)),
+  home: fileURLToPath(new URL("./home.html", import.meta.url)),
+};
+
+/**
+ * SW의 SPA 내비게이션 fallback(`index.html`)이 랜딩 문서를 가로채지 않게 한다. workbox는 pathname+search로
+ * 비교하므로 `/home.html?ref=kakao` 같은 쿼리·해시도 막아야 한다(Stage QA M-QA-1).
+ */
+export const NAVIGATE_FALLBACK_DENYLIST = [/^\/home\.html(?:[?#]|$)/];
+
+/**
+ * SW workbox 옵션. 테스트(`src/app/landing/viteConfig.test.ts`)가 VitePWA에 실제로 넘어가는 값을 검증한다.
+ * - D-7: JSXGraph 청크(약 0.7MB)는 precache하지 않고, 처음 그림을 볼 때 받아 런타임 캐시(CacheFirst)에 둔다 —
+ *   그림을 보지 않는 사용자의 설치·업데이트 비용을 늘리지 않기 위해서다. 해시가 바뀌면 새 URL이라 오래된 항목은
+ *   개수 상한으로 정리된다.
+ * - 랜딩(`home.html`)은 precache하지 않는다 — 배포 뒤에도 항상 네트워크에서 새로 받는다(Stage QA L-QA-3).
+ */
+export function buildWorkboxOptions(figuresEnabled: boolean) {
+  return {
+    globIgnores: ["**/node_modules/**/*", "**/jsxgraph-*.js", "home.html"],
+    navigateFallbackDenylist: NAVIGATE_FALLBACK_DENYLIST,
+    // 재작업 1(QA L-D): 도형 기능 off 빌드에는 JSXGraph 청크가 없으므로 런타임 라우트도 넣지 않는다(sw.js 동일 유지).
+    runtimeCaching: figuresEnabled
+      ? [
+          {
+            urlPattern: /\/assets\/jsxgraph-[^/]+\.js$/,
+            handler: "CacheFirst" as const,
+            options: { cacheName: "jsxgraph", expiration: { maxEntries: 4 } },
+          },
+        ]
+      : [],
+  };
+}
+
 const certDir = fileURLToPath(new URL("./.cert", import.meta.url));
 const keyPath = `${certDir}/key.pem`;
 const certPath = `${certDir}/cert.pem`;
@@ -28,6 +67,7 @@ export default defineConfig(({ mode }) => {
     // 이 모듈을 import하는 코드가 없어 청크가 생기지 않는다.
     build: {
       rolldownOptions: {
+        input: BUILD_INPUT,
         output: {
           codeSplitting: {
             groups: [{ name: "jsxgraph", test: /node_modules[\\/](?:\.pnpm[\\/])?jsxgraph/ }],
@@ -40,22 +80,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: "autoUpdate",
-        // D-7: JSXGraph 청크(약 0.7MB)는 precache하지 않고, 처음 그림을 볼 때 받아 런타임 캐시(CacheFirst)에 둔다 —
-        // 그림을 보지 않는 사용자의 설치·업데이트 비용을 늘리지 않기 위해서다. 해시가 바뀌면 새 URL이라 오래된 항목은
-        // 개수 상한으로 정리된다.
-        workbox: {
-          globIgnores: ["**/node_modules/**/*", "**/jsxgraph-*.js"],
-          // 재작업 1(QA L-D): 도형 기능 off 빌드에는 JSXGraph 청크가 없으므로 런타임 라우트도 넣지 않는다(sw.js 동일 유지).
-          runtimeCaching: figuresEnabled
-            ? [
-                {
-                  urlPattern: /\/assets\/jsxgraph-[^/]+\.js$/,
-                  handler: "CacheFirst",
-                  options: { cacheName: "jsxgraph", expiration: { maxEntries: 4 } },
-                },
-              ]
-            : [],
-        },
+        workbox: buildWorkboxOptions(figuresEnabled),
         manifest: {
           name: "수풀잉",
           short_name: "수풀잉",

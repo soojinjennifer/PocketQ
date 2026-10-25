@@ -3,12 +3,9 @@ import { useNavigate } from "react-router";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../shared/lib/supabase/client";
 import { getUserNickname } from "./getUserNickname";
+import { startOAuthSignIn, type AuthActionResult, type OAuthProvider } from "./startOAuthSignIn";
 
-export type OAuthProvider = "kakao" | "google";
-
-export interface AuthActionResult {
-  error: string | null;
-}
+export type { AuthActionResult, OAuthProvider };
 
 export interface SignInActionResult extends AuthActionResult {
   /** 로그인 성공 시 발급된 사용자 정보. 실패 시 null. 팝업 표시/이동 목적지 판단에 사용한다. */
@@ -108,19 +105,9 @@ export function useAuthActions() {
     [],
   );
 
+  // 실제 호출은 라우터 비의존 순수 함수 `startOAuthSignIn`에 위임한다(랜딩 `/home.html`과 공유).
   const signInWithOAuth = useCallback(
-    async (provider: OAuthProvider): Promise<AuthActionResult> => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin },
-      });
-      if (error) {
-        return { error: error.message };
-      }
-      // 성공 시 브라우저가 Provider로 리다이렉트된다 — 복귀 후 "/" 인덱스 라우트가
-      // 인증 상태를 확인해 목적지(getPostAuthDestination)로 이동시킨다(별도 콜백 라우트 없음).
-      return { error: null };
-    },
+    (provider: OAuthProvider): Promise<AuthActionResult> => startOAuthSignIn(provider),
     [],
   );
 
