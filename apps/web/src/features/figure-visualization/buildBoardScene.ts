@@ -592,16 +592,25 @@ export function buildDecorations(
     });
   }
 
-  const pushTick = (value: number, axis: "x" | "y"): void => {
-    if (value === 0) return;
+  const insideFrame = (box: PxBox): boolean => box.left >= 0 && box.top >= 0 && box.right <= frame.width && box.bottom <= frame.height;
+  const tickBox = (value: number, axis: "x" | "y"): PxBox => {
     const text = formatTickLabel(value);
-    const base = axis === "x" ? { x: value, y: 0 } : { x: 0, y: value };
-    const p = frame.toPx(base);
+    const p = frame.toPx(axis === "x" ? { x: value, y: 0 } : { x: 0, y: value });
     const anchor: [AnchorX, AnchorY] = axis === "x" ? ["middle", "top"] : ["right", "middle"];
     const anchorX = axis === "x" ? p.x : p.x - AXIS_PX.yTickGap;
     const anchorY = axis === "x" ? p.y + AXIS_PX.xTickGap : p.y;
-    const box = boxAt(anchorX, anchorY, textBoxSize(text, "tick"), anchor);
-    if (!insideBoard(box) || obstacles.some((obstacle) => overlaps(box, obstacle))) return;
+    return boxAt(anchorX, anchorY, textBoxSize(text, "tick"), anchor);
+  };
+  const collides = (box: PxBox): boolean => obstacles.some((obstacle) => overlaps(box, obstacle));
+
+  /** 규칙을 통과한 눈금 숫자를 넣는다. `force`면 검사 없이 넣는다(축마다 최소 1개 보장용). 넣었으면 true. */
+  const pushTick = (value: number, axis: "x" | "y", force = false): boolean => {
+    if (value === 0) return false;
+    const text = formatTickLabel(value);
+    const base = axis === "x" ? { x: value, y: 0 } : { x: 0, y: value };
+    const anchor: [AnchorX, AnchorY] = axis === "x" ? ["middle", "top"] : ["right", "middle"];
+    const box = tickBox(value, axis);
+    if (!force && (!insideBoard(box) || collides(box))) return false;
     items.push({
       key: key("tk"),
       elementId: null,
@@ -615,9 +624,27 @@ export function buildDecorations(
       },
       anchor,
     });
+    return true;
   };
-  xs.forEach((x) => pushTick(x, "x"));
-  ys.forEach((y) => pushTick(y, "y"));
+
+  /**
+   * Stage 4 WU6: 생략 규칙(가장자리 12px 띠·겹침) 뒤 어떤 축에 눈금 숫자가 하나도 없으면, 원점에서 가장 가까운 눈금 하나를
+   * 다시 고른다. ① 보드 안(가장자리 띠는 허용)이면서 점·라벨·축 이름과 겹치지 않는 것 → ② 없으면 보드 안에 완전히 들어오는 것.
+   * 보드 밖 눈금(축이 보드 밖이거나 값이 없음)은 넣지 않는다.
+   */
+  const ensureOne = (values: readonly number[], axis: "x" | "y"): void => {
+    const candidates = values.filter((value) => value !== 0).sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
+    const tier1 = candidates.find((value) => {
+      const box = tickBox(value, axis);
+      return insideFrame(box) && !collides(box);
+    });
+    const tier2 = tier1 ?? candidates.find((value) => insideFrame(tickBox(value, axis)));
+    if (tier2 !== undefined) pushTick(tier2, axis, true);
+  };
+  const pushedX = xs.map((x) => pushTick(x, "x")).some(Boolean);
+  const pushedY = ys.map((y) => pushTick(y, "y")).some(Boolean);
+  if (!pushedX) ensureOne(xs, "x");
+  if (!pushedY) ensureOne(ys, "y");
   return items;
 }
 

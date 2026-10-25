@@ -116,7 +116,9 @@ export function mountFigureBoard(
       },
       applyStepState(next) {
         if (destroyed) return;
+        board.suspendUpdate();
         live.applyStepState(next);
+        board.unsuspendUpdate();
         board.update();
       },
       destroy,

@@ -174,3 +174,82 @@ describe("useResumeStream — Stage 3 figures(S3-R8)", () => {
     expect(result.current.mode).toBe("alternative");
   });
 });
+
+// ---- Stage 4 WU4: AbortController(L-4)·figuresPhase ----
+
+function abortError(): Error {
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
+}
+
+function openStream(events: ResumeStreamEvent[]) {
+  const seen: { signal: AbortSignal | undefined } = { signal: undefined };
+  async function* impl(_params: unknown, signal?: AbortSignal): AsyncGenerator<ResumeStreamEvent> {
+    seen.signal = signal;
+    await Promise.resolve();
+    for (const event of events) yield event;
+    await new Promise<void>((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(abortError()), { once: true });
+    });
+  }
+  return { impl, seen };
+}
+
+const FIG = { schemaVersion: 1, figureId: "fig-r" } as unknown as import("shared-types").FigureSpec;
+
+describe("useResumeStream — Stage 4 figuresPhase·L-4", () => {
+  it("done이면 waiting, figures면 received, 종료되면 empty(도형 없음)", async () => {
+    const stream = openStream([{ type: "done", result: RESUME_SOLUTION }, { type: "figures", figures: [FIG], stepFigureRefs: [] }]);
+    vi.mocked(resumeProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useResumeStream());
+    expect(result.current.figuresPhase).toBe("idle");
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "own" });
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("received"));
+
+    vi.mocked(resumeProblemStream).mockReturnValue(eventsOf([{ type: "done", result: RESUME_SOLUTION }]));
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "alternative" });
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("empty"));
+    expect(stream.seen.signal?.aborted).toBe(true);
+  });
+
+  it("reset·모드 재요청·언마운트 때 abort, AbortError는 error 상태를 만들지 않는다", async () => {
+    const first = openStream([{ type: "done", result: RESUME_SOLUTION }]);
+    vi.mocked(resumeProblemStream).mockImplementation(first.impl);
+    const { result, unmount } = renderHook(() => useResumeStream());
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "own" });
+    });
+    expect(result.current.figuresPhase).toBe("waiting");
+
+    const second = openStream([{ type: "done", result: { ...RESUME_SOLUTION, mode: "alternative" as const } }]);
+    vi.mocked(resumeProblemStream).mockImplementation(second.impl);
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "alternative" });
+    });
+    expect(first.seen.signal?.aborted).toBe(true);
+    expect(result.current.status).toBe("success");
+    expect(result.current.errorMessage).toBeNull();
+
+    act(() => result.current.reset());
+    expect(second.seen.signal?.aborted).toBe(true);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe("idle");
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.figuresPhase).toBe("idle");
+
+    const third = openStream([{ type: "done", result: RESUME_SOLUTION }]);
+    vi.mocked(resumeProblemStream).mockImplementation(third.impl);
+    await act(async () => {
+      await result.current.resume({ problemId: "p", mode: "own" });
+    });
+    unmount();
+    expect(third.seen.signal?.aborted).toBe(true);
+  });
+});

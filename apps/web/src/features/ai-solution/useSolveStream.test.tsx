@@ -176,3 +176,190 @@ describe("useSolveStream — Stage 3 figures(S3-13)", () => {
     expect(result.current.status).toBe("idle");
   });
 });
+
+// ---- Stage 4 WU4: AbortController(L-4)·figuresPhase ----
+
+function abortError(): Error {
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
+}
+
+/** 주어진 이벤트를 내보낸 뒤 signal이 abort될 때까지(또는 `finish`/`fail`까지) 열려 있는 스트림. */
+function openStream(events: SolveStreamEvent[]) {
+  const seen: { signal: AbortSignal | undefined } = { signal: undefined };
+  let finish: () => void = () => undefined;
+  let fail: (error: Error) => void = () => undefined;
+  const tail = new Promise<void>((resolve, reject) => {
+    finish = resolve;
+    fail = reject;
+  });
+  async function* impl(_params: unknown, signal?: AbortSignal): AsyncGenerator<SolveStreamEvent> {
+    seen.signal = signal;
+    await Promise.resolve();
+    for (const event of events) yield event;
+    await new Promise<void>((resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(abortError()), { once: true });
+      tail.then(resolve, reject);
+    });
+  }
+  return { impl, seen, finish: () => finish(), fail: (error: Error) => fail(error) };
+}
+
+const FIG = { schemaVersion: 1, figureId: "fig-b" } as unknown as import("shared-types").FigureSpec;
+
+describe("useSolveStream — Stage 4 figuresPhase", () => {
+  it("idle → done이면 waiting → figures면 received, 스트림 종료 뒤에도 received", async () => {
+    const stream = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useSolveStream());
+    expect(result.current.figuresPhase).toBe("idle");
+
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    expect(result.current.figuresPhase).toBe("waiting");
+
+    vi.mocked(solveProblemStream).mockReset();
+    const withFigures = openStream([
+      { type: "done", result: SOLUTION },
+      { type: "figures", figures: [FIG], stepFigureRefs: [] },
+    ]);
+    vi.mocked(solveProblemStream).mockImplementation(withFigures.impl);
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("received"));
+    expect(result.current.result?.figures).toEqual([FIG]);
+    await act(async () => {
+      withFigures.finish();
+      await Promise.resolve();
+    });
+    expect(result.current.figuresPhase).toBe("received");
+  });
+
+  it("done 뒤 figures 없이 스트림이 끝나면 empty", async () => {
+    vi.mocked(solveProblemStream).mockReturnValue(eventsOf([{ type: "done", result: SOLUTION }]));
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("empty"));
+    expect(result.current.status).toBe("success");
+  });
+
+  it("done 뒤 네트워크 오류면 empty, status·결과 유지", async () => {
+    const stream = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    await act(async () => {
+      stream.fail(new TypeError("network"));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("empty"));
+    expect(result.current.status).toBe("success");
+    expect(result.current.result).toEqual(SOLUTION);
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it("done 전 error 이벤트면 idle 유지", async () => {
+    vi.mocked(solveProblemStream).mockReturnValue(eventsOf([{ type: "error", code: "provider_error", message: "실패" }]));
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    expect(result.current.status).toBe("error");
+    expect(result.current.figuresPhase).toBe("idle");
+  });
+});
+
+describe("useSolveStream — Stage 4 L-4 AbortController", () => {
+  it("요청마다 signal을 넘기고, reset하면 abort — AbortError는 error 상태를 만들지 않고 idle로 돌아간다", async () => {
+    const stream = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    expect(vi.mocked(solveProblemStream).mock.calls.at(-1)?.[1]).toBe(stream.seen.signal);
+    expect(stream.seen.signal?.aborted).toBe(false);
+
+    act(() => result.current.reset());
+    expect(stream.seen.signal?.aborted).toBe(true);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe("idle");
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.figuresPhase).toBe("idle");
+  });
+
+  it("done 전(loading)에 reset해도 abort되고 solve()는 null로 끝나며 error 0", async () => {
+    const stream = openStream([{ type: "chunk", delta: "풀이 중" }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useSolveStream());
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    await waitFor(() => expect(result.current.streamedText).toBe("풀이 중"));
+    act(() => result.current.reset());
+    await act(async () => {
+      expect(await pending).toBeNull();
+    });
+    expect(stream.seen.signal?.aborted).toBe(true);
+    expect(result.current.status).toBe("idle");
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it("새 요청이 이전 요청을 abort하고, 새 요청의 done 결과는 그대로", async () => {
+    const first = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(first.impl);
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    const second = openStream([{ type: "done", result: { ...SOLUTION, answerMd: "두 번째" } }]);
+    vi.mocked(solveProblemStream).mockImplementation(second.impl);
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    expect(first.seen.signal?.aborted).toBe(true);
+    expect(second.seen.signal?.aborted).toBe(false);
+    expect(result.current.status).toBe("success");
+    expect(result.current.result?.answerMd).toBe("두 번째");
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.figuresPhase).toBe("waiting");
+  });
+
+  it("언마운트하면 진행 중인 요청을 abort한다", async () => {
+    const stream = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result, unmount } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    unmount();
+    expect(stream.seen.signal?.aborted).toBe(true);
+  });
+
+  it("같은 요청에서 done 뒤 AbortError가 와도(외부 중단) error 0, done 결과 유지, figuresPhase empty", async () => {
+    const stream = openStream([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(stream.impl);
+    const { result } = renderHook(() => useSolveStream());
+    await act(async () => {
+      await result.current.solve({ problemId: "p", options: { concept: true, solution: true } });
+    });
+    await act(async () => {
+      stream.fail(abortError());
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.figuresPhase).toBe("empty"));
+    expect(result.current.status).toBe("success");
+    expect(result.current.result).toEqual(SOLUTION);
+    expect(result.current.errorMessage).toBeNull();
+  });
+});

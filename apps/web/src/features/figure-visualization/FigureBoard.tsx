@@ -5,9 +5,9 @@ import { Spinner } from "../../shared/ui/spinner/Spinner";
 import type { FigureTextClasses } from "./applySceneToBoard";
 import { FigureFallback } from "./FigureFallback";
 import styles from "./FigureView.module.css";
-import { resolveStepState } from "./resolveStepState";
+import { resolveStepState, resolveStepStateAt, type FigureStepPosition } from "./resolveStepState";
 import { useElementWidth, useJsxGraphBoard, type FigureBoardStatus } from "./useJsxGraphBoard";
-import { PLACEHOLDER_BOARD_WIDTH, VIEWPORT_MIN_HEIGHT, computeViewport } from "./viewport";
+import { MIN_BOARD_WIDTH, PLACEHOLDER_BOARD_WIDTH, VIEWPORT_MIN_HEIGHT, computeViewport } from "./viewport";
 
 const TEXT_CLASSES: FigureTextClasses = {
   element: styles.element ?? "",
@@ -23,6 +23,8 @@ interface FigureBoardProps {
   spec: FigureSpec;
   resolved: ResolvedFigure;
   stepId?: string | null;
+  /** 풀이 전역 단계 위치(Stage 4). 주면 `stepId`보다 우선한다. */
+  step?: FigureStepPosition;
   onStatusChange?: (status: FigureBoardStatus) => void;
 }
 
@@ -30,15 +32,18 @@ interface FigureBoardProps {
  * 보드 상자(`docs/FIGURE_DESIGN.md` §7.2) + JSXGraph 전용 컨테이너.
  * 컨테이너 div에는 React 자식을 두지 않는다(`initBoard`가 자식을 모두 지운다). 로딩 표시는 형제로 겹친다.
  */
-export function FigureBoard({ spec, resolved, stepId, onStatusChange }: FigureBoardProps) {
+export function FigureBoard({ spec, resolved, stepId, step, onStatusChange }: FigureBoardProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const boardId = `figboard${useId().replace(/[^A-Za-z0-9]/g, "")}`;
 
-  const width = useElementWidth(boxRef);
+  const width = useElementWidth(boxRef, MIN_BOARD_WIDTH);
   const viewport = useMemo(() => computeViewport(spec, resolved, width), [spec, resolved, width]);
   const placeholder = useMemo(() => computeViewport(spec, resolved, PLACEHOLDER_BOARD_WIDTH), [spec, resolved]);
-  const stepState = useMemo(() => resolveStepState(spec, stepId), [spec, stepId]);
+  const stepState = useMemo(
+    () => (step !== undefined ? resolveStepStateAt(spec, step) : resolveStepState(spec, stepId)),
+    [spec, stepId, step],
+  );
 
   const status = useJsxGraphBoard({
     containerRef: boardRef,
@@ -65,7 +70,7 @@ export function FigureBoard({ spec, resolved, stepId, onStatusChange }: FigureBo
       <div ref={boardRef} id={boardId} aria-hidden="true" className={`h-full w-full ${styles.board ?? ""}`} />
       {status === "loading" ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <Spinner label="그림을 준비하는 중" />
+          <Spinner label="그림을 준비하는 중" announce={false} />
         </div>
       ) : null}
     </div>

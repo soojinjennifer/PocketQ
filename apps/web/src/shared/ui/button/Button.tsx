@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 type ButtonVariant =
   | "social-kakao"
@@ -14,6 +14,8 @@ type ButtonVariant =
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant: ButtonVariant;
   children: ReactNode;
+  /** React 19: ref는 일반 prop으로 `<button>`까지 전달된다(그림 스테퍼의 포커스 이동용, Stage 4). */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {

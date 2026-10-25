@@ -128,3 +128,47 @@ describe("resumeProblemStream — Stage 3 figures 이벤트(S3-R8)", () => {
     expect(events[1]).toEqual({ type: "figures", figures: [figure], stepFigureRefs: [] });
   });
 });
+
+describe("resumeProblemStream — Stage 4 signal(L-4)", () => {
+  /** signal이 abort되면 읽기가 AbortError로 끝나는 열린 SSE 응답(브라우저 fetch와 같은 동작). */
+  function abortableFetch() {
+    const encoder = new TextEncoder();
+    return vi.fn((_url: string, init?: RequestInit) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('event: chunk\ndata: {"delta":"a"}\n\n'));
+          init?.signal?.addEventListener("abort", () => {
+            const error = new Error("The operation was aborted.");
+            error.name = "AbortError";
+            controller.error(error);
+          });
+        },
+      });
+      return Promise.resolve({ ok: true, status: 200, body, json: () => Promise.resolve(null) });
+    });
+  }
+
+  it("signal을 fetch에 그대로 넘기고, abort하면 스트림이 AbortError로 끝난다", async () => {
+    const fetchMock = abortableFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const iterator = resumeProblemStream({ problemId: "problem-1", mode: "own" as const }, controller.signal);
+
+    expect(await iterator.next()).toEqual({ done: false, value: { type: "chunk", delta: "a" } });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBe(controller.signal);
+
+    controller.abort();
+    await expect(iterator.next()).rejects.toMatchObject({ name: "AbortError" });
+    vi.unstubAllGlobals();
+  });
+
+  it("signal을 주지 않으면 요청 옵션에 signal 키가 없다(기존 호출과 같음)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, body: streamFrom(""), json: () => Promise.resolve(null) });
+    vi.stubGlobal("fetch", fetchMock);
+    await collect(resumeProblemStream({ problemId: "problem-1", mode: "own" as const }));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect("signal" in init).toBe(false);
+    vi.unstubAllGlobals();
+  });
+});

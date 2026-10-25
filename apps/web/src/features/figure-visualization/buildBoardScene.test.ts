@@ -158,3 +158,40 @@ describe("격자 범위(재작업 1 화면 확인 중 발견)", () => {
     expect(grid?.kind === "grid" ? grid.range : null).toEqual(OPTIONS.boundingBox);
   });
 });
+
+describe("Stage 4 WU6 축마다 눈금 숫자 최소 1개", () => {
+  function ticks(items: SceneItem[], axis: "x" | "y"): number[] {
+    return items
+      .filter((item) => item.kind === "text" && item.textKind === "tick" && "base" in item.position)
+      .map((item) => (item.kind === "text" && "base" in item.position ? item.position.base : { x: NaN, y: NaN }))
+      .filter((base) => (axis === "x" ? base.y === 0 && base.x !== 0 : base.x === 0 && base.y !== 0))
+      .map((base) => (axis === "x" ? base.x : base.y));
+  }
+
+  it("좁은 보드에서 생략 규칙이 x축 눈금을 모두 지워도 원점에서 가장 가까운 보드 안 눈금 하나를 남긴다", () => {
+    const { spec, resolved } = loadFixture(F07_QUADRATIC.raw);
+    const scene = buildBoardScene(spec, resolved, OPTIONS);
+    // 가로 2.6단위 × 40px = 104px: 눈금 −1은 가장자리 12px 띠, 1은 띠와 점 R1(1,0)에 걸려 원래 규칙으로는 0개.
+    const narrow = { pxPerUnit: { x: 40, y: 40 }, boundingBox: [-1.3, 5, 1.3, -5] as [number, number, number, number] };
+    const decorations = buildDecorations(spec, scene.elements, narrow, 3);
+    const xs = ticks(decorations, "x");
+    expect(xs).toHaveLength(1);
+    const x = xs[0] ?? NaN;
+    expect(Math.abs(x)).toBe(1);
+    expect(ticks(decorations, "y").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("규칙으로 이미 눈금이 있으면 추가하지 않는다(기존 결과 불변)", () => {
+    const { spec, resolved } = loadFixture(F07_QUADRATIC.raw);
+    const scene = buildBoardScene(spec, resolved, OPTIONS);
+    const again = buildDecorations(spec, scene.elements, OPTIONS, 9);
+    expect(ticks(again, "x")).toEqual(ticks(scene.decorations, "x"));
+    expect(ticks(again, "y")).toEqual(ticks(scene.decorations, "y"));
+  });
+
+  it("축이 숨겨진 도형은 눈금이 없다", () => {
+    const { spec, resolved } = loadFixture(F01_TRIANGLE_ANGLE.raw);
+    const scene = buildBoardScene(spec, resolved, OPTIONS);
+    expect(ticks(scene.decorations, "x")).toEqual([]);
+  });
+});

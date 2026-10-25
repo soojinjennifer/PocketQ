@@ -9,7 +9,6 @@ import type {
   Solution,
   WorkLine,
 } from "shared-types";
-import { F07_QUADRATIC } from "validation/fixtures";
 import type {
   ChatRequest,
   DiagnoseRequest,
@@ -70,7 +69,13 @@ export interface FakeLLMAdapterOptions {
 /** 잘못된 참조(그래프 id 오타)가 있는 F07 변형 — 보정 대상. */
 const FAKE_BROKEN_FIGURE_ID = "fig-bad";
 
-function fakeFigure(figureId: string, broken: boolean): unknown {
+/**
+ * 테스트 전용 fixture(`validation/fixtures`)를 도형 시나리오가 실제로 쓰일 때만 불러온다(Stage 4 L-5).
+ * 운영 `resolveAdapter`는 `AI_PROVIDER`가 없을 때 이 클래스를 정적 import하므로, 정적 import면 운영 기동에
+ * fixture 모듈이 로드된다. 도형 호출(`FIGURES_ENABLED` on + Fake)에서만 로드된다.
+ */
+async function fakeFigure(figureId: string, broken: boolean): Promise<unknown> {
+  const { F07_QUADRATIC } = await import("validation/fixtures");
   const figure = JSON.parse(JSON.stringify(F07_QUADRATIC.raw)) as {
     figureId: string;
     elements: Record<string, unknown>[];
@@ -255,7 +260,7 @@ export class FakeLLMAdapter implements LLMAdapter {
     switch (this.figureScenario) {
       case "valid":
         return {
-          raw: { figures: [fakeFigure("fig-f07", false)], stepFigureRefs: fakeRefs(["fig-f07"]), omitReason: null },
+          raw: { figures: [await fakeFigure("fig-f07", false)], stepFigureRefs: fakeRefs(["fig-f07"]), omitReason: null },
           usage: null,
         };
       case "none":
@@ -264,7 +269,7 @@ export class FakeLLMAdapter implements LLMAdapter {
       case "invalid-twice":
         return {
           raw: {
-            figures: [fakeFigure("fig-f07", false), fakeFigure(FAKE_BROKEN_FIGURE_ID, true)],
+            figures: [await fakeFigure("fig-f07", false), await fakeFigure(FAKE_BROKEN_FIGURE_ID, true)],
             stepFigureRefs: fakeRefs(["fig-f07", FAKE_BROKEN_FIGURE_ID]),
             omitReason: null,
           },
@@ -284,7 +289,7 @@ export class FakeLLMAdapter implements LLMAdapter {
     await Promise.resolve();
     if (this.figureScenario === "hang") return waitForAbort(req.signal);
     const repaired = this.figureScenario === "invalid-then-repaired";
-    return { raw: { figure: fakeFigure(FAKE_BROKEN_FIGURE_ID, !repaired) }, usage: null };
+    return { raw: { figure: await fakeFigure(FAKE_BROKEN_FIGURE_ID, !repaired) }, usage: null };
   }
 
   /**

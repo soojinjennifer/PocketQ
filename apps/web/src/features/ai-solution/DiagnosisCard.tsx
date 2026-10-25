@@ -1,7 +1,7 @@
 import type { Diagnosis } from "shared-types";
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
 import { Badge } from "../../shared/ui/badge/Badge";
-import { ELEVATED_CARD_STYLE } from "./elevatedCardStyle";
+import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
 
 interface DiagnosisCardProps {
   diagnosis: Diagnosis;
@@ -39,7 +39,7 @@ export function DiagnosisCard({ diagnosis }: DiagnosisCardProps) {
       : `${lastValidLine}번째 줄까지 정확합니다. ${stallLine}번째 줄에서 막혔어요.`;
 
   return (
-    <div className={`${ELEVATED_CARD_STYLE} flex flex-col gap-2`}>
+    <ElevatedCard className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-accent-purple text-[12px] leading-[16px] font-[590]">진단 결과</p>
         {errorTypeLabel ? (
@@ -69,6 +69,6 @@ export function DiagnosisCard({ diagnosis }: DiagnosisCardProps) {
           ))}
         </div>
       ) : null}
-    </div>
+    </ElevatedCard>
   );
 }

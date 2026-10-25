@@ -60,6 +60,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     errorMessage: solveErrorMessage,
     solve,
     reset: resetSolve,
+    figuresPhase: solveFiguresPhase,
   } = useSolveStream();
 
   // 후속 질문(채팅) — 이 Provider가 유일하게 `useChatMessages`를 호출한다(필기 획을
@@ -97,6 +98,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
     errorMessage: resumeErrorMessage,
     resume: resumeRequest,
     reset: resetResume,
+    figuresPhase: resumeFiguresPhase,
   } = useResumeStream();
 
   const clearCapturedImage = useCallback(() => {
@@ -588,6 +590,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveStatus,
       streamedText,
       solveResult,
+      solveFiguresPhase,
       suggestedQuestions,
       submitErrorMessage,
       submitProblem,
@@ -619,6 +622,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeStreamedText,
       resumeSolution,
       resumeErrorMessage,
+      resumeFiguresPhase,
       startResume,
       resetResume,
     }),
@@ -657,6 +661,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       solveStatus,
       streamedText,
       solveResult,
+      solveFiguresPhase,
       suggestedQuestions,
       submitErrorMessage,
       submitProblem,
@@ -688,6 +693,7 @@ export function ProblemInputProvider({ grade }: ProblemInputProviderProps) {
       resumeStreamedText,
       resumeSolution,
       resumeErrorMessage,
+      resumeFiguresPhase,
       startResume,
       resetResume,
     ],

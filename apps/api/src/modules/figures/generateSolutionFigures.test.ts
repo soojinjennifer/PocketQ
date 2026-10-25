@@ -183,7 +183,8 @@ describe("S3-5·S3-6 실패는 도형 0", () => {
     );
     const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 20 }));
     expect(result.figures).toEqual([]);
-    expect(result.metrics.outcome).toBe("aborted");
+    // Stage 4 재작업 1(QA L-C): 상한 만료는 클라이언트 끊김(`aborted`)과 구분해 `deadline`으로 기록한다.
+    expect(result.metrics.outcome).toBe("deadline");
     expect((seen as AbortSignal | null)?.aborted).toBe(true);
   });
 
@@ -301,5 +302,152 @@ describe("로그", () => {
     expect(text).not.toContain("이차함수");
     expect(text).not.toContain("fig-bad");
     expect(text).not.toContain("**1단계**");
+  });
+});
+
+describe("Stage 4 L-1·L-2 하드 데드라인", () => {
+  /** signal을 무시하고 영원히 대기하는 호출. */
+  const forever = (): Promise<FigureCallResult> => new Promise<FigureCallResult>(() => undefined);
+
+  it("S4-L1: signal을 무시하는 영구 대기 어댑터 + 상한 100ms → 상한+여유 안에 반환, 진행 중 호출 signal abort", async () => {
+    let seen: AbortSignal | null = null;
+    const adapter = stubAdapter((req) => {
+      seen = req.signal;
+      return forever();
+    });
+    const startedAt = Date.now();
+    const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 100 }));
+    const elapsed = Date.now() - startedAt;
+
+    expect(elapsed).toBeLessThan(100 + 400);
+    expect(result.figures).toEqual([]);
+    expect(result.metrics.outcome).toBe("deadline");
+    expect((seen as AbortSignal | null)?.aborted).toBe(true);
+  });
+
+  it("S4-L2: 1차 통과 1 + 보정 hang(signal 무시) + 상한 만료 → 통과 도형 1개만, outcome partial_deadline, 보정 호출 abort", async () => {
+    let repairSignal: AbortSignal | null = null;
+    const adapter = stubAdapter(
+      () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: refs(["fig-ok", "fig-bad"]), omitReason: null }, usage: null }),
+      (req) => {
+        repairSignal = req.signal;
+        return forever();
+      },
+    );
+    const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 100 }));
+
+    expect(result.figures.map((f) => f.figureId)).toEqual(["fig-ok"]);
+    expect(result.stepFigureRefs).toEqual(refs(["fig-ok"]));
+    expect(result.metrics.outcome).toBe("partial_deadline");
+    expect(result.metrics.accepted).toBe(1);
+    expect(result.metrics.finalRejectCodes["deadline"]).toBe(1);
+    expect((repairSignal as AbortSignal | null)?.aborted).toBe(true);
+    // 최종 재파싱 결과와 같다(미검증 도형 0).
+    const reparsed = parseSolutionFigures({ figures: result.figures, stepFigureRefs: result.stepFigureRefs });
+    expect(reparsed.rejected).toEqual([]);
+    expect(reparsed.figures).toEqual(result.figures);
+  });
+
+  it("S4-L2: signal을 지키는 보정(abort 시 reject)이어도 같은 결과", async () => {
+    const adapter = stubAdapter(
+      () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: refs(["fig-ok"]), omitReason: null }, usage: null }),
+      (req) =>
+        new Promise((_resolve, reject) => {
+          req.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        }),
+    );
+    const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 50 }));
+    expect(result.figures.map((f) => f.figureId)).toEqual(["fig-ok"]);
+    expect(result.metrics.outcome).toBe("partial_deadline");
+  });
+
+  it("S4-L2: 클라이언트 끊김(부모 signal)이면 1차 통과 도형이 있어도 0", async () => {
+    const controller = new AbortController();
+    const adapter = stubAdapter(
+      () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: [], omitReason: null }, usage: null }),
+      () => {
+        setTimeout(() => controller.abort(), 5);
+        return forever();
+      },
+    );
+    const result = await generateSolutionFigures(input(adapter, { signal: controller.signal, totalBudgetMs: 10_000 }));
+    expect(result.figures).toEqual([]);
+    expect(result.stepFigureRefs).toEqual([]);
+    expect(result.metrics.outcome).toBe("aborted");
+  });
+
+  it("데드라인 뒤 늦게 끝난 호출이 반환·로그된 metrics를 바꾸지 않는다", async () => {
+    let finishRepair: (value: FigureCallResult) => void = () => undefined;
+    const logs: FigureGenerationMetrics[] = [];
+    const adapter = stubAdapter(
+      () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: [], omitReason: null }, usage: null }),
+      () =>
+        new Promise<FigureCallResult>((resolve) => {
+          finishRepair = resolve;
+        }),
+    );
+    const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 30, log: (entry) => logs.push(entry) }));
+    const snapshot = JSON.stringify(result.metrics);
+    finishRepair({ raw: { figure: f07("fig-bad") }, usage: { inputTokens: 5, outputTokens: 5 } });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(JSON.stringify(result.metrics)).toBe(snapshot);
+    expect(logs).toHaveLength(1);
+    expect(JSON.stringify(logs[0])).toBe(snapshot);
+    expect(result.figures.map((f) => f.figureId)).toEqual(["fig-ok"]);
+  });
+
+  it("상한 안에 끝나면 기존과 같다(보정 성공 포함, partial 아님)", async () => {
+    const adapter = stubAdapter(
+      () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: [], omitReason: null }, usage: null }),
+      () => Promise.resolve({ raw: { figure: f07("fig-bad") }, usage: null }),
+    );
+    const result = await generateSolutionFigures(input(adapter, { totalBudgetMs: 5_000 }));
+    expect(result.figures.map((f) => f.figureId)).toEqual(["fig-ok", "fig-bad"]);
+    expect(result.metrics.outcome).toBe("accepted");
+  });
+});
+
+describe("Stage 4 재작업 1 L-C outcome 구분", () => {
+  const forever = (): Promise<FigureCallResult> => new Promise<FigureCallResult>(() => undefined);
+
+  it("상한 만료(보낼 도형 없음) = deadline, 클라이언트 끊김 = aborted, 상한 만료 + 1차 통과 = partial_deadline — 로그도 같은 값", async () => {
+    const logs: FigureGenerationMetrics[] = [];
+    const log = (entry: FigureGenerationMetrics): void => {
+      logs.push(entry);
+    };
+    await generateSolutionFigures(input(stubAdapter(forever), { totalBudgetMs: 30, log }));
+
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10);
+    await generateSolutionFigures(input(stubAdapter(forever), { signal: controller.signal, totalBudgetMs: 10_000, log }));
+
+    await generateSolutionFigures(
+      input(
+        stubAdapter(
+          () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: [], omitReason: null }, usage: null }),
+          forever,
+        ),
+        { totalBudgetMs: 30, log },
+      ),
+    );
+    expect(logs.map((entry) => entry.outcome)).toEqual(["deadline", "aborted", "partial_deadline"]);
+  });
+
+  it("끊김이 상한보다 먼저면 1차 통과 도형이 있어도 aborted", async () => {
+    const controller = new AbortController();
+    const result = await generateSolutionFigures(
+      input(
+        stubAdapter(
+          () => Promise.resolve({ raw: { figures: [f07("fig-ok"), brokenF07("fig-bad")], stepFigureRefs: [], omitReason: null }, usage: null }),
+          () => {
+            setTimeout(() => controller.abort(), 5);
+            return forever();
+          },
+        ),
+        { signal: controller.signal, totalBudgetMs: 10_000 },
+      ),
+    );
+    expect(result.metrics.outcome).toBe("aborted");
+    expect(result.figures).toEqual([]);
   });
 });

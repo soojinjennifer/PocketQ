@@ -12,7 +12,7 @@
 - 개발용 미리보기(Stage 2 WU4): `/dev/figures`(개발 빌드 전용, `apps/web/src/pages/dev/figures/`)
 - AI 생성(Stage 3): `packages/validation/src/figures/{steps,candidate}.ts`, `apps/api/src/infrastructure/ai/{figuresJsonSchema.ts,prompts/figures.ts}`, `apps/api/src/modules/figures/{generateSolutionFigures,streamFigures}.ts` — §16. SSE 계약은 `docs/API_SPEC.md`
 
-> 이 문서의 현재 상태는 **Stage 3(풀이 AI API 연결) development-agent 구현** 기준이다(stage-qa 전). 서버는 `FIGURES_ENABLED=true`일 때 `done` 뒤 검증된 도형을 `event: figures`로 보낸다(§16). 렌더러는 아직 풀이 화면에 연결하지 않았다(Stage 4). 저장(Stage 5)은 미구현.
+> 이 문서의 현재 상태: Stage 1~3 **stage-qa PASS**(`docs/FIGURES_WORKFLOW_STATE.md` §3.5·§4.6·§6.10). **Stage 4(단계별 표시와 iPad 대응)** 는 development-agent 구현 완료·stage-qa 전이다(장부 §7). 서버는 `FIGURES_ENABLED=true`일 때 `done` 뒤 검증된 도형을 `event: figures`로 보내고(§16), 웹은 빌드 플래그 `VITE_FIGURES_ENABLED=true`일 때만 결과 패널·이어풀기 결과에 그림 카드와 단계 이동을 보인다(§4.1, `docs/FIGURE_DESIGN.md` §17). 탐색 모드는 자격 판정 함수만 있고 화면은 없다(오너 D-1). 저장(Stage 5)은 미구현.
 
 ---
 
@@ -169,6 +169,16 @@ StepFigureRef   { stepId, figureId }
 - 단계 분할에 실패하면(표지 없음, 번호 불일치 등) **단계별 표시 없이 최종 상태 하나만** 표시한다. 최종 상태 = 모든 `appearAt` 요소를 표시하고 **모든 단계의 `hide`를 누적 적용**한 상태(D6). 이때 서버는 `stepFigureRefs`를 `[]`로 보내고 도형은 유지한다(단계 범위 검사 생략).
 - 분할에 성공하면 도형의 `appearAt`·`steps[].stepId`가 단계 수 N을 넘을 수 없다(`step_out_of_range`, AI 경로 전용, `checkFigureStepRange`). `stepFigureRefs`도 N 이하만 남긴다.
 
+### 4.1 화면의 단계 표시 (Stage 4, `docs/FIGURE_DESIGN.md` §17)
+
+- 전역 단계 k(1~N 또는 최종)는 페이지 상태 하나이고, 단계 블록과 모든 그림이 공유한다. 기본은 **최종**이다.
+- 그림 상태는 `resolveStepStateAt(spec, k | "final")`로 원래 명세에서 매번 계산한다(`apps/web/src/features/figure-visualization/resolveStepState.ts`).
+  - 보이는 요소 = `appearAt`이 null이거나 n(appearAt) ≤ k인 요소 중, 번호 ≤ k인 단계들의 `hide` 누적에 들지 않은 것.
+  - 강조 = 번호가 정확히 k인 도형 단계의 `highlight`. 도형 steps에 k가 없으면 그때까지의 누적 상태이고 강조가 없다(모든 요소 기본 상태).
+  - 최종 = 모든 요소 등장 + 모든 `hide` 누적 + 강조 없음(D6). 기존 `resolveStepState(spec, stepId)`는 이 함수에 위임한다(F01~F09 모든 단계 결과 동일).
+- 단계 블록(`SolutionStepList`)은 **데이터 기준**이다: `splitSolutionSteps`가 성공하면 플래그와 관계없이 블록으로 그리고, 실패하면 기존 본문과 DOM이 같다.
+- 스테퍼는 분할 성공 + 그 그림에 단계 정보(`appearAt` 또는 `steps`)가 있을 때만 보인다.
+
 ## 5. 관대 파서 `parseSolutionFigures(raw)`
 
 ```ts
@@ -230,7 +240,9 @@ NaN·±Infinity는 모든 수치 필드에서 거부한다.
 - Stage 3부터 solve·resume 라우터가 읽는다(`createSolutionsRouter(adapter, { figuresEnabled })`, `createResumeRouter(adapter, cas, { figuresEnabled })`의 기본값).
 - off: 단계 표지 지시·도형 호출·keep-alive·figures 이벤트 모두 0. 프롬프트·요청 본문·SSE가 Stage 3 이전과 **바이트 단위로 같다**(변경 전 코드에서 캡처한 기준값과 비교하는 `figuresOff.baseline.test.ts`).
 - on: 표지 요청 + done 뒤 도형 단계(§16).
-- 운영: `docs/DEPLOYMENT.md`에 설명을 추가했다. Stage 4(화면 표시) 전까지 운영에서는 켜지 않는다(D9). `render.yaml`은 바꾸지 않았다(미설정 = off). 끄려면 변수를 지우고 서버만 재시작한다.
+- 운영: `docs/DEPLOYMENT.md`에 설명을 추가했다. `render.yaml`은 바꾸지 않았다(미설정 = off). 끄려면 변수를 지우고 서버만 재시작한다.
+- 웹 빌드 플래그 `VITE_FIGURES_ENABLED`(Stage 4) — 정확히 `"true"`일 때만 결과 패널이 도형 슬롯(`SolutionFigures`)을 지연 로딩한다. 미설정이면 도형 UI·렌더러·검증 커널·JSXGraph 청크가 빌드에서 빠진다. 바꾸면 재빌드가 필요하다.
+- 조합(D-9): 서버 on + 웹 off는 금지(도형 호출 비용만 생기고 화면에 안 보임). 켤 때는 **웹 → 서버**, 끌 때는 서버 → 웹 순서. 조합표는 `docs/DEPLOYMENT.md`.
 
 ## 10. 저장 계획 (Stage 5)
 
@@ -578,6 +590,12 @@ useFigureSpec(raw: unknown): { ok: true; spec: FigureSpec } | { ok: false; reaso
 8. 로그: 개수·코드·시간·토큰만(문제·풀이·도형 내용 없음). `omitReason`은 로그·평가용이며 클라이언트에 보내지 않는다.
 
 취소: 클라이언트 연결이 끊기면(`res.on("close")`) 또는 도형 단계 전체 상한을 넘으면 AbortSignal로 진행 중인 호출을 취소한다.
+
+**하드 데드라인(Stage 4 L-1·L-2)**: 전체 상한은 `Promise.race`로 강제한다 — 어댑터가 signal을 무시하고 응답하지 않아도 상한 시점에 반환하고 SSE를 끝낸다(진행 중 호출은 abort). 상한이 **보정 중** 만료되면 이미 1차 검증을 통과한 도형만 같은 단계 정합·최종 재파싱을 거쳐 보낸다(outcome `partial_deadline`, 보정 대기 도형은 `finalRejectCodes.deadline`). 보낼 도형 없이 상한이 지나면 outcome `deadline`, 클라이언트가 끊긴 경우는 아무것도 보내지 않고 outcome `aborted`다(재작업 1 L-C: 로그 지표에서 둘을 구분). 웹은 새 요청·reset·화면 이탈 때 `AbortController`로 요청을 끊어 서버의 도형 호출도 멈춘다(L-4).
+
+**텍스트 파서 보강(Stage 4 O-1·D-4·D-5)**: `parseSolveOutput`은 개념 분류 JSON이 응답 끝이 아닌 곳(예: `## 최종 답` 바로 아래)에 있어도 문자열 인식 중괄호 매칭으로 **JSON 구간만** 지우고 태그를 살린다. JSON을 지운 뒤 `## 최종 답`이 비면 풀이 섹션의 마지막 `\boxed{…}`를 답으로 쓰고, 없으면 빈 값으로 둔다(근거 없는 답 생성 금지, 로그 `solve_answer_fallback`). `parseResumeOutput`은 `## 최종 답`에서 줄 맨 앞 `**N단계**` **표지 토큰**과 `{"concept_tags"` 줄만 지운다(CAS 입력 보호, 재작업 1 L-B: `**3단계** 3` → `3`, 표지만 있는 줄은 빠짐). JSON이 끝에 있는 정상 출력은 변경 전과 결과가 같다(말뭉치 오라클 테스트). priorWork 자르기는 서러게이트 쌍을 깨지 않는다(L-7).
+
+**보정 성공의 한계(Stage 4 재작업 1, QA L-E)**: 보정 결과의 수용 기준은 검증 통과·figureId 동일(측정 스크립트는 여기에 핵심 좌표·요소 ID 집합·새 given 제약 없음을 더함)이며 **"표시 의도·의미 보존"은 검사하지 않는다**. 실제 측정(`.omc/research/figures-stage4-repair.json`)에서 C3는 수선의 발 H의 `role`을 auxiliary → result로 바꿨고, C4는 근거 제약을 추가하는 대신 각도 수치 표시(`showMeasure`)를 꺼서 원래 보여 주려던 45° 표시를 없앴다 — 둘 다 검증은 통과한다. 보정은 "안전하게 버리지 않을 수 있는 경우를 늘리는 장치"이지 원래 의도를 복원한다고 보장하지 않는다. 의미 보존 검사(role·표시 속성 diff 허용 범위)는 이후 Stage 과제다.
 
 ### 16.2 프롬프트 (`apps/api/src/infrastructure/ai/prompts/figures.ts`)
 

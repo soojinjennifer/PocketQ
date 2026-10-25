@@ -1,0 +1,205 @@
+{
+  "capturedAt": "2026-10-24T15:28:47.824Z",
+  "capturedFrom": "HEAD 74ddd3b(변경 전 코드)",
+  "note": "category normal = 변경 후에도 출력이 deep-equal이어야 함, abnormal = Stage 4 WU1에서 의도적으로 바뀌는 입력(참고용 기록).",
+  "cases": [
+    {
+      "id": "RS01-fake-on-own",
+      "source": "fake",
+      "category": "normal",
+      "input": "## 해법\n3번째 줄부터 이어가기\n\n## 이어풀기\n**1단계** 이차함수 y = x^2 - 4x + 3의 그래프를 떠올립니다.\n**2단계** y = (x - 2)^2 - 1이므로 꼭짓점은 (2, -1)입니다.\n**3단계** x축과는 (1, 0), (3, 0)에서 만나고 최솟값은 꼭짓점의 y좌표입니다.\n\n## 최종 답\n-1",
+      "output": {
+        "methodName": "3번째 줄부터 이어가기",
+        "solutionMd": "**1단계** 이차함수 y = x^2 - 4x + 3의 그래프를 떠올립니다.\n**2단계** y = (x - 2)^2 - 1이므로 꼭짓점은 (2, -1)입니다.\n**3단계** x축과는 (1, 0), (3, 0)에서 만나고 최솟값은 꼭짓점의 y좌표입니다.",
+        "answerMd": "-1"
+      }
+    },
+    {
+      "id": "RS02-fake-on-alt",
+      "source": "fake",
+      "category": "normal",
+      "input": "## 해법\n새로운 방법으로 처음부터 풀기\n\n## 이어풀기\n**1단계** a\n**2단계** b\n\n## 최종 답\n-1",
+      "output": {
+        "methodName": "새로운 방법으로 처음부터 풀기",
+        "solutionMd": "**1단계** a\n**2단계** b",
+        "answerMd": "-1"
+      }
+    },
+    {
+      "id": "RS03-fake-off-own",
+      "source": "fake",
+      "category": "normal",
+      "input": "## 이어풀기\n3번째 줄부터 이어서 진행합니다.\n\n최솟값은 -1입니다.",
+      "output": {
+        "methodName": "",
+        "solutionMd": "3번째 줄부터 이어서 진행합니다.\n\n최솟값은 -1입니다.",
+        "answerMd": ""
+      }
+    },
+    {
+      "id": "RS04-fake-off-alt",
+      "source": "fake",
+      "category": "normal",
+      "input": "## 다른 방법으로\n판별식을 이용해 처음부터 다시 풀어봅시다.\n\n최솟값은 -1입니다.",
+      "output": {
+        "methodName": "",
+        "solutionMd": "## 다른 방법으로\n판별식을 이용해 처음부터 다시 풀어봅시다.\n\n최솟값은 -1입니다.",
+        "answerMd": ""
+      }
+    },
+    {
+      "id": "RS05-display-math",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\n완전제곱식\n\n## 이어풀기\n풀이\n\n## 최종 답\n\\[\n-1\n\\]",
+      "output": {
+        "methodName": "완전제곱식",
+        "solutionMd": "풀이",
+        "answerMd": "\\[\n-1\n\\]"
+      }
+    },
+    {
+      "id": "RS06-no-answer",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\n완전제곱식\n\n## 이어풀기\n풀이",
+      "output": {
+        "methodName": "완전제곱식",
+        "solutionMd": "풀이",
+        "answerMd": ""
+      }
+    },
+    {
+      "id": "RS07-empty",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "",
+      "output": {
+        "methodName": "",
+        "solutionMd": "",
+        "answerMd": ""
+      }
+    },
+    {
+      "id": "RS08-crlf",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\r\n방법\r\n\r\n## 이어풀기\r\n풀이\r\n\r\n## 최종 답\r\n2\\sqrt{3}\r\n",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "풀이",
+        "answerMd": "2\\sqrt{3}"
+      }
+    },
+    {
+      "id": "RS09-bold-not-step-in-answer",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n풀이\n\n## 최종 답\n\\[\n\\boxed{12}\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "풀이",
+        "answerMd": "\\[\n\\boxed{12}\n\\]"
+      }
+    },
+    {
+      "id": "RS10-step-word-in-solution-only",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** a\n\n## 최종 답\n\\(x = 1\\)",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** a",
+        "answerMd": "\\(x = 1\\)"
+      }
+    },
+    {
+      "id": "RS11-answer-has-braces",
+      "source": "synthetic",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n풀이\n\n## 최종 답\n\\{1, 2\\}",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "풀이",
+        "answerMd": "\\{1, 2\\}"
+      }
+    },
+    {
+      "id": "RE-R1-own-height",
+      "source": "eval-reconstructed",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** 선분 \\(AB\\)는 \\(x\\)축 위에 있으므로, 점 \\(C(2,4)\\)에서 선분 \\(AB\\)까지의 거리는 \\(4\\)입니다. 따라서 높이는 \\(4\\)입니다.\n\n**2단계** 삼각형의 넓이는 \\(\\dfrac{\\text{밑변}\\times\\text{높이}}{2}\\)이므로,\n\\[\n\\frac{6\\times4}{2}=12\n\\]\n입니다.\n\n## 최종 답\n\\[\n12\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** 선분 \\(AB\\)는 \\(x\\)축 위에 있으므로, 점 \\(C(2,4)\\)에서 선분 \\(AB\\)까지의 거리는 \\(4\\)입니다. 따라서 높이는 \\(4\\)입니다.\n\n**2단계** 삼각형의 넓이는 \\(\\dfrac{\\text{밑변}\\times\\text{높이}}{2}\\)이므로,\n\\[\n\\frac{6\\times4}{2}=12\n\\]\n입니다.",
+        "answerMd": "\\[\n12\n\\]"
+      }
+    },
+    {
+      "id": "RE-R2-own-tangent",
+      "source": "eval-reconstructed",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** 접선과 반지름은 접점에서 수직이므로, \\(\\triangle OPT\\)는 \\(T\\)에서 직각인 직각삼각형입니다. 따라서 피타고라스 정리를 적용합니다.\n\\[\n\\overline{OP}^{\\,2}=\\overline{OT}^{\\,2}+\\overline{PT}^{\\,2}\n\\]\n\n**2단계** \\(\\overline{OP}=4\\), \\(\\overline{OT}=2\\)를 대입하여 \\(\\overline{PT}\\)를 구합니다.\n\\[\n4^2=2^2+\\overline{PT}^{\\,2}\n\\]\n\\[\n\\overline{PT}^{\\,2}=12\n\\]\n\\[\n\\overline{PT}=2\\sqrt{3}\n\\]\n\n## 최종 답\n\\[\n2\\sqrt{3}\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** 접선과 반지름은 접점에서 수직이므로, \\(\\triangle OPT\\)는 \\(T\\)에서 직각인 직각삼각형입니다. 따라서 피타고라스 정리를 적용합니다.\n\\[\n\\overline{OP}^{\\,2}=\\overline{OT}^{\\,2}+\\overline{PT}^{\\,2}\n\\]\n\n**2단계** \\(\\overline{OP}=4\\), \\(\\overline{OT}=2\\)를 대입하여 \\(\\overline{PT}\\)를 구합니다.\n\\[\n4^2=2^2+\\overline{PT}^{\\,2}\n\\]\n\\[\n\\overline{PT}^{\\,2}=12\n\\]\n\\[\n\\overline{PT}=2\\sqrt{3}\n\\]",
+        "answerMd": "\\[\n2\\sqrt{3}\n\\]"
+      }
+    },
+    {
+      "id": "RE-R3-alternative-midpoint",
+      "source": "eval-reconstructed",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** 중점은 선분을 가로와 세로 방향으로 각각 똑같이 반으로 나눈 점이므로, A에서 B까지의 이동량을 먼저 구합니다. 가로로는 \\(4-(-2)=6\\), 세로로는 \\(5-1=4\\)만큼 이동합니다.\n\n**2단계** 중점까지는 이 이동량의 절반만 이동하므로, A에서 가로로 \\(6\\div2=3\\), 세로로 \\(4\\div2=2\\)만큼 이동합니다.\n\n**3단계** 점 \\(A(-2,1)\\)에서 각각 이동하면 중점의 좌표는\n\\[\n(-2+3,\\ 1+2)=(1,3)\n\\]\n입니다.\n\n## 최종 답\n\\[\n(1,3)\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** 중점은 선분을 가로와 세로 방향으로 각각 똑같이 반으로 나눈 점이므로, A에서 B까지의 이동량을 먼저 구합니다. 가로로는 \\(4-(-2)=6\\), 세로로는 \\(5-1=4\\)만큼 이동합니다.\n\n**2단계** 중점까지는 이 이동량의 절반만 이동하므로, A에서 가로로 \\(6\\div2=3\\), 세로로 \\(4\\div2=2\\)만큼 이동합니다.\n\n**3단계** 점 \\(A(-2,1)\\)에서 각각 이동하면 중점의 좌표는\n\\[\n(-2+3,\\ 1+2)=(1,3)\n\\]\n입니다.",
+        "answerMd": "\\[\n(1,3)\n\\]"
+      }
+    },
+    {
+      "id": "RE-R4-own-invalid-line-trap",
+      "source": "eval-reconstructed",
+      "category": "normal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** \\(AH\\)는 공통인 길이이므로, 두 직각삼각형 \\(ABH\\), \\(ACH\\)에 피타고라스 정리를 적용한다.\n\\[\nAH^2+x^2=5^2,\\qquad AH^2+(6-x)^2=7^2\n\\]\n\n**2단계** 두 식에서 \\(AH^2\\)가 같으므로 이를 없애기 위해 두 식을 빼면\n\\[\n25-x^2=49-(6-x)^2\n\\]\n\n**3단계** \\((6-x)^2=x^2-12x+36\\)을 대입하여 정리하면\n\\[\n25-x^2=49-(x^2-12x+36)\n\\]\n\\[\n25=13+12x\n\\]\n\\[\n12=12x\n\\]\n\\[\nx=1\n\\]\n\n## 최종 답\n\\[\n1\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** \\(AH\\)는 공통인 길이이므로, 두 직각삼각형 \\(ABH\\), \\(ACH\\)에 피타고라스 정리를 적용한다.\n\\[\nAH^2+x^2=5^2,\\qquad AH^2+(6-x)^2=7^2\n\\]\n\n**2단계** 두 식에서 \\(AH^2\\)가 같으므로 이를 없애기 위해 두 식을 빼면\n\\[\n25-x^2=49-(6-x)^2\n\\]\n\n**3단계** \\((6-x)^2=x^2-12x+36\\)을 대입하여 정리하면\n\\[\n25-x^2=49-(x^2-12x+36)\n\\]\n\\[\n25=13+12x\n\\]\n\\[\n12=12x\n\\]\n\\[\nx=1\n\\]",
+        "answerMd": "\\[\n1\n\\]"
+      }
+    },
+    {
+      "id": "RA01-step-marker-in-answer",
+      "source": "synthetic",
+      "category": "abnormal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n**1단계** a\n\n## 최종 답\n**2단계** 따라서 답은\n\\[\n-1\n\\]",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "**1단계** a",
+        "answerMd": "**2단계** 따라서 답은\n\\[\n-1\n\\]"
+      }
+    },
+    {
+      "id": "RA02-concept-tags-in-answer",
+      "source": "synthetic",
+      "category": "abnormal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n풀이\n\n## 최종 답\n\\[\n-1\n\\]\n{\"concept_tags\": [\"a\"]}",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "풀이",
+        "answerMd": "\\[\n-1\n\\]\n{\"concept_tags\": [\"a\"]}"
+      }
+    },
+    {
+      "id": "RA03-both",
+      "source": "synthetic",
+      "category": "abnormal",
+      "input": "## 해법\n방법\n\n## 이어풀기\n풀이\n\n## 최종 답\n**3단계** 정리\n-1\n{\"concept_tags\":[\"a\"]}",
+      "output": {
+        "methodName": "방법",
+        "solutionMd": "풀이",
+        "answerMd": "**3단계** 정리\n-1\n{\"concept_tags\":[\"a\"]}"
+      }
+    }
+  ]
+}

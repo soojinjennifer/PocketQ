@@ -114,6 +114,45 @@ function noLengthValueOnSegment(name1: string, name2: string, value: number): Ch
   };
 }
 
+/** 라벨 또는 id가 name인 점의 해석 좌표(첫 번째). */
+function pointXy(figure: FigureSpec, name: string): { x: number; y: number } | null {
+  const resolved = resolveFigure(figure);
+  if (!resolved) return null;
+  for (const id of pointIdsNamed(figure, name)) {
+    const element = resolved.elements.get(id);
+    if (element && element.kind === "point") return element.xy;
+  }
+  return null;
+}
+
+/**
+ * Stage 4 L-6 — R4 "무효 줄 함정" 보강: H가 A에서 직선 BC에 내린 **수선의 발**이고 BH = 1인지 좌표로 확인한다
+ * (기존 검사는 `equalLength(AB, AC)` 부재만 봐서 H를 중점 같은 자유 점으로 오작도해도 통과했다).
+ * 좌표계는 모델이 정하므로 절대 좌표가 아니라 관계로 본다(허용오차 1e-6, 길이는 축척 없음 규칙).
+ */
+export function footOfPerpendicular(apex: string, b: string, c: string, foot: string, expectedBFoot: number): Check {
+  return {
+    name: `${foot}는 ${apex}에서 직선 ${b}${c}에 내린 수선의 발이고 ${b}${foot} = ${expectedBFoot}`,
+    run: (figures) =>
+      figures.some((figure) => {
+        const pa = pointXy(figure, apex);
+        const pb = pointXy(figure, b);
+        const pc = pointXy(figure, c);
+        const ph = pointXy(figure, foot);
+        if (!pa || !pb || !pc || !ph) return false;
+        const bc = { x: pc.x - pb.x, y: pc.y - pb.y };
+        const bcLength = Math.hypot(bc.x, bc.y);
+        if (bcLength === 0) return false;
+        const bh = { x: ph.x - pb.x, y: ph.y - pb.y };
+        const ah = { x: ph.x - pa.x, y: ph.y - pa.y };
+        const onLine = Math.abs(bc.x * bh.y - bc.y * bh.x) / bcLength <= 1e-6;
+        const perpendicular = Math.abs(bc.x * ah.x + bc.y * ah.y) / bcLength <= 1e-6;
+        const lengthOk = Math.abs(Math.hypot(bh.x, bh.y) - expectedBFoot) <= 1e-6;
+        return onLine && perpendicular && lengthOk;
+      }),
+  };
+}
+
 const CASES: EvalCase[] = [
   // ---- 도형 필요 10 (Prompt/15 Stage 5의 1~9 + 좌표기하 1) ----
   { id: "N1-triangle-angle", kind: "solve", group: "needed", grade: "M2", expectFigure: true, problem: "삼각형 ABC에서 ∠A = 50°, ∠B = 60°일 때 ∠C의 크기를 구하시오." },
@@ -228,6 +267,8 @@ const CASES: EvalCase[] = [
             );
           }),
       },
+      // L-6: BH = (25 + 36 − 49) / 12 = 1(손 계산). H가 수선의 발이 아니면(중점 3 등) 실패.
+      footOfPerpendicular("A", "B", "C", "H", 1),
     ],
   },
 ];
@@ -529,4 +570,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({ summary: output.summary }, null, 2));
 }
 
-await main();
+// 직접 실행할 때만 평가를 돈다(검사 함수를 다른 스크립트에서 import해 저장된 도형에 다시 적용할 수 있게).
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  await main();
+}

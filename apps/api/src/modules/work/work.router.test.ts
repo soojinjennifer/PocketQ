@@ -89,6 +89,9 @@ describe("POST /api/problems/:problemId/work-lines", () => {
     expect(res.status).toBe(404);
   });
 
+  // Stage 4 간헐 실패 조사(장부 §7.13): 저장소 루트 `pnpm test`(api·web 동시 실행) 10회 중 1회 이 테스트만 기본 5초를 넘겼다.
+  // 404는 multer가 본문을 다 읽은 뒤에 나가므로(업로드 중 조기 응답 아님) 코드 결함이 아니라 부하 중 일시 정체로 판단해,
+  // 단언은 그대로 두고 이 테스트에만 명시 타임아웃을 준다.
   it("다른 사용자의 problemId면 404를 응답한다(소유권 검증)", async () => {
     getUserMock.mockResolvedValue({
       data: { user: { id: "user-2", user_metadata: { grade: "M2" } } },
@@ -105,7 +108,7 @@ describe("POST /api/problems/:problemId/work-lines", () => {
       });
 
     expect(res.status).toBe(404);
-  });
+  }, 20_000);
 
   it("정상 요청이면 200과 함께 줄 단위 인식 결과를 반환하고 저장소에 저장한다", async () => {
     const app = createTestApp();

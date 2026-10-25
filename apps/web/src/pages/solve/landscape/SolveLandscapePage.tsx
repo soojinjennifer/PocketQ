@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
   HandwritingCanvas,
@@ -9,6 +9,7 @@ import { PenRail } from "../../../features/drawing-canvas/PenRail";
 import { SolveScroll } from "../../../features/drawing-canvas/SolveScroll";
 import { AnswerBox } from "../../../features/ai-solution/AnswerBox";
 import { DiagnosisCard } from "../../../features/ai-solution/DiagnosisCard";
+import { hasSolutionSteps } from "../../../features/ai-solution/hasSolutionSteps";
 import { parseStreamingSolve } from "../../../features/ai-solution/parseStreamingSolve";
 import { RecognizedProblemBar } from "../../../features/ai-solution/RecognizedProblemBar";
 import { ResultCard } from "../../../features/ai-solution/ResultCard";
@@ -17,6 +18,7 @@ import { ResultPanelShell, type ResultPanelWidth } from "../../../features/ai-so
 import { ResumeModeBar } from "../../../features/ai-solution/ResumeModeBar";
 import { ResumeResultCard } from "../../../features/ai-solution/ResumeResultCard";
 import { WorkLineList } from "../../../features/ai-solution/WorkLineList";
+import { FigureErrorBoundary } from "../../../features/figure-visualization/FigureErrorBoundary";
 import { ChatBubble } from "../../../features/follow-up-chat/ChatBubble";
 import { ChatFooter, type ChatFooterHandle } from "../../../features/follow-up-chat/ChatFooter";
 import { SuggestionPill } from "../../../features/follow-up-chat/SuggestionPill";
@@ -28,6 +30,38 @@ import { deriveHighlightRegion } from "../../../shared/lib/solve/deriveHighlight
 import { deriveWorkLineJudgments } from "../../../shared/lib/solve/deriveWorkLineJudgments";
 import { LoadingMark } from "../../../shared/ui/loading-mark/LoadingMark";
 import { Modal } from "../../../shared/ui/modal/Modal";
+
+/**
+ * 도형 슬롯(Stage 4) — 빌드 플래그 `VITE_FIGURES_ENABLED === "true"`일 때만 지연 로딩한다. Vite가 빌드 시점에 값을
+ * 치환하므로 off 빌드에서는 이 동적 import가 통째로 빠져 렌더러·검증 커널·JSXGraph 청크가 생기지 않는다.
+ */
+const SolutionFigures =
+  import.meta.env.VITE_FIGURES_ENABLED === "true"
+    ? lazy(() => import("../../../features/figure-visualization/SolutionFigures"))
+    : null;
+
+type FigurePhase = "idle" | "waiting" | "received" | "empty";
+
+/**
+ * 도형 슬롯 내용 조립(재작업 1). 반환값 의미: `undefined` = 슬롯 없음(플래그 off·표지 없고 도형 단계도 아님 → 기존 DOM),
+ * `null` = `aria-live="off"` 래퍼만 미리 둠(P2-1), 그 밖 = 지연 로딩 그림.
+ * H-1: 지연 청크를 못 받거나(오프라인·배포 뒤 해시 불일치) 그림 렌더가 실패해도 결과 화면 전체가 오류가 되지 않게
+ * `Suspense` 바깥을 도형 오류 경계(fallback 없음)로 감싼다 — 도형 슬롯만 비고 풀이·채팅은 그대로다.
+ */
+function figureSlotContent(
+  phase: FigurePhase,
+  solutionMd: string | null,
+  render: (Slot: NonNullable<typeof SolutionFigures>) => ReactNode,
+): ReactNode {
+  if (SolutionFigures === null) return undefined;
+  const active = phase === "waiting" || phase === "received";
+  if (!active) return hasSolutionSteps(solutionMd) ? null : undefined;
+  return (
+    <FigureErrorBoundary fallback={null}>
+      <Suspense fallback={null}>{render(SolutionFigures)}</Suspense>
+    </FigureErrorBoundary>
+  );
+}
 
 /**
  * `/solve/landscape` — 문제풀기 결과 단계. `/solve/pencilcanvas`의 "풀기" 버튼 클릭 후 진입한다.
@@ -82,6 +116,7 @@ export function SolveLandscapePage() {
     solveStatus,
     streamedText,
     solveResult,
+    solveFiguresPhase,
     suggestedQuestions,
     resetSubmission,
     chatMessages,
@@ -97,6 +132,7 @@ export function SolveLandscapePage() {
     resumeMode,
     resumeStatus,
     resumeSolution,
+    resumeFiguresPhase,
     resumeErrorMessage,
     startResume,
     resetResume,
@@ -216,6 +252,21 @@ export function SolveLandscapePage() {
   // "prop이 바뀔 때 state 조정" 패턴(렌더 중 이전 값과 비교해 즉시 setState)을 사용한다 —
   // effect 안에서 setState하면 불필요한 커밋이 한 번 더 발생한다.
   const [panelWidth, setPanelWidth] = useState<ResultPanelWidth>("default");
+
+  // 그림·단계 블록이 공유하는 현재 단계(Stage 4 §17.4): 1~N, null = 최종(기본). 새 요청·reset으로 결과가
+  // 비면 최종으로 돌린다(렌더 중 이전 값 비교 패턴 — 아래 panelWidth 리셋과 같은 방식).
+  const [solveStep, setSolveStep] = useState<number | null>(null);
+  const [resumeStep, setResumeStep] = useState<number | null>(null);
+  const [prevSolveResultEmpty, setPrevSolveResultEmpty] = useState(solveResult === null);
+  if ((solveResult === null) !== prevSolveResultEmpty) {
+    setPrevSolveResultEmpty(solveResult === null);
+    if (solveResult === null) setSolveStep(null);
+  }
+  const [prevResumeSolutionEmpty, setPrevResumeSolutionEmpty] = useState(resumeSolution === null);
+  if ((resumeSolution === null) !== prevResumeSolutionEmpty) {
+    setPrevResumeSolutionEmpty(resumeSolution === null);
+    if (resumeSolution === null) setResumeStep(null);
+  }
   const [prevIsPanelVisible, setPrevIsPanelVisible] = useState(isPanelVisible);
   if (isPanelVisible !== prevIsPanelVisible) {
     setPrevIsPanelVisible(isPanelVisible);
@@ -332,6 +383,16 @@ export function SolveLandscapePage() {
               conceptMd={solveResult.conceptMd}
               solutionMd={solveResult.solutionMd}
               answerMd={solveResult.answerMd}
+              currentStep={solveStep}
+              figureContent={figureSlotContent(solveFiguresPhase, solveResult.solutionMd, (Slot) => (
+                <Slot
+                  phase={solveFiguresPhase}
+                  figures={solveResult.figures}
+                  solutionMd={solveResult.solutionMd}
+                  step={solveStep}
+                  onStepChange={setSolveStep}
+                />
+              ))}
               chatContent={
                 <>
                   {/* 제안 질문 pill(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 채워진다.
@@ -421,7 +482,19 @@ export function SolveLandscapePage() {
                 {resumeStatus === "loading" ? (
                   <LoadingMark label="이어서 풀이를 만드는 중" />
                 ) : resumeStatus === "success" && resumeSolution && resumeSolution.verified ? (
-                  <ResumeResultCard solution={resumeSolution} />
+                  <ResumeResultCard
+                    solution={resumeSolution}
+                    currentStep={resumeStep}
+                    figureContent={figureSlotContent(resumeFiguresPhase, resumeSolution.solutionMd, (Slot) => (
+                      <Slot
+                        phase={resumeFiguresPhase}
+                        figures={resumeSolution.figures}
+                        solutionMd={resumeSolution.solutionMd}
+                        step={resumeStep}
+                        onStepChange={setResumeStep}
+                      />
+                    ))}
+                  />
                 ) : null}
                 {suggestedQuestions && suggestedQuestions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
@@ -490,7 +563,7 @@ export function SolveLandscapePage() {
                 <>
                   {recognizedText ? <RecognizedProblemBar recognizedText={recognizedText} /> : null}
                   {conceptSoFar ? <ResultCard kind="concept" body={conceptSoFar} /> : null}
-                  {stepsSoFar ? <ResultCard kind="steps" body={stepsSoFar} /> : null}
+                  {stepsSoFar ? <ResultCard kind="steps" body={stepsSoFar} streaming /> : null}
                   {answerSoFar ? <AnswerBox answerMd={answerSoFar} /> : null}
                 </>
               ) : (

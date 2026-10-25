@@ -3,6 +3,7 @@ import type { ChatMessage, Diagnosis, ResumeMode, ResumeSolution, Solution, Work
 import type { RecognizeStatus } from "../problem-recognition/useRecognizeProblem";
 import type { RecognizeWorkInput, RecognizeWorkStatus } from "../problem-recognition/useRecognizeWork";
 import type { SolveStreamStatus } from "../ai-solution/useSolveStream";
+import type { FiguresPhase } from "../ai-solution/figuresPhase";
 import type { DiagnoseInput, DiagnoseStatus } from "../ai-solution/useDiagnose";
 import type { ResumeStreamStatus } from "../ai-solution/useResumeStream";
 import type { ChatStatus } from "../follow-up-chat/useChatMessages";
@@ -87,6 +88,9 @@ export interface ProblemInputContextValue {
   solveStatus: SolveStreamStatus;
   streamedText: string;
   solveResult: Solution | null;
+  /** 풀이 스트림의 도형 수신 단계(Stage 4, `features/ai-solution/figuresPhase.ts`): idle / waiting(done 뒤
+   *  스트림이 열려 있음) / received(`solveResult.figures` 병합됨) / empty(도형 없이 종료). 화면 표시는 design 결정 후. */
+  solveFiguresPhase: FiguresPhase;
   /** 후속 질문 제안 pill 문구(Final QA MEDIUM-4) — 풀이 성공 직후 별도 AI 호출로 채워진다. 아직
    *  없거나 요청이 실패하면 `null`(별도 에러 UI 없이 pill 행 자체를 렌더링하지 않는다). */
   suggestedQuestions: string[] | null;
@@ -174,6 +178,8 @@ export interface ProblemInputContextValue {
   resumeStreamedText: string;
   resumeSolution: ResumeSolution | null;
   resumeErrorMessage: string | null;
+  /** 이어풀기 스트림의 도형 수신 단계(Stage 4) — `solveFiguresPhase`와 같은 의미. */
+  resumeFiguresPhase: FiguresPhase;
   /** `ResumeModeBar`의 버튼 클릭 시 호출한다 — `problemId`가 없으면 아무 동작도 하지 않는다. */
   startResume: (mode: ResumeMode) => Promise<void>;
   /** `useResumeStream().reset`. 새 문제를 시작하거나(`startNewProblem`), 결과 화면 "수정"으로 WORK

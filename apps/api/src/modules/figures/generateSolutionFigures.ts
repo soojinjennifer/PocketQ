@@ -38,7 +38,12 @@ export type FigureGenerationOutcome =
   | "all_rejected"
   | "generate_failed"
   | "malformed"
+  /** 클라이언트 연결 끊김(부모 signal)으로 취소 — 아무것도 보내지 않는다. */
   | "aborted"
+  /** 도형 단계 전체 상한 만료, 보낼 1차 통과 도형이 없음(Stage 4 재작업 1 L-C: 끊김과 구분). */
+  | "deadline"
+  /** 전체 상한이 보정 중 만료돼 1차 통과 도형만 보냄(Stage 4 L-2). */
+  | "partial_deadline"
   | "unexpected_error";
 
 export interface FigureGenerationMetrics {
@@ -133,6 +138,31 @@ interface FailedCandidate {
   errors: FigureCandidateError[];
 }
 
+/** 상한 만료 시 1차 통과 도형을 살리기 위해 `run`이 진행 중에 채우는 상태(Stage 4 L-2). */
+interface RunProgress {
+  envelope: Record<string, unknown> | null;
+  stepCount: number | null;
+  /** 1차 검증을 통과한 도형(원래 순서 index → 도형). 보정 결과는 넣지 않는다. */
+  firstPass: Map<number, FigureSpec>;
+  /** 보정을 기다리던 도형 수. */
+  pendingRepairs: number;
+}
+
+function cloneMetrics(metrics: FigureGenerationMetrics): FigureGenerationMetrics {
+  return { ...metrics, firstPassCodes: { ...metrics.firstPassCodes }, finalRejectCodes: { ...metrics.finalRejectCodes } };
+}
+
+/** `signal`이 취소되면 resolve되는 promise(하드 데드라인용). */
+function whenAborted(signal: AbortSignal): Promise<"deadline"> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve("deadline");
+      return;
+    }
+    signal.addEventListener("abort", () => resolve("deadline"), { once: true });
+  });
+}
+
 /**
  * 풀이 도형을 생성·검증·보정한다. 절대 throw하지 않는다.
  */
@@ -163,23 +193,52 @@ export async function generateSolutionFigures(input: GenerateSolutionFiguresInpu
     return { figures: [], stepFigureRefs: [], metrics };
   };
   const linked = linkedSignal(input.signal, input.totalBudgetMs ?? FIGURES_TOTAL_BUDGET_MS);
+  const progress: RunProgress = { envelope: null, stepCount: null, firstPass: new Map(), pendingRepairs: 0 };
   let result: SolutionFiguresResult;
 
+  // L-1: 상한(또는 클라이언트 끊김)이 오면 어댑터가 signal을 무시하고 영원히 대기하더라도 즉시 반환한다.
+  // 진행 중인 호출은 `linked.signal`로 abort된다. L-2: 상한 만료면 1차 통과 도형은 보존, 클라이언트 끊김이면 0.
+  const resolveDeadline = (): SolutionFiguresResult => {
+    if (input.signal.aborted) return empty("aborted");
+    if (progress.envelope === null || progress.firstPass.size === 0) return empty("deadline");
+    if (progress.pendingRepairs > 0) {
+      metrics.finalRejectCodes["deadline"] = (metrics.finalRejectCodes["deadline"] ?? 0) + progress.pendingRepairs;
+    }
+    const ordered = [...progress.firstPass.entries()].sort((a, b) => a[0] - b[0]).map(([, figure]) => figure);
+    const partial = finalize(progress.envelope, progress.stepCount, ordered, metrics);
+    if (partial.figures.length === 0) return empty("deadline");
+    metrics.outcome = "partial_deadline";
+    return partial;
+  };
+  let deadlineResult: SolutionFiguresResult | null = null;
+  const onDeadline = (): SolutionFiguresResult => {
+    deadlineResult ??= resolveDeadline();
+    return deadlineResult;
+  };
+
   try {
-    result = await run(input, metrics, linked.signal, empty);
+    const running = run(input, metrics, linked.signal, empty, progress);
+    // 데드라인이 먼저 오면 run의 늦은 실패는 버린다(처리되지 않은 rejection 방지).
+    running.catch(() => undefined);
+    const winner = await Promise.race([running, whenAborted(linked.signal)]);
+    result = winner === "deadline" ? onDeadline() : winner;
   } catch {
-    result = empty(linked.signal.aborted ? "aborted" : "unexpected_error");
+    result = linked.signal.aborted ? onDeadline() : empty("unexpected_error");
   } finally {
     linked.dispose();
   }
+  // signal을 지키는 어댑터는 abort 시 run이 먼저 "aborted"로 끝날 수 있다 — 같은 규칙(L-2·L-C)으로 원인(끊김/상한)을 정리한다.
+  if (result.metrics.outcome === "aborted" && linked.signal.aborted) result = onDeadline();
 
-  metrics.durationMs = Date.now() - startedAt;
+  // 데드라인 뒤에도 백그라운드의 run이 metrics를 바꿀 수 있으므로 반환·로그는 이 시점의 사본으로 고정한다.
+  const finalMetrics = cloneMetrics(result.metrics);
+  finalMetrics.durationMs = Date.now() - startedAt;
   try {
-    (input.log ?? defaultLog)(metrics);
+    (input.log ?? defaultLog)(finalMetrics);
   } catch {
     // 로그 실패는 무시한다.
   }
-  return result;
+  return { figures: result.figures, stepFigureRefs: result.stepFigureRefs, metrics: finalMetrics };
 }
 
 async function run(
@@ -187,9 +246,11 @@ async function run(
   metrics: FigureGenerationMetrics,
   signal: AbortSignal,
   empty: (outcome: FigureGenerationOutcome) => SolutionFiguresResult,
+  progress: RunProgress,
 ): Promise<SolutionFiguresResult> {
   const split = splitSolutionSteps(input.solutionMd);
   const stepCount = split.ok ? split.stepCount : null;
+  progress.stepCount = stepCount;
   metrics.stepCount = stepCount;
   metrics.stepSplitFailure = split.ok ? null : split.reason;
 
@@ -219,6 +280,7 @@ async function run(
 
   // 2) 최상위 구조 — 깨지면 보정 없이 전부 버린다.
   if (!isRecord(envelope) || !Array.isArray(envelope["figures"])) return empty("malformed");
+  progress.envelope = envelope;
   const omitReason = envelope["omitReason"];
   metrics.omitReason = typeof omitReason === "string" && OMIT_REASONS.includes(omitReason) ? omitReason : null;
   const candidates: unknown[] = envelope["figures"].slice(0, MAX_FIGURES);
@@ -258,6 +320,9 @@ async function run(
     failed.push({ index, figureId, candidate, errors: verdict.errors });
   });
 
+  for (const [index, figure] of accepted) progress.firstPass.set(index, figure);
+  progress.pendingRepairs = failed.length;
+
   // 4) 실패한 도형만 병렬 보정 — 도형당 최대 1회.
   if (failed.length > 0 && !signal.aborted) {
     const repairs = await Promise.all(
@@ -296,8 +361,21 @@ async function run(
   }
   if (signal.aborted) return empty("aborted");
 
+  progress.pendingRepairs = 0;
+
   // 원래 순서를 유지한다.
   const ordered = [...accepted.entries()].sort((a, b) => a[0] - b[0]).map(([, figure]) => figure);
+  return finalize(envelope, stepCount, ordered, metrics);
+}
+
+/** 5)·6) 단계 연결 정합과 최종 재파싱. 정상 종료와 상한 만료(1차 통과 도형만) 모두 같은 경로를 쓴다. */
+function finalize(
+  envelope: Record<string, unknown>,
+  stepCount: number | null,
+  ordered: FigureSpec[],
+  metrics: FigureGenerationMetrics,
+): SolutionFiguresResult {
+  const acceptedIds = new Set(ordered.map((figure) => figure.figureId));
 
   // 5) 단계 연결 — 받아들인 도형·단계 범위 안만, 분할 실패면 [].
   const refs: StepFigureRef[] = [];

@@ -4,6 +4,7 @@ import { validateFigureSemantics } from "validation";
 import { FigureBoard } from "./FigureBoard";
 import { FigureErrorBoundary } from "./FigureErrorBoundary";
 import { FigureFallback } from "./FigureFallback";
+import type { FigureStepPosition } from "./resolveStepState";
 
 export type FigureViewStatus = "loading" | "ready" | "error";
 
@@ -12,6 +13,8 @@ export interface FigureViewProps {
   spec: FigureSpec;
   /** 현재 풀이 단계(`sN`). 없거나 steps에 없으면 최종 상태. 바뀌어도 보드를 다시 만들지 않는다. */
   stepId?: string | null;
+  /** 풀이 전역 단계 위치(Stage 4, `resolveStepStateAt`). 주면 `stepId`보다 우선한다. 바뀌어도 보드를 다시 만들지 않는다. */
+  step?: FigureStepPosition;
   className?: string;
   onStatusChange?: (status: FigureViewStatus) => void;
 }
@@ -21,7 +24,7 @@ export interface FigureViewProps {
  * 표면(카드)은 갖지 않는다. 조립하는 쪽이 감싼다(`docs/FIGURE_DESIGN.md` §7.1).
  * 실패는 이 도형 안에서만 대체 표시로 바뀐다(다른 도형·풀이 화면에 영향 없음).
  */
-export function FigureView({ spec, stepId, className, onStatusChange }: FigureViewProps) {
+export function FigureView({ spec, stepId, step, className, onStatusChange }: FigureViewProps) {
   const semantics = useMemo(() => validateFigureSemantics(spec), [spec]);
   const [status, setStatus] = useState<FigureViewStatus>("loading");
 
@@ -43,7 +46,7 @@ export function FigureView({ spec, stepId, className, onStatusChange }: FigureVi
     <figure className={`flex flex-col gap-3 ${className ?? ""}`} aria-busy={busy ? true : undefined}>
       {semantics.ok ? (
         <FigureErrorBoundary fallback={<FigureFallback />} onError={handleBoundaryError}>
-          <FigureBoard spec={spec} resolved={semantics.resolved} stepId={stepId} onStatusChange={handleStatus} />
+          <FigureBoard spec={spec} resolved={semantics.resolved} stepId={stepId} step={step} onStatusChange={handleStatus} />
         </FigureErrorBoundary>
       ) : (
         <FigureFallback />

@@ -3,6 +3,7 @@ import { AnswerBox } from "./AnswerBox";
 import { RecognizedProblemBar } from "./RecognizedProblemBar";
 import { ResultCard } from "./ResultCard";
 import { Badge } from "../../shared/ui/badge/Badge";
+import { FigureSlot } from "./FigureSlot";
 
 interface ResultPanelProps {
   /** `solveResult.conceptTags[0]`. 태그가 없으면 배지를 렌더링하지 않는다. */
@@ -25,6 +26,14 @@ interface ResultPanelProps {
    *  위와 같은 이유로 슬롯으로만 받는다. 없으면 Footer 없이 Body가 패널 하단까지 채운다(기존 동작
    *  유지 — 로딩 중 콘텐츠 등 채팅이 필요 없는 곳에서도 이 컴포넌트를 그대로 쓸 수 있게 한다). */
   chatFooter?: ReactNode;
+  /**
+   * 단계별 풀이 다음·최종 답 앞에 둘 도형 슬롯(Stage 4 §17.1). `chatContent`와 같은 이유로 페이지가
+   * `features/figure-visualization`을 조립해 넘긴다. 없으면(`undefined`, MyPage 등) 아무것도 렌더하지 않는다.
+   * `null`을 넘기면 내용 없이 `aria-live="off"` 슬롯 래퍼만 미리 렌더한다(`FigureSlot`, 재작업 1 P2-1).
+   */
+  figureContent?: ReactNode;
+  /** 그림에 표시 중인 전역 단계 번호(Stage 4) — 단계 블록 강조에 쓴다. null/미지정이면 최종. */
+  currentStep?: number | null;
 }
 
 /**
@@ -49,6 +58,8 @@ export function ResultPanel({
   answerMd,
   chatContent,
   chatFooter,
+  figureContent,
+  currentStep = null,
 }: ResultPanelProps) {
   return (
     <>
@@ -65,7 +76,8 @@ export function ResultPanel({
       >
         <RecognizedProblemBar recognizedText={recognizedText} onEdit={onEdit} editLabel={editLabel} />
         {conceptMd ? <ResultCard kind="concept" body={conceptMd} /> : null}
-        {solutionMd ? <ResultCard kind="steps" body={solutionMd} /> : null}
+        {solutionMd ? <ResultCard kind="steps" body={solutionMd} currentStep={currentStep} /> : null}
+        {figureContent !== undefined ? <FigureSlot>{figureContent}</FigureSlot> : null}
         <AnswerBox answerMd={answerMd} />
         {chatContent}
       </div>

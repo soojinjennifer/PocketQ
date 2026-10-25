@@ -575,7 +575,7 @@ describe("RESUME 5단계(화면 연결) — 이어풀기 모드 선택 → 스�
 
     fireEvent.click(ownButton);
 
-    expect(resumeProblemStream).toHaveBeenCalledWith({ problemId: "problem-1", mode: "own" });
+    expect(resumeProblemStream).toHaveBeenCalledWith({ problemId: "problem-1", mode: "own" }, expect.any(AbortSignal));
 
     // done 이벤트 수신 후 결과 카드가 표시된다(상단 라벨/이어가는 지점 요약/본문/최종 답).
     expect(await screen.findByText("이어풀기 · 내 방법으로 계속")).toBeInTheDocument();
@@ -672,10 +672,13 @@ describe("마이페이지 '다시 풀기' — 사진/필기 없이 재수화 후
 
     // reopen이 돌려준 새 problemId로 solve가 이어진다(개념 + 풀이 모두 요청).
     await waitFor(() =>
-      expect(solveProblemStream).toHaveBeenCalledWith({
-        problemId: "problem-reopened",
-        options: { concept: true, solution: true },
-      }),
+      expect(solveProblemStream).toHaveBeenCalledWith(
+        {
+          problemId: "problem-reopened",
+          options: { concept: true, solution: true },
+        },
+        expect.any(AbortSignal),
+      ),
     );
 
     expect(await screen.findByText("풀이 결과")).toBeInTheDocument();

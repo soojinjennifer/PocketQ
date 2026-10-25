@@ -1,4 +1,5 @@
 import { Badge } from "../../shared/ui/badge/Badge";
+import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
 
 interface RecognizedProblemBarProps {
   recognizedText: string;
@@ -21,7 +22,7 @@ export function RecognizedProblemBar({
   editLabel = "수정",
 }: RecognizedProblemBarProps) {
   return (
-    <div className="bg-bg-elevated flex items-center gap-3 rounded-[14px] p-4 drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)]">
+    <ElevatedCard className="flex items-center gap-3">
       <Badge variant="tint-green" size="chip">
         인식됨
       </Badge>
@@ -36,6 +37,6 @@ export function RecognizedProblemBar({
       >
         {editLabel}
       </button>
-    </div>
+    </ElevatedCard>
   );
 }

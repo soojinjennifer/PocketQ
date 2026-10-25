@@ -1,4 +1,6 @@
+import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
+import { SolutionStepList } from "./SolutionStepList";
 
 type ResultCardKind = "concept" | "steps";
 
@@ -9,6 +11,10 @@ interface ResultCardProps {
    *  않으므로 레이아웃이 그대로 유지된다). */
   title?: string;
   body: string;
+  /** `kind="steps"` 전용(Stage 4): 그림에 표시 중인 전역 단계 번호. null/미지정이면 최종(강조 없음). */
+  currentStep?: number | null;
+  /** `kind="steps"` 전용: 스트리밍 중이면 마지막 줄의 미완성 단계 표지를 숨긴다. */
+  streaming?: boolean;
 }
 
 const LABEL_TEXT: Record<ResultCardKind, string> = {
@@ -32,14 +38,19 @@ const LABEL_COLOR: Record<ResultCardKind, string> = {
  * 사용한다. 콘텐츠 길이에 따라 자연스럽게 늘어나야 하므로 고정 높이를 주지 않는다(overflow는
  * Body 스크롤에 위임).
  */
-export function ResultCard({ kind, title, body }: ResultCardProps) {
+export function ResultCard({ kind, title, body, currentStep = null, streaming = false }: ResultCardProps) {
   return (
-    <div className="bg-bg-elevated flex flex-col gap-2 rounded-[14px] p-4 drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)]">
+    <ElevatedCard className="flex flex-col gap-2">
       <p className={`text-[12px] leading-[16px] font-[590] ${LABEL_COLOR[kind]}`}>{LABEL_TEXT[kind]}</p>
       {title ? <p className="text-label-primary text-[15px] leading-[20px] font-[590]">{title}</p> : null}
-      <p className="text-label-primary text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
-        {renderMathText(body)}
-      </p>
-    </div>
+      {kind === "steps" ? (
+        // 단계 표지로 분할되면 단계 블록, 아니면 아래 concept 본문과 같은 <p>(Stage 4 §17.3, DOM 동일).
+        <SolutionStepList body={body} currentStep={currentStep} streaming={streaming} />
+      ) : (
+        <p className="text-label-primary text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
+          {renderMathText(body)}
+        </p>
+      )}
+    </ElevatedCard>
   );
 }

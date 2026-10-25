@@ -2,13 +2,13 @@
  * 개발 전용 도형 미리보기 `/dev/figures` — `docs/FIGURE_DESIGN.md` §13.
  *
  * `import.meta.env.DEV`일 때만 라우트에 등록되고(app/routes.tsx), 운영 번들에는 들어가지 않는다.
- * - F01~F09: 카드(ELEVATED_CARD_STYLE) 안 FigureView, 단계 선택(FilterPill), 폭 380/708 비교.
+ * - F01~F09: 카드(`ElevatedCard`) 안 FigureView, 단계 선택(FilterPill), 폭 380/708 비교.
  * - 계산 좌표와 fixture 기대값(손 계산) 비교표.
  * - F10·F11: 거부 사유(개발 화면 전용). 구조는 맞고 의미만 틀린 도형은 대체 표시도 함께 보인다.
  */
 import { useState } from "react";
 import { FilterPill } from "../../../shared/ui/filter-pill/FilterPill";
-import { ELEVATED_CARD_STYLE } from "../../../features/ai-solution/elevatedCardStyle";
+import { ElevatedCard } from "../../../shared/ui/card/ElevatedCard";
 import { FigureView } from "../../../features/figure-visualization/FigureView";
 import { parseFigureSpec, useFigureSpec } from "../../../features/figure-visualization/useFigureSpec";
 import {
@@ -49,9 +49,9 @@ function ValidFixtureSection({ fixture }: { fixture: FigureFixture }) {
         {PANEL_WIDTHS.map((width) => (
           <div key={width.label} className={`flex shrink-0 flex-col gap-1 ${width.className}`}>
             <p className="text-label-primary text-[12px]">{width.label}</p>
-            <div className={ELEVATED_CARD_STYLE}>
+            <ElevatedCard>
               <FigureView spec={spec} stepId={stepId} />
-            </div>
+            </ElevatedCard>
           </div>
         ))}
       </div>
@@ -88,9 +88,9 @@ function RejectedFixtureRow({ fixture }: { fixture: FigureFixture }) {
     <div className="flex w-[380px] shrink-0 flex-col gap-1">
       <p className="text-label-primary text-[12px] font-[590]">{`${fixture.id} ${fixture.title}`}</p>
       {schemaOnly.success ? (
-        <div className={ELEVATED_CARD_STYLE}>
+        <ElevatedCard>
           <FigureView spec={schemaOnly.data} />
-        </div>
+        </ElevatedCard>
       ) : null}
       <p className="text-label-primary text-[12px] break-all">{result.ok ? "통과(예상과 다름)" : result.reason}</p>
     </div>

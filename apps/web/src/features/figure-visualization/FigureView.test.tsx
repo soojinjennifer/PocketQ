@@ -478,7 +478,8 @@ describe("재작업 1", () => {
     const gridBefore = board.elements.filter((element) => /^d0grid/.test(String(element.attributes["id"])));
     expect(gridBefore).toHaveLength(1);
 
-    triggerResize(150);
+    // Stage 4 §17.9: 240px(MIN_BOARD_WIDTH) 미만은 리사이즈하지 않으므로 150 대신 250(세로 눈금 1 → 2로 바뀜)을 쓴다.
+    triggerResize(250);
     await waitFor(() => expect(board.removed.length).toBeGreaterThan(0));
     expect(board.removed).toEqual(expect.arrayContaining(gridBefore));
     expect(board.elements.some((element) => /^d1grid/.test(String(element.attributes["id"])))).toBe(true);
@@ -529,3 +530,90 @@ describe("후속 정리 — 직각 표시는 항상 실선(design P2-A)", () => 
   });
 });
 
+
+/* ---------------------------------------------------------------------------------------------
+ * Stage 4 WU6: 전역 단계 위치(step)·최소 보드 폭
+ * ------------------------------------------------------------------------------------------- */
+
+describe("Stage 4 step 위치와 최소 보드 폭", () => {
+  /** 보드의 모든 요소에 마지막으로 적용된 표시 속성 스냅샷. */
+  function snapshot(board: FakeBoard): string {
+    return JSON.stringify(
+      board.visibleCreations().map((element) => [
+        element.attributes["id"],
+        ["visible", "strokeColor", "strokeWidth", "strokeOpacity", "dash", "size", "fillOpacity"].map((key) => element.last(key)),
+      ]),
+    );
+  }
+
+  it("S4-3: 임의 순서 이동(1→3→2→1→최종→2)에서 같은 k = 같은 보드 속성, 보드 재생성 0", async () => {
+    const figure = spec(F09_STEPWISE_AUXILIARY.raw);
+    const { rerender } = render(<FigureView spec={figure} step={1} />);
+    await waitForBoards(1);
+    const board = fake.boards[0];
+    if (board === undefined) throw new Error("board");
+    const seen = new Map<string, string>();
+    for (const position of [1, 3, 2, 1, "final", 2] as const) {
+      rerender(<FigureView spec={figure} step={position} />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const current = snapshot(board);
+      const key = String(position);
+      if (seen.has(key)) expect(current).toBe(seen.get(key));
+      seen.set(key, current);
+    }
+    expect(seen.get("1")).not.toBe(seen.get("2"));
+    expect(fake.boards).toHaveLength(1);
+    expect(fake.freed).toHaveLength(0);
+  });
+
+  it("step이 있으면 stepId보다 우선한다(step=3 ≡ stepId s3)", async () => {
+    const figure = spec(F09_STEPWISE_AUXILIARY.raw);
+    render(
+      <>
+        <FigureView spec={figure} step={3} stepId="s1" />
+        <FigureView spec={figure} stepId="s3" />
+      </>,
+    );
+    await waitForBoards(2);
+    const [a, b] = fake.boards;
+    if (a === undefined || b === undefined) throw new Error("boards");
+    await waitFor(() => expect(snapshot(a).replace(/figboard\w+/g, "")).toBe(snapshot(b).replace(/figboard\w+/g, "")));
+  });
+
+  it("S4-14: 240px 미만으로 줄면 리사이즈·재생성 없이 직전 크기 유지, 다시 넓어지면 리사이즈", async () => {
+    render(<FigureView spec={spec(F01_TRIANGLE_ANGLE.raw)} />);
+    await waitForBoards(1);
+    const board = fake.boards[0];
+    const before = board?.resizeCalls.length ?? 0;
+    triggerResize(239);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(board?.resizeCalls.length ?? 0).toBe(before);
+    expect(fake.boards).toHaveLength(1);
+    expect(fake.freed).toHaveLength(0);
+    triggerResize(0);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(fake.freed).toHaveLength(0);
+    triggerResize(240);
+    await waitFor(() => expect(board?.resizeCalls.at(-1)?.[0]).toBe(240));
+  });
+
+  it("S4-14: 처음부터 240px 미만이면 보드를 만들지 않고 348px 기준 높이로 자리만 잡는다", async () => {
+    mockWidth = 200;
+    const figure = spec(F01_TRIANGLE_ANGLE.raw);
+    const { container } = render(<FigureView spec={figure} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(fake.boards).toHaveLength(0);
+    const box = container.querySelector("figure > div");
+    expect(box?.getAttribute("style")).toMatch(/height: \d+px/);
+    triggerResize(348);
+    await waitForBoards(1);
+  });
+});

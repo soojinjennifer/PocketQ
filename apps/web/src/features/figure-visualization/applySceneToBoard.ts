@@ -379,6 +379,9 @@ function createPart(board: JxgBoard, item: SceneItem, palette: FigurePalette, cl
 function applyPart(part: Part, item: SceneItem, display: FigureElementDisplay, palette: FigurePalette): void {
   if (part.role === "static") return;
   if (!display.visible) {
+    // Stage 4(S4-3): 숨길 때도 기본 상태 스타일을 먼저 적용해, 이전 단계의 강조 스타일이 숨은 요소에 남지 않게 한다
+    // (어떤 순서로 이동해도 같은 단계 = 같은 SVG 속성).
+    applyPart(part, item, VISIBLE_DEFAULT, palette);
     part.element.setAttribute({ visible: false });
     return;
   }

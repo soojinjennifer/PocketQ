@@ -28,8 +28,8 @@ const HEADER_ORDER = [
 ];
 
 /** 응답 말미에 붙는 `{"concept_tags": [...]}` JSON의 시작 마커. 백엔드 `parseSolveOutput.ts`의
- *  `CONCEPT_TAGS_MARKER`와 동일 — 스트리밍 도중 이 마커가 (완전한 형태로) 들어오면 최종 답
- *  섹션에 JSON 조각이 그대로 노출되지 않도록 잘라낸다. */
+ *  `CONCEPT_TAGS_MARKER`와 동일 — 스트리밍 도중 최종 답 섹션에 JSON 조각이 노출되지 않도록 숨긴다
+ *  (`stripConceptTags` 참고, Stage 4에서 서버와 같은 구간 규칙으로 보강). */
 const CONCEPT_TAGS_MARKER = '{"concept_tags"';
 
 export interface StreamingSolveSections {
@@ -39,19 +39,118 @@ export interface StreamingSolveSections {
 }
 
 export function parseStreamingSolve(rawText: string): StreamingSolveSections {
-  const body = stripConceptTagsTail(rawText);
+  const { body, jsonRemoved } = stripConceptTags(rawText);
   const sections = splitByHeaders(body, HEADER_ORDER);
+  const stepsSoFar = toNonEmpty(sections[STREAMING_SOLVE_HEADERS.solution]);
+  let answerSoFar = toNonEmpty(sections[STREAMING_SOLVE_HEADERS.answer]);
+
+  // D-4(서버 `parseSolveOutput`과 같은 규칙): 완성된 JSON을 지웠는데 `## 최종 답`이 비면 풀이의 마지막 `\boxed{…}`.
+  if (jsonRemoved && sections[STREAMING_SOLVE_HEADERS.answer] === "") {
+    const boxed = lastBoxed(stepsSoFar);
+    answerSoFar = boxed === null ? null : `\\[${boxed}\\]`;
+  }
 
   return {
     conceptSoFar: toNonEmpty(sections[STREAMING_SOLVE_HEADERS.concept]),
-    stepsSoFar: toNonEmpty(sections[STREAMING_SOLVE_HEADERS.solution]),
-    answerSoFar: toNonEmpty(sections[STREAMING_SOLVE_HEADERS.answer]),
+    stepsSoFar,
+    answerSoFar,
   };
 }
 
-function stripConceptTagsTail(text: string): string {
+/**
+ * 개념 분류 JSON을 화면에서 숨긴다(Stage 4, 서버 `parseSolveOutput`과 같은 구간 규칙).
+ * - 마커가 없으면: 끝이 마커의 앞부분(`{"`, `{"con`…)이면 그 꼬리만 숨긴다(다음 청크에서 마커가 완성될 수 있음).
+ * - 마커가 있고 JSON이 아직 안 닫혔거나(스트리밍 중) JSON이 아니면: 기존처럼 마커부터 끝까지 숨긴다.
+ * - JSON이 닫혔고 파싱되면: 뒤가 공백뿐이면 기존과 같고, 뒤에 답 문장이 있으면 **JSON 구간만** 지워 답 문장을 보인다.
+ */
+function stripConceptTags(text: string): { body: string; jsonRemoved: boolean } {
   const markerIndex = text.lastIndexOf(CONCEPT_TAGS_MARKER);
-  return markerIndex === -1 ? text : text.slice(0, markerIndex).trim();
+  if (markerIndex === -1) return { body: hidePartialMarkerTail(text), jsonRemoved: false };
+
+  const end = findJsonObjectEnd(text, markerIndex);
+  if (end === -1 || !isJson(text.slice(markerIndex, end))) {
+    return { body: text.slice(0, markerIndex).trim(), jsonRemoved: false };
+  }
+  if (text.slice(end).trim() === "") return { body: text.slice(0, markerIndex).trim(), jsonRemoved: true };
+  return { body: hidePartialMarkerTail(removeJsonSpan(text, markerIndex, end)), jsonRemoved: true };
+}
+
+/** 마커 앞부분으로 볼 최소 길이 — `{` 하나는 LaTeX(`\boxed{`)에 흔해서 숨기지 않는다. */
+const MIN_PARTIAL_MARKER_LENGTH = 2;
+
+function hidePartialMarkerTail(text: string): string {
+  for (let length = CONCEPT_TAGS_MARKER.length - 1; length >= MIN_PARTIAL_MARKER_LENGTH; length -= 1) {
+    if (text.endsWith(CONCEPT_TAGS_MARKER.slice(0, length))) return text.slice(0, text.length - length).trimEnd();
+  }
+  return text;
+}
+
+function isJson(candidate: string): boolean {
+  try {
+    JSON.parse(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 서버 `parseSolveOutput.ts`의 `findJsonObjectEnd`와 같다(문자열·이스케이프 인식 중괄호 매칭). */
+function findJsonObjectEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      else if (ch === "\n") return -1;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/** 서버 `parseSolveOutput.ts`의 `removeJsonSpan`과 같다(코드 펜스까지 지우고 줄바꿈 하나를 합친다). */
+function removeJsonSpan(text: string, start: number, end: number): string {
+  let before = text.slice(0, start);
+  let after = text.slice(end);
+  const fenceOpen = /(^|\n)[ \t]*```[A-Za-z]*[ \t]*\r?\n[ \t]*$/.exec(before);
+  const fenceClose = /^[ \t]*\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/.exec(after);
+  if (fenceOpen && fenceClose) {
+    before = before.slice(0, fenceOpen.index + (fenceOpen[1] ?? "").length);
+    after = after.slice(fenceClose[0].length);
+  }
+  if (/\n[ \t]*$/.test(before) || before === "") after = after.replace(/^[ \t]*\r?\n/, "");
+  return before + after;
+}
+
+/** 서버 `parseSolveOutput.ts`의 `lastBoxed`와 같다. */
+function lastBoxed(md: string | null): string | null {
+  if (!md) return null;
+  const start = md.lastIndexOf("\\boxed{");
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start + "\\boxed".length; i < md.length; i += 1) {
+    const ch = md[i];
+    if (ch === "\\") {
+      i += 1;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return md.slice(start, i + 1);
+    }
+  }
+  return null;
 }
 
 function splitByHeaders(text: string, headers: string[]): Record<string, string> {

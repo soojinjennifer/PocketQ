@@ -35,3 +35,6 @@ data/references/**/.extraction-cache/
 # 2026-09-09에 실제 만료된 세션 JWT가 포함된 채 커밋된 사례 발견, 추적 해제 후 재추가 방지)
 Prompt/모노레버구조 다이어그램.html
 Prompt/*_files/
+
+# 소스 트리 안 에이전트 메모(Stage 4 재작업 1, QA L-F). 루트 .claude/는 추적 대상이라 제외하지 않는다.
+apps/**/.claude/

@@ -1,7 +1,7 @@
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
 import { Badge } from "../../shared/ui/badge/Badge";
 import { TEXT_LINK_STYLE } from "../../shared/ui/text-link/textLinkStyle";
-import { ELEVATED_CARD_STYLE } from "./elevatedCardStyle";
+import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
 
 export interface WorkLine {
   /** 1-base 줄 번호(WORK-2 "줄 번호를 가진 배열"). */
@@ -40,7 +40,7 @@ export function WorkLineList({ lines, onEdit }: WorkLineListProps) {
   }
 
   return (
-    <div className={`${ELEVATED_CARD_STYLE} flex flex-col gap-3`}>
+    <ElevatedCard className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-label-primary text-[12px] leading-[16px] font-[590]">내가 쓴 풀이</p>
         {onEdit ? (
@@ -76,6 +76,6 @@ export function WorkLineList({ lines, onEdit }: WorkLineListProps) {
           </li>
         ))}
       </ul>
-    </div>
+    </ElevatedCard>
   );
 }

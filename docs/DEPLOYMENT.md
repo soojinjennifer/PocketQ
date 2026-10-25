@@ -53,7 +53,7 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `AI_MODEL` | 로컬 `apps/api/.env`의 `AI_MODEL` 값과 동일 | **비워두면 서버가 기동 즉시 에러로 종료합니다**(이번 세션에 직접 재현·확인) |
 | `OPENAI_API_KEY` | 운영용 OpenAI API 키 | 로컬 개발 키와 분리 권장(사용량 추적) |
 | `CAS_SERVICE_URL` | `pocketq-cas`의 Internal Address | 비워두면 CAS는 결정론적 스텁으로 자동 폴백(`resolveCasClient.ts`) — RESUME/DIAG 검증이 실제 SymPy가 아니라 스텁으로 동작하니 운영에서는 반드시 채울 것 |
-| `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 기능 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **Stage 4(화면 표시) 전까지 운영에서는 켜지 않는다**(D9) — 켜면 결과 카드에 `**1단계**` 별표가 그대로 보인다. 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 아직 넣지 않았다 |
+| `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 서버 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **웹 `VITE_FIGURES_ENABLED`보다 먼저 켜지 않는다**(아래 "도형 시각화 플래그 조합", D-9). 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 넣지 않았다(D-8) |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `30` / `60000` | render.yaml 기본값 그대로 두면 됨(버스트 방지용, §3.37 소프트 캡과는 별개) |
 
 ### `pocketq-web` (Static Site)
@@ -63,6 +63,19 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `VITE_SUPABASE_URL` | 운영 Supabase 프로젝트 URL | `pocketq-api`와 동일 프로젝트 |
 | `VITE_SUPABASE_ANON_KEY` | 운영 Supabase **anon** 키 | service role 키 아님(클라이언트에 노출되는 값이라 anon 키만 사용) |
 | `VITE_API_BASE_URL` | `https://pocketq-api.groundmoyo.com`(도메인 연결 전 임시로는 `pocketq-api`의 `onrender.com` 공개 URL) | 빌드 타임에 번들에 고정되므로, 값이 바뀌면 반드시 재배포(재빌드) 필요 |
+| `VITE_FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화 화면(Stage 4). 정확히 `true`일 때만 결과 패널·이어풀기 결과에 그림 카드와 단계 이동을 보인다. 빌드 타임 값이라 바꾸면 재빌드 필요. 미설정 빌드에는 도형 UI·렌더러·JSXGraph 청크가 없다. `render.yaml`에는 넣지 않았다(D-8) |
+
+#### 도형 시각화 플래그 조합 (Stage 4 D-9)
+
+| 서버 `FIGURES_ENABLED` | 웹 `VITE_FIGURES_ENABLED` | 결과 | 허용 |
+|---|---|---|---|
+| off | off | 기존과 같음(기본·운영 현재값) | ✅ |
+| off | on | 도형 이벤트가 없어 화면 동일. 단계 표지가 없으니 블록도 없음. JSXGraph 청크는 그림이 올 때만 받으므로 사실상 영향 없음 | ✅(켜기 전 단계) |
+| on | on | 단계 표지 + 그림 카드·단계 이동 | ✅(목표 상태) |
+| on | off | 도형 생성 호출 비용만 생기고 화면에 그림이 안 보임(단계 블록만 보임) | ❌ **금지** |
+
+- 켜는 순서: **웹(`VITE_FIGURES_ENABLED=true`로 재빌드·배포) → 서버(`FIGURES_ENABLED=true`, 재시작)**. 끄는 순서는 반대(서버 → 웹). 급히 끌 때는 서버만 끄면 된다(웹 on + 서버 off는 허용 조합).
+- 운영에서 켜기 전 조건: `docs/FIGURES_WORKFLOW_STATE.md` §6.10.8·§7(Stage 4 stage-qa 판정, 실기기 iPad 확인).
 
 ## 도메인 연결 (`pocketq.groundmoyo.com` / `pocketq-api.groundmoyo.com`)
 

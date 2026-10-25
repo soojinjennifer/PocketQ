@@ -12,12 +12,12 @@
 
 | 항목 | 값 |
 |---|---|
-| 현재 Stage | Stage 3 — 풀이 AI API 연결 |
-| 현재 역할 | Stage 3 stage-qa-agent 판정 완료(§6.10) → 다음 Stage 4 plan-agent 대기 |
-| 상태 | **Stage 3 PASS**(stage-qa 독립 검증, §6.10). 운영 플래그는 off 유지, on 전 조건 2건(텍스트 회귀 대표본/파서 보강, 보정 효과 측정) Stage 4로 이월(§6.10.8) |
-| 재작업 | Stage 2: 1 / 3 (종료). Stage 3: 0 / 3 |
-| 차단 요인 | 없음(실제 키로 평가 실행함). 운영 플래그는 off 유지(D9) |
-| 다음 작업 | Stage 4 plan-agent: §6.3 design 인계 + §6.10.8 이월 조건 반영. 제품 문서 머리말의 "stage-qa 전/대기" 문구 갱신(§6.10.4 L-3) |
+| 현재 Stage | Stage 4 — 단계별 표시와 iPad 대응 |
+| 현재 역할 | stage-qa Stage 4 재검증(재작업 1/3) 완료(§7.18) → **PASS**(게이트 첫 실행 환경 플레이크 예외 기록, 실기기 12항목 NOT VERIFIED) |
+| 상태 | Stage 4 stage-qa **PASS**(§7.18): H-1 해소(Chromium·WebKit 직접 재현), P2-1 래퍼 선삽입·간격 상쇄 확인, L-B/L-C/L-D/L-F/L-H 확인. 루트 게이트 첫 실행에서 test가 **환경성 간헐 타임아웃으로 1회 실패**(Stage 4 코드 결함 근거 없음, 아래 §7.18.4). 신규 LOW 2건. 탐색 UI·초기화 버튼 미이행(D-1). 운영 플래그 off 유지 |
+| 재작업 | Stage 2: 1 / 3 (종료). Stage 3: 0 / 3 (종료). Stage 4: 1 / 3 |
+| 차단 요인 | 없음(실기기 iPad·VoiceOver 확인은 오너 몫, NOT VERIFIED) |
+| 다음 작업 | 오너: 계획 §7.5 실기기 12항목(플래그 on 전 필수). development-agent: LOW N-1·N-2 선택 처리, 게이트는 OneDrive 밖 복사본 실행 권장. 그 뒤 Stage 5 |
 
 ## 2. Stage 표
 
@@ -26,7 +26,7 @@
 | 1 | 현황 분석과 데이터 계약 | plan → dev → stage-qa | 생략(UI 영향 없음) | **PASS** | 0/3 |
 | 2 | 검증기와 고정 fixture 렌더링(JSXGraph 설치) | plan → design → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md`, 오너 승인) | **PASS**(design 재검수 PASS + stage-qa 재검증 PASS §4.6, 실기기 미확인) · 후속 정리 완료(§4.7) | 1/3 |
 | 3 | 풀이 AI API 연결 | plan → dev → stage-qa (+design: 로딩·실패 UI 시) | 생략(화면 변경 없음, §6.3) | **PASS**(stage-qa §6.10, 실제 모델 보정 효과·텍스트 대표본은 이월 조건) | 0/3 |
-| 4 | 단계별 표시와 iPad 대응 | plan → design → dev → stage-qa | 필요 | 미착수 | — |
+| 4 | 단계별 표시와 iPad 대응 | plan → design → dev → stage-qa | 실행(`docs/FIGURE_DESIGN.md` §17, 오너 승인) | **PASS**(stage-qa 재검증 §7.18, 게이트 환경 플레이크 예외, 실기기 미확인) | 1/3 |
 | 5 | 저장·CHAT 연동과 통합 QA | plan → design(필요시) → dev → stage-qa | 조건부 | 미착수 | — |
 
 ## 3. Stage 1 기록
@@ -790,3 +790,462 @@ Stage 2 PASS 이후 design 재검수(P2-A, P3-B)와 stage-qa 재검증 LOW 항�
 - 실제 OpenAI 새 호출(지시에 따라 금지): 보정 효과, on 텍스트 대표본, 최종 프롬프트로 22건 재평가.
 - 운영 환경(Render) 프록시의 SSE keep-alive 동작과 실제 유휴 타임아웃.
 - 물리 iPad 및 브라우저 UI(해당 변경 없음).
+
+## 7. Stage 4 — 단계별 표시와 iPad 대응
+
+- 승인된 계획: `.omc/plans/figures-stage4.md`(plan-agent + 오너/오케스트레이터 결정 O-1·O-2·D-3~D-10). design 미결(D-1·D-2·D-6, §8 질문)은 design-agent 사전 검토 뒤 계획 §9에 추가된다.
+- 루프: plan-agent(완료) → design-agent(사전 검토 대기, WU5 이후용) → development-agent(**WU0~WU4 완료**, 2026-10-25, 화면 무관 작업) → stage-qa-agent(대기).
+- 이번 요청 범위는 WU0~WU4다. WU5 이후(UI)는 design 명세가 나온 뒤 별도 요청으로 진행한다. 아래 결과는 모두 development-agent **자체 결과**이며 QA 판정이 아니다.
+
+### 7.1 WU 진행 상태 (development-agent, 2026-10-25)
+
+| WU | 내용 | 상태 |
+|---|---|---|
+| WU0 | 변경 전 기준값 캡처(HEAD 74ddd3b 작업 트리): parseSolveOutput 말뭉치 70건·parseResumeOutput 18건·parseStreamingSolve 접두 394건 오라클, 표지 없는 ResultCard·ResumeResultCard·ResultPanel DOM 12건, off 빌드 번들·precache·커널 문자열 | 완료(§7.2) |
+| WU1 | `parseSolveOutput` 보강(문자열 인식 중괄호 매칭으로 JSON 구간만 제거, D-4), `parseResumeOutput` D-5, 웹 `parseStreamingSolve` 같은 규칙 + 불완전 마커 꼬리 숨김 | 구현·자체 테스트 통과 |
+| WU2 | L-1 하드 데드라인(Promise.race + 진행 중 호출 abort), L-2 상한 만료 시 1차 통과 도형 보존(outcome `partial_deadline`)·클라이언트 끊김이면 0, L-5 Fake fixture 지연 import, L-7 서러게이트 안전 자르기, L-6 `evalFigures.ts` R4 검사 보강(dry-run만) | 구현·자체 테스트 통과 |
+| WU3 | 보정 효과 측정 `scripts/evalFigureRepair.ts`: dry-run 경로 확인 → 실제 OpenAI **4회**(카운터 4 하드 정지) | 완료(§7.5), 결과 `.omc/research/figures-stage4-repair.json` |
+| WU4 | 웹 `solveProblemStream`·`resumeProblemStream`에 `signal`, 훅 요청별 AbortController(새 요청·reset·언마운트 abort, AbortError 삼킴), `figuresPhase`(idle/waiting/received/empty), `ProblemInputContext`의 `solveFiguresPhase`·`resumeFiguresPhase` | 구현·자체 테스트 통과, 실제 HTTP 하니스 확인(§7.4 S4-L4) |
+| WU5 | `shared/ui/card/ElevatedCard`(D-6), 사용처 6곳 교체, `elevatedCardStyle.ts` 삭제 | 구현·자체 테스트 통과(§7.10) |
+| WU6 | `resolveStepStateAt`, `MIN_BOARD_WIDTH = 240`, 축마다 눈금 숫자 최소 1개, 숨긴 요소 스타일 결정성 | 구현·자체 테스트 통과(§7.10) |
+| WU7 | `SolutionStepList`(데이터 기준), ResultCard·ResumeResultCard 분기, 스트리밍 미완성 표지 숨김 | 구현·자체 테스트 통과(§7.10) |
+| WU8 | `SolutionFigures`(lazy), `figureContent` 슬롯, 페이지 단계 state, `Spinner announce`, `VITE_FIGURES_ENABLED`, D-7 PWA | 구현·자체 테스트 통과(§7.10) |
+| 자격 판정 | `exploreEligibility.ts`(D-1·D-2), F09만 자격. 탐색 UI **미구현**(초기화 버튼 미이행) | 구현·자체 테스트 통과(§7.10) |
+| WU9 | 탐색 모드 UI | **하지 않음(오너 D-1)** |
+| WU10 | 문서(FIGURE_SPEC·PROJECT_STATUS L-3·API_SPEC·DEPLOYMENT 조합표·COMPONENT_MAP·PRD·FIGURE_DESIGN) | 완료(§7.10) |
+| WU11 | 필기 회귀 자동 검사, 헤드리스 시나리오(Chromium·WebKit), 간헐 실패 조사, 게이트 | §7.11·§7.12·§7.13 |
+
+### 7.2 WU0 기준값
+
+| 항목 | 값 / 위치 |
+|---|---|
+| parseSolveOutput 오라클 | `apps/api/src/infrastructure/ai/__baseline__/parseSolveOutput.corpus.json` — 70건(normal 59, abnormal 11). 입력: 합성 경계 40, Stage 3 실제 모델 전문 12(`figures-stage3-textcheck.json`), Stage 3 평가 섹션 재구성 18, Fake 2. 분류는 새 구현과 독립(무차별 JSON 구간 탐색)으로 계산 |
+| parseResumeOutput 오라클 | `__baseline__/parseResumeOutput.corpus.json` — 18건(normal 15, abnormal 3) |
+| parseStreamingSolve 오라클 | `apps/web/src/features/ai-solution/__baseline__/parseStreamingSolve.corpus.json` — 서버 말뭉치의 전문·25/50/75%·마커 직전/직후 접두 394건(normal 301, abnormal 93). **WU1 중 재분류 1건**: `S13@40`(접두 자체가 "JSON 뒤에 문장"인 비정상 패턴인데 처음엔 원문 전체로만 분류했음). output 값은 변경 전 캡처 그대로, 파일 `reclassified` 필드에 사유 기록 |
+| DOM 스냅샷 | `__baseline__/resultDom.cases.json`(입력) + `resultDom.baseline.json`(변경 전 `innerHTML`) 12건 — WU7에서 S4-6 기준으로 쓴다. 비교 테스트 `resultDom.baseline.test.tsx`는 지금도 통과 |
+| off 빌드(변경 전) | 메인 번들 `index-BxYOJv9v.js` **967,760B**, JS 청크 1, precache **8**개(1015.45 KiB), 커널 문자열(`dependency_not_visible` 등 7종)·`JXG`·`jsxgraph` **0**. 기록 `.omc/research/figures-stage4-wu0-baseline.json` |
+| off 빌드(WU4 후, 게이트 build) | 메인 번들 `index-DwsR7A88.js` **970,040B**(+2,280B, +0.24%), precache 8(1017.68 KiB), 커널 문자열·`JXG`·`jsxgraph` 0 |
+
+### 7.3 변경 파일
+
+| 구분 | 파일 | 내용 |
+|---|---|---|
+| api | `infrastructure/ai/parseSolveOutput.ts` | 기존 경로(마커부터 끝까지 JSON) 그대로 → 실패 시 `findJsonObjectEnd`(문자열·이스케이프 인식)로 JSON 구간만 제거(코드 펜스 포함), D-4(`lastBoxed` → `\[\boxed{…}\]`, 없으면 "") + `onAnswerFallback`(기본: 테스트 외 `solve_answer_fallback` 구조화 로그, 내용 없음) |
+| api | `infrastructure/ai/parseResumeOutput.ts` | D-5: `## 최종 답`에서 줄 맨 앞(앞 공백 허용) `**N단계**`·`{"concept_tags"` 줄만 제거, 지울 줄이 없으면 원문 그대로 |
+| api | `modules/figures/generateSolutionFigures.ts` | L-1 `Promise.race([run, whenAborted(linked)])`, L-2 `RunProgress`(1차 통과 도형·envelope 기록) → 상한 만료면 `finalize`로 1차 통과만(`partial_deadline`, `finalRejectCodes.deadline`), 부모 signal abort면 0. 반환·로그 metrics는 사본(늦게 끝난 호출이 못 바꿈). outcome 타입에 `partial_deadline` 추가 |
+| api | `infrastructure/ai/fake-adapter.ts` | L-5 `validation/fixtures` 정적 import 제거 → `fakeFigure`에서 동적 import |
+| api | `infrastructure/ai/prompts/figures.ts` | L-7 `truncateUtf16`(경계가 high surrogate 뒤면 1 줄임), `buildPriorWork`가 사용 |
+| api 스크립트(게이트 밖) | `scripts/evalFigures.ts` | L-6 `footOfPerpendicular`(H가 A에서 직선 BC에 내린 수선의 발·BH = 1, 좌표 관계 1e-6) R4에 추가, `main()`은 직접 실행 시에만 |
+| api 스크립트(게이트 밖) | `scripts/evalFigureRepair.ts`(신규) | WU3 보정 측정(카운터 4 하드 정지, 오류 문구 키 제거) |
+| api 테스트(신규) | `infrastructure/ai/parseOutput.baseline.test.ts`, `parseResumeOutput.test.ts`, `prompts/figures.truncate.test.ts`, `resolve-adapter.fixtures.test.ts`, `modules/figures/figuresDeadline.router.test.ts`, `__baseline__/*.json` | |
+| api 테스트(추가) | `parseSolveOutput.test.ts`(+126줄, import 2줄 수정: `vi`·`findJsonObjectEnd`·`lastBoxed` 추가), `generateSolutionFigures.test.ts`(+102줄, 삭제 0) | |
+| web | `shared/api/solveProblem.ts`·`resumeProblem.ts` | 두 번째 인자 `signal?`, 있을 때만 fetch 옵션에 넣음 |
+| web | `features/ai-solution/figuresPhase.ts`(신규) | `FiguresPhase` 타입, `figuresPhaseAfterStreamEnd`, `isAbortError` |
+| web | `features/ai-solution/useSolveStream.ts`·`useResumeStream.ts` | 요청별 AbortController, 새 요청·reset·언마운트(세대도 넘김) abort, AbortError 삼킴, `figuresPhase` |
+| web | `features/ai-solution/parseStreamingSolve.ts` | 서버와 같은 JSON 구간 제거·D-4, 불완전 마커 꼬리(`{"` 이상) 숨김 |
+| web | `features/problem-input/ProblemInputContext.ts`·`ProblemInputProvider.tsx` | `solveFiguresPhase`·`resumeFiguresPhase` 노출(type import 1줄 추가 — 계획 §2-11에 기록된 기존 `problem-input → ai-solution` 참조와 같은 경로라 feature 간 참조가 하나 늘었다. 범위 밖 정리 대상) |
+| web 테스트 | `__baseline__/{parseStreamingSolve.baseline.test.ts, resultDom.baseline.test.tsx, *.json}`(신규), `useSolveStream.test.tsx`(+187), `useResumeStream.test.tsx`(+79), `parseStreamingSolve.test.ts`(+41), `solveProblem.test.ts`·`resumeProblem.test.ts`(+44씩), `ProblemInputProvider.test.tsx`(+99), `RequireProblemInputGuard.test.tsx`·`SolvePencilcanvasPage.test.tsx`(mock 필드 +2씩) | 삭제 0 |
+| web 테스트(기존 단언 수정 2건) | `app/problemInputFlow.test.tsx` | `toHaveBeenCalledWith({…})` 두 곳을 `toHaveBeenCalledWith({…}, expect.any(AbortSignal))`로 — 훅이 이제 signal을 두 번째 인자로 넘기므로 기존 단언이 인자 개수 차이로 실패. 첫 인자 단언은 그대로이고 signal 단언이 **추가**된 강화(완화 아님). `git diff --numstat` 8/5 |
+| 연구 기록 | `.omc/research/figures-stage4-wu0-baseline.json`, `figures-stage4-repair.json`, `figures-stage4-repair.dryrun.json`, `figures-stage3-eval.dryrun.json`(L-6 dry-run) | 키 값 없음(§7.5) |
+
+변경 금지(diff 0, `git diff --stat` 빈 출력 확인): `features/drawing-canvas/{HandwritingCanvas,PenRail,SolveScroll,HandwritingHighlightOverlay}.tsx`, `shared/lib/canvas/*`, `shared/styles/*`, `problemRepository.ts`, `supabase/migrations/*`, `infrastructure/cas/*`, `figuresJsonSchema.ts`, `prompts/system.ts`, `contracts/*`(기준값 포함), `render.yaml`, `package.json`·락 파일(새 의존성 0). `apps/web/src`에 새 `touch-action|touchAction|preventDefault|document.addEventListener` 0.
+
+### 7.4 수용 기준별 자체 결과 (development-agent 자체 검증 — QA 판정 아님)
+
+| AC | 자체 결과 | 근거 |
+|---|---|---|
+| S4-P1 | 자체 테스트 통과 | `parseSolveOutput.test.ts`: `## 최종 답` 바로 아래 JSON + 답 문장 → 태그 보존·answerMd에 `concept_tags` 0·답 문장 유지, 실제 모델 X4(on) 원문도 같음. 말뭉치 abnormal 11건 전부 answerMd에 JSON 0, 태그 복구(A01·A05·A06·R06·E-N7·E-A2 등) |
+| S4-P2 | 자체 테스트 통과 | D-4: 풀이 마지막 `\boxed{…}` → `\[\boxed{…}\]`(중첩 `\frac{1}{2}` 포함), 없으면 "" + 폴백 콜백 `empty`. 답 헤더가 없으면 D-4 미적용 |
+| S4-P3 | 자체 테스트 통과 | `parseOutput.baseline.test.ts`: normal 59건이 변경 전 오라클과 deep-equal(JSON 맨 끝·없음·깨진 JSON·`\boxed` 중괄호·문자열 안 `}`·마커 2회·CRLF·헤더 순서 등) |
+| S4-P4 | 자체 테스트 통과 | `contracts/figuresOff.baseline.test.ts` **무수정** 통과(diff 0) |
+| S4-P5 | 자체 테스트 통과 | `parseResumeOutput.test.ts`: 단계 표지 줄·개념 JSON 줄만 제거 → CAS 입력 순수 LaTeX, 정상 resume 15건 오라클 deep-equal |
+| S4-P6 | 자체 테스트 통과 | `parseStreamingSolve.test.ts`: 모든 접두(1글자씩)에서 답·풀이 칸에 `concept_tags`·`{"` 0, 최종 답 문장 표시. 정상 접두 301건 오라클 deep-equal |
+| S4-L1 | 자체 테스트 통과 | 오케스트레이터: signal 무시 영구 대기 + 상한 100ms → 500ms 안 반환·signal aborted. 라우터(supertest): 같은 조건에서 SSE 종료(done 있음, figures·error 0, 1,000ms 안) |
+| S4-L2 | 자체 테스트 통과 | 1차 통과 1 + 보정 hang(signal 무시/준수 두 가지) + 상한 만료 → 통과 도형 1개·refs도 그 도형만·재파싱 deep-equal·`partial_deadline`. 라우터: figures 이벤트 1개(`fig-ok`). 클라이언트 fetch abort(상한 전) → figures 쓰기 0·close 뒤 write 0. 늦게 끝난 보정이 반환·로그 metrics를 바꾸지 않음 |
+| S4-L4 | 자체 확인 | (a) 훅 테스트: reset·done 전 reset·새 요청·언마운트 → 넘긴 signal aborted, status error 0, 새 요청의 done 결과 유지, 같은 세대 done 뒤 AbortError도 error 0·결과 유지·phase empty. Provider 통합: "결과에서 수정"(`returnToWorkFromResult`)으로 solve·resume 두 스트림 abort. (b) 서버(실제 HTTP, `figuresDeadline.router.test.ts`): Node fetch AbortController.abort() → 서버 generateFigures signal aborted(solve·resume). (c) **실제 HTTP 하니스(게이트 밖, scratchpad)**: 임시 API 서버(Express + Fake hang, FIGURES on) + jsdom에서 **실제** `useSolveStream`/`useResumeStream` + 실제 `solveProblemStream`/`resumeProblemStream` + 실제 fetch → reset·새 요청·언마운트·resume reset 4경우 모두 서버 도형 호출 abort(3~11ms), error 0, 새 요청 결과 유지. 음성 대조: 훅이 signal을 안 넘기게 바꾸면 하니스 실패 |
+| S4-L5 | 자체 테스트 통과 | `resolve-adapter.fixtures.test.ts`: fake-adapter에 정적 import 0, `resolveAdapter()` 기동 + recognize·solve off/on 동안 fixture 모듈 로드 0회, 도형 호출에서 처음 1회. off 기준값 테스트 통과 |
+| S4-L7 | 자체 테스트 통과 | 경계 위치 4가지(패딩 0~3)에서 300자 자르기 결과 고아 서러게이트 0, ASCII는 기존 slice와 같음 |
+| L-6 | dry-run 확인 | `EVAL_DRY_RUN=1` 22건 실행 성공. 새 검사 단독 확인(저장된 Stage 3 R4 도형 재적용, 모델 호출 0): 실제 R4 도형(H=foot) 통과, H를 (3,0) 자유 점으로 바꾼 해석 가능 오작도 실패, (1,0) 자유 점은 통과(좌표 관계로 판정), 도형 없음 실패. Fake dry-run은 H가 없어 실패로 기록(정상) |
+| S4-R | 실행·기록 | §7.5. 실제 4회, 키 노출 0 |
+| G | **첫 실행 실패**(§7.7) | |
+
+### 7.5 보정 효과 측정 (WU3, 모델 `gpt-5.6-terra`, 2026-10-25, 실제 호출 4회)
+
+- 스크립트 `apps/api/scripts/evalFigureRepair.ts`, 원본 `.omc/research/figures-stage4-repair.json`. dry-run(`figures-stage4-repair.dryrun.json`)으로 먼저 경로 확인: 4건 모두 1차 오류 코드가 의도대로, 호출 4.
+- 호출 카운터: 상한 4, 5번째부터 어댑터에 닿기 전 throw(별도 확인: 6회 시도 → 어댑터 도달 4). 실제 실행 calls = 4.
+- 성공 기준(계획 §7.4): `validateFigureCandidate` 통과 + figureId 동일 + 핵심 좌표 1e-6 + 요소 ID 집합 동일 + 새 given 제약 없음.
+
+| 사례 | 망가뜨린 내용 | 1차 오류 코드 | 결과 | 보정 뒤 오류 | 토큰(입력/출력) | 지연 |
+|---|---|---|---|---|---|---|
+| C1 | F02 boundingBox top/bottom 뒤집기 | `custom@boundingBox`(zod) | **성공** | 없음 | 3,977 / 520 | 5,375ms |
+| C2 | F09 M·segAM `appearAt` s5 + 마지막 step s5, 풀이 3단계 | `step_out_of_range` ×3 | **성공**(s3로 되돌림) | 없음 | 4,171 / 673 | 5,208ms |
+| C3 | F02 H(foot) `to: "B"`(점) | `type_mismatch@elements.6.to` | **성공**(`to: "segAB"`) | 없음 | 3,954 / 634 | 5,078ms |
+| C4 | F01 angleMeasure 제약 삭제, `showMeasure: true` 유지 | `measure_without_constraint` | **성공**(`showMeasure: false`로 해결) | 없음 | 3,779 / 327 | 3,317ms |
+
+- 합계 4/4, 토큰 입력 15,881 / 출력 2,154, 지연 3.3~5.4초. **표본 4건 — "효과 일부 확인"이며 보정 성공률로 일반화하지 않는다.** 비용은 공식 단가 미확인이라 계산하지 않음.
+- 품질 관찰(성공 기준 밖): C3에서 모델이 H의 `role`을 auxiliary → result로 바꿈. C4는 제약을 추가하는 대신 각도 수치 표시를 끄는 쪽으로 고쳐 원래 보여 주려던 45° 표시가 사라짐.
+- 계획과 다른 점(기록): ① 계획은 "F03 foot.to"였지만 F03(중점과 중선)에 foot 요소가 없어 foot이 있는 F02로 만들었다(C1과 같은 fixture, 다른 오류). ② C2는 F09의 `interaction`을 fixed로 바꿔 넣었다(D-3: AI는 explore를 만들지 않음 — 오류를 `step_out_of_range` 하나로 한정). appearAt만 s5로 바꾸면 의미 검증의 `unknown_step`이 먼저 걸려 마지막 step도 s5로 바꿨다.
+- 키 노출 검사: `apps/api/.env`의 키 값을 고정 문자열로 결과 JSON 2개·스크립트에서 검색 → 0건(값은 출력하지 않음), `sk-` 패턴 0건. 오류 문구는 저장 전에 키 값·`sk-…`를 지우게 했다(이번 실행은 오류 0).
+
+### 7.6 변이 시험(개발 테스트가 공허하지 않은지, 자동 복원 확인)
+
+| 변이 | 결과 |
+|---|---|
+| M1 L-1 race 제거 | 테스트 6개 실패 |
+| M2 L-2 1차 통과 보존 제거 | 4개 실패 |
+| M3 L-5 fixture 정적 import 복원 | 2개 실패 |
+| M4 L-7 slice 복원 | 1개 실패 |
+| M5 JSON 구간 제거 비활성 | 5개 실패 |
+| M6 D-4 폴백 제거 | 3개 실패 |
+| M7 D-5 제거 | 3개 실패 |
+| M8 웹 JSON 구간 제거 비활성 | 3개 실패 |
+| M9 웹 reset abort 제거 | 2개 실패 |
+| M10 웹 done 뒤 오류에 error 상태 | 3개 실패 |
+| M11 resume 훅 signal 미전달 | 2개 실패 |
+
+### 7.7 게이트
+
+| 단계 | 첫 실행(저장소 루트) |
+|---|---|
+| typecheck | exit 0 |
+| lint | exit 0 |
+| test | **exit 1** — api `modules/work/work.router.test.ts` "다른 사용자의 problemId면 404를 응답한다(소유권 검증)" 5,000ms 타임아웃 1건(api 805/806, web은 실행 전 중단) |
+| build | exit 0(메인 번들 970,040B, 기존 chunk size 경고만) |
+
+- 원인 분석(추정, 확정 아님): 실패 테스트는 Stage 4가 건드리지 않은 경로(멀티파트 업로드 → 인증 → 소유권 404, 어댑터 호출 전)다. 같은 파일 단독 5/5 통과, api 전체 단독 3/3 통과(806/806), 루트 `pnpm test` 재실행 3/3 통과(api 806, web 1,094). 루트 test는 api·web을 동시에 돌리므로 부하 중 업로드 본문을 다 읽기 전 404 응답이 나가는 경쟁으로 보이는 간헐 실패다(관측: 루트 4회 중 1회). 기존 테스트라 타임아웃 완화 등 수정은 하지 않았다.
+- **게이트 조건("첫 실행 통과")은 충족하지 못했다.** 판단은 stage-qa에 맡긴다. HEAD에서도 같은 간헐 실패가 나는지는 확인하지 않았다(NOT VERIFIED).
+- 평가 스크립트(`apps/api/scripts/`)는 게이트 밖이라 임시 tsconfig(`src`+`scripts`)로 따로 타입 검사 → 오류 0.
+
+### 7.8 stage-qa 재현 방법
+
+1. 저장소 루트: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+2. Stage 4 WU0~WU4 테스트만: `pnpm -F api exec vitest run src/infrastructure/ai src/modules/figures src/contracts`, `pnpm -F web exec vitest run src/features/ai-solution src/shared/api src/features/problem-input src/app/problemInputFlow.test.tsx`.
+3. 오라클 독립 확인: 말뭉치 JSON은 HEAD 74ddd3b 코드로 캡처했다. 커밋 74ddd3b 워크트리에서 각 JSON의 `input`을 변경 전 파서에 다시 넣어 `output`과 비교하면 된다(캡처 스크립트는 scratchpad에만 있음 — 같은 절차: 입력 → 파서 → JSON).
+4. S4-L4 실제 HTTP 하니스: 임시 API 서버 테스트(Express + `FakeLLMAdapter({figureScenario:"hang"})`, FIGURES on, 포트 고정, 도형 호출 시작·abort를 파일에 기록)를 백그라운드로 띄우고, web에서 jsdom 임시 테스트(`vi.stubEnv("VITE_API_BASE_URL")`, supabase 세션 mock)로 실제 훅 → reset/새 요청/언마운트/resume reset 뒤 서버 기록에 abort가 찍히는지 본다. 하니스 파일은 저장소에 넣지 않았다.
+5. 보정 측정 재현: `EVAL_DRY_RUN=1 pnpm -F api exec tsx scripts/evalFigureRepair.ts`(비용 0). 실제 호출은 오너 승인 필요(이번 승인 4회는 소진).
+6. L-6: `EVAL_DRY_RUN=1 pnpm -F api exec tsx scripts/evalFigures.ts`.
+7. 변경 금지 파일: §7.3 끝 목록으로 `git diff --stat` → 빈 출력.
+
+### 7.9 남은 일·결정 필요
+
+- WU5~WU11(공통 카드 승격, resolveStepStateAt·최소 폭, 단계 UI, 도형 카드·lazy·PWA, 탐색 모드, 문서·L-3, 헤드리스): design-agent 명세 뒤 별도 요청.
+- design 참고(S4-7): 서버 off면 done과 스트림 종료가 거의 동시라 `figuresPhase`가 waiting → empty로 짧게 바뀐다. "준비 중" 표시를 바로 띄우면 깜빡일 수 있으니 지연 표시 여부를 design에서 정해야 한다(데이터는 그대로 정확).
+- D-4 폴백 지표는 서버 로그(`solve_answer_fallback`, 종류만)로만 남는다. 운영 수집 방식은 정해지지 않았다.
+- L-1: 어댑터가 signal을 끝까지 무시하면 그 호출의 promise는 백그라운드에 남는다(응답은 이미 끝남). 현재 OpenAI 어댑터는 30초 타임아웃 + signal이라 해당 없음.
+- 운영 플래그 on 전 조건(§6.10.8): ① 파서 보강은 이번 WU1로 처리(stage-qa 판정 대기). ② 보정 효과는 표본 4건 4/4로 "일부 확인"(§7.5). ③ design 인계는 WU5 이후.
+
+### 7.10 WU5~WU8·자격 판정·WU10 (development-agent, 2026-10-25, 2차 요청)
+
+기준: 계획 §0 갱신(D-1·D-2·D-6·V·SP)·§9, `docs/FIGURE_DESIGN.md` §17(오너 승인). 아래는 자체 결과이며 QA 판정이 아니다.
+
+#### 7.10.1 변경 파일
+
+| 구분 | 파일 | 내용 |
+|---|---|---|
+| shared/ui | `shared/ui/card/ElevatedCard.tsx`(신규) | `as`(div/section/article)·`className`·aria/id 전달, 표면 클래스 = 이전 상수 값 |
+| shared/ui | `shared/ui/spinner/Spinner.tsx` | `announce?`(기본 true = 기존과 같음), false면 `role`·`aria-live` 제거 |
+| shared/ui | `shared/ui/button/Button.tsx` | 타입에 `ref?: Ref<HTMLButtonElement>`만 추가(React 19 ref prop, 스테퍼 포커스 이동용). 렌더 결과 불변 |
+| ai-solution | `DiagnosisCard`·`WorkLineList`·`ResumeResultCard`·`ResultCard`·`RecognizedProblemBar` | 카드 표면 → `ElevatedCard`. `elevatedCardStyle.ts` **삭제** |
+| ai-solution | `SolutionStepList.tsx`·`hidePartialStepMarker.ts`(신규) | 단계 블록(§17.3)·스트리밍 미완성 표지 숨김(§17.11 정규식) |
+| ai-solution | `ResultCard.tsx` | `kind="steps"`만 `SolutionStepList`(분할 실패면 기존 `<p>`), `currentStep`·`streaming` prop |
+| ai-solution | `ResumeResultCard.tsx` | 본문 → `SolutionStepList`, `currentStep`·`figureContent` 슬롯(이어풀기 카드 → 슬롯 → AnswerBox) |
+| ai-solution | `ResultPanel.tsx` | `figureContent` 슬롯(단계별 풀이 → 슬롯 → 최종 답), `currentStep`. MyPage 호출부 무수정 |
+| figure-visualization | `resolveStepState.ts` | `resolveStepStateAt(spec, k \| "final")`, 기존 `resolveStepState`는 위임 |
+| figure-visualization | `viewport.ts`·`useJsxGraphBoard.ts`·`FigureBoard.tsx`·`FigureView.tsx` | `MIN_BOARD_WIDTH = 240`(측정 폭이 미만이면 폭 상태를 바꾸지 않음 → 직전 크기 유지/미생성), `step` prop, 보드 대기 Spinner `announce={false}` |
+| figure-visualization | `buildBoardScene.ts` | 축마다 눈금 숫자 최소 1개(원점에서 가장 가까운: ① 보드 안·비충돌 → ② 보드 안). 규칙으로 이미 있으면 불변 |
+| figure-visualization | `applySceneToBoard.ts`·`mountFigureBoard.ts` | **계획 §4의 WU6 목록 밖(WU9 목록 파일)** — S4-3을 위해: 숨길 때도 기본 상태 스타일을 먼저 적용(이전 강조 스타일 잔존 방지), 단계 적용을 `suspendUpdate`로 묶음 |
+| figure-visualization | `SolutionFigures.tsx`(신규, default export) | 슬롯 루트 `aria-live="off"`·waiting `aria-busy`·표시할 것 없으면 `hidden`, 500ms 지연 대기 줄, 그림 카드·캡션·스테퍼 |
+| figure-visualization | `exploreEligibility.ts`(신규) | 정적 자격 + 위치 판정(퇴화·bbox 12px). UI 없음 |
+| pages | `SolveLandscapePage.tsx` | `VITE_FIGURES_ENABLED === "true"`일 때만 `React.lazy` 정의, 슬롯은 phase가 waiting/received일 때만 렌더, `solveStep`·`resumeStep` state(결과가 비면 최종으로), 스트리밍 `ResultCard streaming` |
+| pages(dev) | `FigurePreviewPage.tsx` | 카드 → `ElevatedCard` |
+| 설정 | `vite-env.d.ts`, `apps/web/.env.example`, `vite.config.ts` | `VITE_FIGURES_ENABLED`. D-7: `build.rolldownOptions.output.codeSplitting.groups`로 `jsxgraph` 청크 이름 고정(Rolldown에서 `manualChunks`는 deprecated라 같은 역할의 대체 옵션 사용), PWA `globIgnores` + 런타임 캐시 `CacheFirst`(`jsxgraph`, 최대 4) |
+| 테스트(신규) | `shared/ui/card/ElevatedCard.test.tsx`, `shared/ui/spinner/Spinner.test.tsx`, `features/ai-solution/{elevatedCardUsage,SolutionStepList}.test.tsx`, `pages/dev/figures/FigurePreviewPage.card.test.tsx`, `features/figure-visualization/{SolutionFigures,exploreEligibility}.test.*`, `app/{figuresHandwriting,figuresFlagOff}.integration.test.tsx` | |
+| 테스트(추가) | `resolveStepState.test.ts`(+S4-1·2·4, 이전 구현 참조 함수), `buildBoardScene.test.ts`(+눈금), `FigureView.test.tsx`(+S4-3·S4-14) | 삭제 0 |
+| 문서 | `FIGURE_SPEC.md`(머리말 L-3, §4.1, §9, §16), `PROJECT_STATUS.md`(§3.41 L-3 + Stage 4), `API_SPEC.md`(규칙 8·9, 의미 변화 메모), `DEPLOYMENT.md`(웹 플래그 행 + 조합표 D-9), `COMPONENT_MAP.md`(3개 컴포넌트), `PRD_WHYMATH.md`(FIG-8/9 상태), `FIGURE_DESIGN.md`(§17 구현 상태 주석) | |
+
+**기존 테스트 수정(불가피, 완화 아님)**:
+1. `FigureView.test.tsx` "P2-2 폭이 바뀌어 눈금 간격이 달라지면 장식만 다시 만든다": 시나리오 폭 `150 → 250`. 승인된 §17.9(240px 미만은 리사이즈하지 않음) 때문에 150px에서는 리사이즈 자체가 일어나지 않는다. 250px에서도 세로 눈금 간격이 1→2로 바뀌어 원래 의도(장식만 재생성, 요소·보드 유지)를 그대로 검사한다. 단언은 바꾸지 않았다.
+2. `__baseline__/resultDom.baseline.test.tsx`(이번 Stage WU0에서 만든 테스트): 비교 전에 class 토큰을 정렬한다. D-6에서 `ResultCard`·`RecognizedProblemBar`의 class **순서**만 바뀌었다(토큰 집합·태그·텍스트 동일, Tailwind는 순서 무관). §17.10의 "토큰 집합 동일" 기준과 같다.
+
+#### 7.10.2 수용 기준별 자체 결과 (QA 판정 아님)
+
+| AC | 자체 결과 | 근거 |
+|---|---|---|
+| S4-1 | 자체 테스트 통과 | F01~F09 모든 도형 단계(15+)와 최종에서 `resolveStepStateAt` = 이전 인덱스 기반 구현(테스트 안 참조 함수) = 위임된 `resolveStepState` |
+| S4-2 | 자체 테스트 통과 | 단계 s1·s3·s5인 F09 변형에서 k=2·4 → 누적 상태, 강조 없음(모두 default), 최종과 다름 |
+| S4-3 | 자체 테스트 통과 + 헤드리스 | jsdom: 1→3→2→1→최종→2에서 같은 k = 같은 보드 속성, 보드 생성 1·해제 0. 헤드리스: 렌더되는 SVG 노드 속성 같은 k 불일치 0(4상태). **발견**: `display:none` 노드 일부(언더레이)는 한 번 보였다가 숨으면 JSXGraph가 `visibility="hidden"`을 남겨 원시 속성이 다르다 — 렌더 결과에는 영향 없음(§7.12) |
+| S4-4 | 자체 테스트 통과 | F09 k=3: segAH·H 유지(dim), angAHC만 숨김 |
+| S4-5 | 기존 테스트 + 헤드리스 | R-8(굵기 2.5·dash·언더레이·비강조 불투명도 0.65) 기존 통과. 그레이스케일 캡처 `shots/solve-k2-gray-*.png`에서 강조 점이 언더레이·크기로 구분됨 |
+| S4-6 | 자체 테스트 통과 | 표지 있으면 별표 0·블록 N·머리말 보존, 표지 없으면 WU0 DOM 12건 동일(class 순서 정규화), 분할 실패면 단일 본문·스테퍼 없음·그림 최종 |
+| S4-7 | 자체 테스트 통과 + 헤드리스 | 500ms 전 미표시(hidden)·이후 대기 줄, empty·idle 표시 0. 서버 off 유사(waiting → 100ms 뒤 empty) 깜빡임 0. 헤드리스 none·throw 표시 0, hang 500ms 뒤 대기 줄 → 상한(2.5s) 뒤 사라짐 |
+| S4-8 | 자체 테스트 통과 + 헤드리스 | 통합 테스트·헤드리스: 풀이 = 단계별 풀이 → 그림 → 최종 답, 이어풀기 = 이어풀기 카드 → 그림 → AnswerBox. `MyPage.tsx` diff 0, ResultPanel 무슬롯 DOM = WU0 |
+| S4-9 | 자체 확인(속성) | 슬롯 루트 `aria-live="off"`, 대기 Spinner·보드 Spinner `announce={false}`, 상태 텍스트만 polite. **실제 낭독은 NOT VERIFIED**(VoiceOver 실기기) |
+| S4-10 | 자체 확인 | 플래그 미설정 빌드: JS 청크 1개(메인 972,271B, WU0 967,760B 대비 +4,511B = 파서 보강·훅·단계 블록), precache 8개(WU0과 같음), 커널 문자열·`JXG`·`jsxgraph`·`SolutionFigures`·"그림을 준비" 0. 통합 테스트: 도형 이벤트가 와도 UI 0·슬롯 모듈 import 0. 헤드리스(웹 off + 서버 on): UI 0·도형/JSXGraph 요청 0 |
+| S4-11 | 자체 확인 | 플래그 on 빌드: `jsxgraph-*.js`(1,040,973B) 별도 청크·**precache 제외**·런타임 CacheFirst, `SolutionFigures-*.js`(51,381B)에 렌더러·커널(커널 문자열은 이 청크에만), 메인에 커널 문자열 0 |
+| S4-12 | 헤드리스 + grep | 보드 컨테이너 `style.touchAction === ""`(computed auto), 보드 pointerdown `defaultPrevented false`(Chromium·WebKit). Chromium CDP: 도형 마운트 전후 document 포인터·터치 리스너 0, window 리스너 집합 동일. 새 코드 grep 0 |
+| S4-13 | 헤드리스(Chromium CDP 터치) | 보드 위 위로 스와이프 → 패널 Body scrollTop 7 → 209, 스테퍼 위 아래로 스와이프 → 209 → 59. **물리 iPad NOT VERIFIED** |
+| S4-14 | 자체 테스트 통과 + 헤드리스 | jsdom: 239px·0px로 줄어도 리사이즈·해제 0, 240px에서 리사이즈. 처음 200px이면 미생성·자리만. 헤드리스: 1024~1366 폭 5종 오류 0·보드 1, 세로 834×1194·694×834 가드 덮임/해제 중 보드 1·오류 0·해제 후 같은 SVG. 패널 Extend/Default 리사이즈(보드 유지), Close 시 보드 해제(0)·Open 시 1(누수 0). 눈금 숫자 최소 1개 jsdom 테스트 |
+| S4-15 | 근사 확인 | 뷰포트 높이 834 → 500(키보드 근사)에서 보드 높이 258 → 258, 같은 SVG. **실제 소프트웨어 키보드는 NOT VERIFIED** |
+| S4-16 | §7.11 | |
+| S4-17 | 자체 테스트 통과 | 네이티브 button, `role="group" aria-label="그림 단계 이동"`, 선택 블록 `aria-current="step"`(버튼이 아니라 aria-pressed 해당 없음), 포커스 링 = Button 기본 `focus-visible:ring-2`, `min-h-11`(44px), 끝에서 disabled 되면 반대 버튼으로 포커스 이동, 전환 애니메이션 없음(reduced-motion 처리 불필요, §17.8) |
+| 자격 판정(D-1·D-2) | 자체 테스트 통과 | F01~F09 중 F09만 자격, 폐포 = A·segAB·segAC·H·segAH·angAHC·segAM. given 제약(폐포 안)·수치 라벨·보장 안 된 직각 표시·축 표시·자유 점 아닌 draggable 각각 거부, 위치 판정(bbox 12px·퇴화·의미 실패) |
+| S4-X1~X6 | 해당 없음 | 탐색 UI 미구현(D-1). **"처음 모양으로"(초기화) 버튼 미이행** |
+
+#### 7.10.3 빌드 산출물(WU8, D-7)
+
+| 빌드 | 메인 번들 | 청크 | precache |
+|---|---|---|---|
+| WU0 기준(off) | 967,760B | 1 | 8 |
+| 현재 off(플래그 미설정, 게이트 build) | 972,275B | 1 | 8(jsxgraph 없음) |
+| 현재 on(`VITE_FIGURES_ENABLED=true`, scratchpad 출력) | 883,194B(공통 `src-*.js` 88,929B로 분리) | 5: index·src·rolldown-runtime·SolutionFigures·**jsxgraph** | 12, **jsxgraph 제외**, sw.js에 `CacheFirst({cacheName:"jsxgraph"…maxEntries:4})` |
+
+### 7.11 필기 회귀 검사(계획 §7.2, S4-16 자체 결과)
+
+| 항목 | 결과 |
+|---|---|
+| 변경 금지 파일 diff | `git diff --stat`(drawing-canvas 4개·`shared/lib/canvas`·`shared/styles`·`problemRepository.ts`·`supabase/migrations`·`infrastructure/cas`·`figuresJsonSchema.ts`·`prompts/system.ts`·`contracts/*`·`render.yaml`·`pages/mypage`·package.json·락 파일·`packages/*`) **빈 출력** |
+| 새 `touch-action\|touchAction\|preventDefault\|document.addEventListener\|window.addEventListener` | 이번 Stage에서 추가·신규 파일의 `apps/web/src` 코드 **0건**(grep 히트 1건은 기존 추적 안 되는 에이전트 메모 `apps/web/src/.claude/…`의 설명 문장) |
+| 기존 drawing-canvas·`shared/lib/canvas` 테스트 | 무수정, 전부 통과(수 감소 0) |
+| 통합 테스트(실제 라우터 + Provider, 플래그 on) | `app/figuresHandwriting.integration.test.tsx`: 보드 컨테이너·보드 상자·이전 버튼에 pen/touch pointer 6회 + 단계 전환 2회 → `commitStroke` **0회**, 결과 화면 캔버스 pen 획 → **정확히 1회**, 도형 수신 전후 커밋 수 불변. 커밋 수는 `useDrawingStrokes` 실제 구현을 감싸 센다 |
+| 헤드리스(Chromium·WebKit, hasTouch, 1194×834) | 패널 열린 상태 캔버스에 획 3개 → 실행 취소(`새로고침`) 활성, 비어 있지 않은 픽셀 474(Chromium)·504(WebKit). 보드 터치 탭 + 마우스 드래그 + 이전 버튼 뒤 캔버스 픽셀 해시 **불변**. 콘솔 오류 0 |
+
+### 7.12 헤드리스 시나리오(계획 §7.3) — **물리 iPad 아님**
+
+- 환경: Playwright 1.63.0(npx 캐시, 저장소 밖) + Chromium 1243·WebKit 2359 헤드리스, `hasTouch: true`. 웹 `pnpm exec vite --port 5199`(mkcert HTTPS, `VITE_FIGURES_ENABLED=true`). 서버: scratch 진입 스크립트가 저장소 라우터를 그대로 조립(`FakeLLMAdapter` + `FIGURES_ENABLED=true`, 시나리오·상한은 환경변수), 인증은 로컬 가짜 Supabase(HTTPS, `/auth/v1/user`)로 **실제 `authenticate` HTTP 경로**를 탄다. 웹 세션은 localStorage 주입. 실제 OpenAI·Supabase 호출 0.
+- 스크립트·결과·스크린샷: `.omc/research/figures-stage4-headless/`(`run.mjs`, `server.mts`, `off.mjs`, `valid.json`, `viewports.json`, `resume.json`, `scenario-{none,hang,throw}.json`, `shots/*.png` 36장).
+
+| 시나리오 | Chromium | WebKit |
+|---|---|---|
+| solve valid(F07 3단계): done → 그림 카드, 배치 단계별 풀이 → 그림 → 답 | 통과, 보드 1, 콘솔 오류 0 | 통과, 보드 1, 오류 0 |
+| 단계 이동 최종→3→2→1→2→3→최종→3→2: 상태 텍스트·선택 블록 | "2단계 / 3"·2단계 블록 `aria-current` | 같음 |
+| 같은 k = 같은 SVG(렌더 노드) | 불일치 0, 상태 4개, SVG 재생성 0 | 같음 |
+| 같은 k = 같은 SVG(원시, `display:none` 포함) | 불일치 3(숨은 언더레이 노드의 `visibility="hidden"` 잔존 — 렌더 무영향, 발견 사항) | 같음 |
+| 그레이스케일 k=2 | `shots/solve-k2-gray-chromium.png` | `shots/solve-k2-gray-webkit.png` |
+| S4-12 touch-action·defaultPrevented | `""`(auto)·false, document 리스너 0·window 집합 불변(CDP) | `""`·false(CDP 없음) |
+| S4-13 보드·스테퍼 위 세로 스와이프 → 패널 스크롤 | 7 → 209 → 59(CDP `synthesizeScrollGesture` touch) | 미실행(CDP 없음) |
+| 패널 Extend → Default → Close → Open | 보드 폭 672 → 344, Close 시 보드 0(해제)·Open 시 1, 오류 0 | 같음 |
+| 높이 834 → 500(키보드 근사) | 보드 높이 258 → 258, SVG 유지 | 같음 |
+| figureScenario none / throw | 슬롯·대기 줄·카드 0, 오류 0 | 같음 |
+| figureScenario hang(상한 2.5s) | 0~500ms 숨김+`aria-busy` → 대기 줄 → 약 2.5s 뒤 사라짐, 카드 0, 오류 0 | 같음 |
+| 뷰포트 1024×768·1133×744·1180×820·1194×834·1366×1024 | 보드 344×258, 보드 1, 오류 0 | 같음 |
+| 세로 834×1194(가드) 덮임 → 해제 | 덮인 동안 상자 301px·보드 299px, 보드 1, 해제 후 같은 SVG, 오류 0 | 같음 |
+| Split View 694×834(가드) 덮임 → 해제 | 상자 238px(< 240): 보드는 마지막으로 받은 240px 이상 폭 유지(패널 폭 전환 중간 프레임 236→ 클리핑), 보드 1, 해제 후 같은 SVG, 오류 0 | 상자 238px, 보드 높이 258 유지, 같음 |
+| resume own valid: 이어풀기 카드 → 그림 → AnswerBox, 이전 → "3단계 / 3"·3단계 블록 선택 | 통과, 보드 1 | 통과 |
+| resume 흐름 콘솔 | `POST /suggestions` 400 1건 — **기존 동작**(진단 직후 Provider가 질문 추천을 요청하지만 풀이가 아직 없어 `resolveSolutionContext`가 거부. Stage 4 무관 코드) | 같음 |
+| 웹 플래그 off + 서버 on | 그림·슬롯·스테퍼 0, 도형/JSXGraph 모듈 요청 0, `window.JXG` 없음, 단계 블록 3(데이터 기준) | 같음 |
+
+NOT VERIFIED(헤드리스로 대신할 수 없음): 물리 iPad Safari·Pencil·손가락 스크롤 관성, 실제 소프트웨어 키보드, VoiceOver 낭독(S4-9), Split View·Slide Over 실제 전환, WebKit 터치 스와이프(Playwright WebKit에는 CDP가 없음). 계획 §7.5의 실기기 12항목은 오너 확인 대기.
+
+### 7.13 간헐 실패 조사 — `apps/api/src/modules/work/work.router.test.ts` "다른 사용자의 problemId면 404"
+
+- 증상(1차 요청 게이트 첫 실행, §7.7): 이 테스트만 5,019ms에서 기본 5초 타임아웃. 파일 전체 5,117ms라 다른 5개 테스트는 합쳐 약 100ms — 점진적 느려짐이 아니라 한 요청이 멈춘 모양.
+- 코드 경로: `authenticate → rateLimiter → multer(uploadProblemImage, memoryStorage) → requireImageFile → handler(resolveGrade → 404)`. **404는 multer가 업로드 본문을 다 읽은 뒤에 나간다** — "업로드 중 조기 응답으로 소켓이 멈추는" 구조가 아니다. 본문을 읽기 전에 응답하는 경로(401 토큰 없음, 429 상한 초과)는 이 테스트에서 일어나지 않는다(사용자 user-2 첫 요청, 파일마다 모듈 격리로 상한 카운터 새로 시작).
+- 재현 시도:
+
+| 대상 | 방법 | 결과 |
+|---|---|---|
+| 현재 트리 | 루트 `pnpm test`(api·web 동시) | 10회 중 1회(최초 게이트) 실패, 이후 9회 통과 |
+| HEAD 74ddd3b(`git worktree` + `pnpm install --offline`) | 루트 `pnpm test` | 14회 모두 이 테스트 통과(처음 8회는 워크트리에 `apps/web/.env`가 없어 web의 다른 파일이 환경 오류 — api는 통과) |
+| 현재·HEAD 각각 | 이 파일만 8개 동시 × 5회(CPU 부하) | 0/40, 0/40 |
+| 현재·HEAD 교대 | 루트 `pnpm test` 6회씩 | 0/6, 0/6, 느린 테스트 표시 0 |
+
+- **판정: 순수 부하(일시 정체)로 본다. 코드 결함 근거 없음.** HEAD에서는 재현되지 않았지만 재현율 자체가 낮고(현재 트리 1/10, 격리 스트레스 0/80) Stage 4가 이 경로(인증·업로드·work 라우터·저장소)를 바꾸지 않았다. 확정할 근거는 없다.
+- 조치: 지시대로 **단언은 바꾸지 않고 이 테스트에만 명시 타임아웃 20초**를 줬다(`it(…, 20_000)`, 사유 주석). `git diff --numstat` 4/1(주석 3줄 + 닫는 줄 1줄 교체).
+- 한계: 진짜 무기한 정체라면 타임아웃 연장은 증상을 늦출 뿐이다. 다시 나오면 요청 단계별 시각을 남기는 계측으로 정체 위치를 잡아야 한다.
+
+### 7.14 게이트(2차 요청, 저장소 루트, 2026-10-25)
+
+| 단계 | **첫 실행** |
+|---|---|
+| typecheck | exit 0 |
+| lint | exit 0 |
+| test | exit 0 — api 60 파일/806 테스트, web 104 파일/1,146 테스트 |
+| build | exit 0 — 메인 번들 `index-B-apjw3e.js` 972,275B, JS 청크 1, precache 8(1020.80 KiB), 커널 문자열·`JXG`·`jsxgraph`·`SolutionFigures` 0. 기존 chunk size 경고만 |
+
+- 2차 요청 변이 시험(N1~N12, 자동 복원): 대기 지연·aria-live off·포커스 이동·최소 폭·눈금 최소 1개·숨김 전 기본 스타일·강조 k·aria-current·슬롯 배치 순서·플래그 무시·자격 given 검사·Spinner announce를 각각 지우거나 바꾸면 해당 테스트가 실패했다(12/12).
+- 평가 스크립트는 게이트 밖(1차 요청 §7.7과 같이 임시 tsconfig로 타입 검사).
+
+### 7.15 stage-qa 재현 방법(2차 요청 추가분)
+
+1. 저장소 루트 게이트(위).
+2. Stage 4 화면 테스트만: `pnpm -F web exec vitest run src/shared/ui/card src/shared/ui/spinner src/features/ai-solution src/features/figure-visualization src/pages/dev src/app/figuresHandwriting.integration.test.tsx src/app/figuresFlagOff.integration.test.tsx`.
+3. 빌드 플래그: `pnpm -F web build`(off) → `dist/assets/*.js` 1개·커널 문자열 0 / `VITE_FIGURES_ENABLED=true pnpm -F web exec vite build --outDir <임시>` → `jsxgraph-*.js` 별도·`sw.js` precache에 없음·`CacheFirst` 있음.
+4. 헤드리스: `.omc/research/figures-stage4-headless/server.mts`를 `apps/api`에서 `pnpm exec tsx`로 실행(`FAKE_FIGURE_SCENARIO=valid|none|hang|throw`, `FIG_BUDGET_MS`), 웹 `VITE_FIGURES_ENABLED=true VITE_API_BASE_URL=https://localhost:4199 VITE_SUPABASE_URL=https://localhost:54399 VITE_SUPABASE_ANON_KEY=x pnpm exec vite --port 5199 --strictPort`, 그다음 `node run.mjs valid|viewports|resume|scenario:<이름>`(Playwright 경로는 스크립트 첫 줄). 플래그 off는 `off.mjs`.
+5. 간헐 실패: §7.13 표의 방법.
+
+### 7.16 Stage 4 QA 판정 (stage-qa-agent, 2026-10-25, 재작업 0/3)
+
+판정: **STAGE CONDITIONAL PASS — FIX REQUIRED** (제품 코드는 수정하지 않았다. 검증용 코드는 scratchpad의 복사본에서만 변이했다)
+
+범위 구분: ① 자동 검사(vitest·tsx 스크립트·실제 HTTP) ② 헤드리스 브라우저(Playwright Chromium·WebKit, 물리 iPad 아님) ③ **NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED**(계획 §7.5 실기기 12항목 전부, VoiceOver 낭독, 실제 소프트웨어 키보드, Split View, WebKit 터치 스와이프). 실기기 PASS는 보고하지 않는다.
+
+#### 7.16.1 게이트(저장소 루트, 첫 실행)
+typecheck exit 0 / lint exit 0 / test exit 0(api 60파일 806, web 104파일 1,146) / build exit 0(메인 972,275B). 이후 `pnpm test` 5회 추가 실행 5/5 통과(총 6/6, 플레이크 미재현).
+
+#### 7.16.2 AC별 결과
+| AC | 결과 | 독립 증거 |
+|---|---|---|
+| S4-P1·P2 | PASS | HEAD 74ddd3b를 git worktree로 띄워 오라클을 직접 만들고, 독립 생성기(구간 조합 18,291건 + 실제 모델 전문 13 + 개발자 말뭉치 70)로 HEAD/현재 출력을 비교. "마커~끝이 JSON.parse 가능이고 답이 비지 않음"인 입력(독립 분류)에서 달라진 출력 0건. JSON이 `## 최종 답` 바로 아래·중간·코드 펜스 안에 있는 입력은 태그 보존·answerMd/solutionMd에 `concept_tags` 0. JSON만 있는 답은 풀이 마지막 `\boxed{}`(`\[\boxed{…}\]`), 없으면 "" |
+| S4-P3 | PASS | 정상 경로(JSON 맨 끝, 없음, `\boxed`/집합 중괄호, 문자열 안 `}`·`{`·이스케이프, CRLF, 이모지, 헤더 없음) 전부 HEAD와 동일 |
+| S4-P4 | PASS | 독립 캡처(solve 4조합·resume own/alternative×CAS ok/fail·시스템 프롬프트 6학년·resume 프롬프트 12·OpenAI 요청/이벤트·저장 payload) 40,880B가 `FIGURES_ENABLED=false/1/TRUE/빈 값/unset`에서 HEAD와 `cmp` 동일. `true`는 달라짐(비공허). `figuresOff.baseline.test.ts` diff 0, 통과 |
+| S4-P5 | PASS | resume 27가지 `## 최종 답`: 줄 맨 앞 `**N단계**`·`{"concept_tags"` 줄만 제거, 정상 입력 변화 0. LOW: 표지와 같은 줄의 내용(`**3단계** 3`의 "3")도 줄째 사라져 답이 "" |
+| S4-P6 | PASS | 웹 `parseStreamingSolve`: 전문 파싱이 서버와 일치(깨진 JSON 제외, 답 헤더 있는 입력), 접두 111,364개에서 JSON 조각 누출 0(마커 2회 입력의 첫 JSON 4건 제외 — 서버와 동일 동작) |
+| S4-L1 | PASS | 오케스트레이터 직접 호출(signal 무시 영구 대기, 상한 200ms → 201ms 반환), 실제 HTTP(signal 무시 어댑터, 상한 1.5s)에서 SSE가 1,505ms에 종료 |
+| S4-L2 | PASS | 1차 통과 1 + 보정 hang(signal 무시): `partial_deadline` 도형 1개·204ms, 클라이언트 끊김 80ms: 0개(`aborted`), 상한 뒤 늦게 성공한 보정이 반환값을 바꾸지 않음, 처리되지 않은 rejection 0. LOW: 상한 만료와 클라이언트 끊김이 둘 다 outcome `aborted` |
+| S4-L4 | PASS | 실제 HTTPS: 클라이언트 abort 후 311ms 내 서버 도형 호출 abort(대조: abort 안 하면 계속 대기). 브라우저 e2e(Chromium): 마이페이지 이동 184ms, "수정→확인" 215ms, 새로고침 274ms, 탭 닫기 161ms 안에 서버 abort. error 상태·콘솔 오류 0 |
+| S4-L5 | PASS | `fake-adapter.ts` 정적 fixture import 0, 도형 호출 때만 동적 import(LOW: 운영 파일에 동적 import 잔존) |
+| S4-L7 | PASS | `truncateUtf16` 경계 서러게이트 확인(코드·테스트) |
+| L-6 | PASS | `EVAL_DRY_RUN=1` 두 스크립트 복사본에서 실행, 실제 호출 0 |
+| S4-R | PASS(제한) | 새 호출 없음. 기록 4건을 현재 `validateFigureCandidate`로 재검증 4/4 통과, figureId·요소 ID 집합 동일, 새 given 제약 0, 삭제된 given 제약 0. `apps/api/.env` 키 값(165자)으로 결과 JSON 2·스크립트·장부·계획·baseline JSON 검색 0건, `sk-` 패턴 0건. 호출 카운터 하드 정지 코드 확인. 판정 기준은 계획 §7.4와 일치. **한계**: 기준에 "의미 보존"이 없어 C4(45° 표시를 끄는 쪽으로 해결)·C3(role auxiliary→result)는 기준상 성공이지만 원래 의도가 일부 달라짐. 표본 4건 4/4는 효과 일부 확인 |
+| S4-1 | PASS | F01~F09 모든 단계 + 최종 + 미지의 stepId 67개 비교에서 HEAD 구현과 `resolveStepStateAt`·위임된 `resolveStepState` 결과 불일치 0, 단계 번호 오름차순·appearAt 유효 무작위 명세 6,000건 불일치 0 |
+| S4-2 | PASS | 도형 steps에 없는 k → 이전 누적 상태, 강조 없음(코드·테스트) |
+| S4-3 | PASS | 헤드리스 14단계 왕복 시퀀스: 렌더되는 노드 속성 불일치 0(Chromium·WebKit), 보드 SVG 재생성 0. 픽셀: WebKit 같은 k = 바이트 동일, Chromium은 한 k에서 경로(이전/다음)에 따라 1픽셀 RGB ±1(안티앨리어싱 수준, 시각 동일). 원시 속성은 숨은(display:none) 언더레이 노드에 `visibility="hidden"` 잔존 차이 — **판정 반영 의견**: 사용자에게 보이는 결과는 렌더 노드(display≠none)와 픽셀로 판정해야 하며 숨은 노드의 visibility 속성은 판정에서 제외하는 것이 맞다(JSXGraph 내부 상태이고 display:none이 우선). 판정 기준을 "속성 전체 동일"로 올리려면 `applyPart`에서 숨김 시 visibility도 명시해야 한다 |
+| S4-4·S4-5 | PASS | F09 k=3 보존, 강조 구분(자체 테스트 + 그레이스케일 캡처 존재) — 캡처 육안 검수는 실기기 몫 |
+| S4-6 | PASS | 표지 없는 입력: HEAD/현재 DOM을 같은 입력으로 직접 렌더해 비교 — 12건 + 적대 입력 8건 중 class **순서만** 다름(토큰 집합 동일). 표지가 있는 입력(`**1단계**없이 붙임`, `## 풀이\n**1단계**`)은 설계상 블록화(데이터 기준) |
+| S4-7 | PASS | 헤드리스 none/throw: 표시 0, hang(상한 2.5s): 500ms 숨김+`aria-busy` → 대기 줄 → 상한 뒤 제거, 오류 0 |
+| S4-8 | PASS | solve: 단계별 풀이 → 그림 → 최종 답, resume: 이어풀기 카드 → 그림 → AnswerBox(헤드리스), `pages/mypage` diff 0 |
+| S4-9 | 코드 PASS / **NOT VERIFIED(VoiceOver 실기기)** | 슬롯 루트 `aria-live="off"`, Spinner `announce={false}` |
+| S4-10 | PASS(LOW 1) | 플래그 미설정 빌드 dist 전체 grep: 커널 문자열·`JXG`·`SolutionFigures`·"그림을 준비"·`resolveStepStateAt` 0, JS 청크 1, precache 8. 메인 972,275B vs HEAD 967,770B(+4,505B, +0.47%, 단계 블록·훅·파서). **LOW**: `dist/sw.js`에 `CacheFirst` 런타임 라우트 `/assets/jsxgraph-…/`(cacheName "jsxgraph")가 off 빌드에도 들어감(청크는 없음, 무해). "jsxgraph 0"을 dist 전체 기준으로 읽으면 사실과 다름. `THIRD_PARTY_NOTICES.txt`의 jsxgraph 문구는 HEAD 빌드에도 있음 |
+| S4-11 | PASS | 플래그 on 빌드: `jsxgraph-*.js`(1,040,973B)·`SolutionFigures-*.js`(51,381B, 커널 문자열은 여기에만)·`src-*.js`·runtime 분리, 메인에 커널 0, precache 12개에 jsxgraph 없음 |
+| S4-12 | PASS | `touchAction===""`(auto), pointerdown `defaultPrevented` false(Chromium·WebKit), CDP: 도형 마운트 전후 document/window 리스너 집합 불변. 신규 코드 grep(touch-action·preventDefault·document/window.addEventListener) 0 |
+| S4-13 | 헤드리스 PASS(Chromium CDP 터치) / **NOT VERIFIED(실기기)** | 보드 위 스와이프 scrollTop 7→206, 스테퍼 위 206→57 |
+| S4-14 | PASS(헤드리스) | 5개 뷰포트 + 세로 834×1194·694×834 가드 덮임/해제: 보드 1, 해제 후 같은 SVG, 오류 0, 패널 Extend/Default 보드 유지, Close 0·Open 1(누수 0). 폭 238px에서 WebKit/Chromium 보드 높이 258/181 차이(가드 중간 프레임, 영향 작음) |
+| S4-15 | 근사 PASS / **NOT VERIFIED(실제 키보드)** | 뷰포트 높이 834→500에서 보드 높이 258 불변 |
+| S4-16 | PASS | 아래 7.16.4 |
+| S4-17 | PASS | 키보드 Enter/Space로 단계 이동, 끝에서 disabled 시 반대 버튼 포커스 이동 확인, 버튼 높이 44px, `aria-current="step"`. 더블클릭은 비활성 끝 버튼 때문에 검사 스크립트가 대기(제품 문제 아님) |
+| S4-X1~X6 | 해당 없음 | 탐색 UI 미구현(D-1). **"초기화 버튼 미이행"은 장부 §1·§7.4·§7.10, PROJECT_STATUS §3.41, PRD FIG-9에 명시되어 있음 — 확인함** |
+| 자격 판정 | PASS | F01~F09 중 F09만 자격. 변이: 폐포 안 given 제약·파생 점 드래그·축 표시·수치 라벨·explore 아님 → 각각 올바른 사유로 거부, 폐포 밖 given 제약은 허용(올바름). 위치: 원래 좌표·내부는 허용, 경계 밖 out_of_bounds, 선분 BC 위·A=B 이동은 invalid/degenerate |
+| G | PASS | 첫 실행 4종 exit 0. 기존 테스트 삭제 0 |
+
+#### 7.16.3 변경 승인 판정
+- 기존 테스트 수정: ① FigureView P2-2 150→250 — 단언 불변, 승인된 240px 최소 폭 때문이며 250px에서 눈금 간격이 바뀌어 원래 의도를 같게 검사함 → **완화 아님**. ② DOM 기준값 class 정렬 — 독립 렌더 비교로 정렬 없이도 차이가 class 순서뿐임을 확인 → **완화 아님**. ③ `problemInputFlow` 2곳 — 첫 인자 단언 유지 + `expect.any(AbortSignal)` 추가 → **강화**.
+- `work.router.test` 타임아웃 5s→20s: 단언 불변, 해당 테스트 1개만 → 단언 완화 아님. 다만 원인은 미확정(아래 M-1).
+- 계획 목록 밖 파일: `applySceneToBoard`(숨길 때 기본 스타일 선적용)·`mountFigureBoard`(suspendUpdate) — S4-3을 위한 최소 변경, 영향 범위 작음 → 적절. `Button` ref 타입 추가 — 렌더 불변 → 적절.
+- 새 의존성 0(package.json·락 diff 0), `any` 0, TODO/FIXME/debugger 0, `console.log`는 CLI 스크립트 출력뿐, 비밀 값 0.
+
+#### 7.16.4 필기 회귀(§7.2)
+- 변경 금지 파일 diff 0(drawing-canvas 4개·`shared/lib/canvas`·`shared/styles`·`problemRepository.ts`·`supabase/migrations`·`infrastructure/cas`·`figuresJsonSchema.ts`·`prompts/system.ts`·`contracts`·`render.yaml`·`pages/mypage`·package.json·락·`packages`).
+- 통합 테스트(`figuresHandwriting.integration.test.tsx`) 변이 시험(scratchpad 복사본): 슬롯을 최종 답 뒤로 이동 → 실패, 이전 버튼이 2단계씩 이동 → 실패, 슬롯이 pointerdown에서 캔버스로 획 이벤트를 새게 함 → 실패(3/3), 복원 후 통과. 참고: 스테퍼 이동량 변이는 `SolutionFigures.test.tsx` 단위 테스트가 잡지 못하고 통합 테스트만 잡음(LOW).
+- 헤드리스 Chromium CDP `pointerType:"pen"`: 보드 위·스테퍼 위 pen 획 → 캔버스 픽셀 불변(158→158), 패널 밖 캔버스 pen 획 → 증가(158→814, 음성 대조 성립), 단계 전환 후 불변, 실행 취소 활성. 마우스·터치 보드 탭/드래그 후 픽셀 해시 불변(Chromium·WebKit). 콘솔 오류 0. WebKit의 pen 포인터·Apple Pencil은 실기기 NOT VERIFIED.
+
+#### 7.16.5 발견 사항
+- **HIGH H-1 (웹 플래그 on 전용)**: `SolveLandscapePage`의 `React.lazy(() => import(".../SolutionFigures"))`는 오류 경계가 없어, 이 청크 요청이 실패하면(오프라인·배포 뒤 오래된 탭의 해시 불일치) 결과 화면 전체가 React Router 기본 화면("Unexpected Application Error! Failed to fetch dynamically imported module")으로 바뀌고 이미 받은 풀이 텍스트도 사라진다. 재현: 헤드리스에서 `figure-visualization/SolutionFigures` 요청을 `route.abort()` → solve 결과 도달(Chromium·WebKit 모두). 대조: `jsxgraph` 청크만 막으면 결과·최종 답 정상 표시(FigureView의 기존 오류 경계가 처리). 기준: 계획 §10 "도형 실패는 풀이에 영향 없음", QA 규칙 11. 기대: 도형 슬롯만 사라지고 풀이·채팅 유지. 심각도 HIGH(운영 플래그 off 기본이라 현재 사용자 영향 없음, **플래그 on 전 필수**). 제안: `Suspense` 바깥에 오류 경계(fallback null)를 두고 테스트 추가.
+- **MEDIUM M-1**: `work.router.test` "다른 사용자의 problemId면 404" 간헐 5초 초과의 원인이 확정되지 않았다. 현재 트리 게이트 1회 + 추가 5회 = 6/6 통과, 개발 기록상 현재 1/10·HEAD 0/14. Stage 4가 이 경로를 바꾸지 않았고 단언은 그대로라 Stage 4 결함 근거는 없다. 20초 연장은 단언 완화가 아니라 상한 완화이며 정체를 가릴 수 있다. 다시 나오면 단계별 시각 계측 필요.
+- LOW L-A: 닫히지 않은/깨진 JSON(`{"concept_tags":["미완`)·마커 2회의 첫 JSON·`{ "concept_tags"`(공백)은 answerMd에 그대로 남음 — 계획 S4-P3가 "깨진 JSON = 변경 전 동일"로 고정한 동작이라 결함은 아님. 닫는 `}`가 하나 더 있는 JSON은 `}`가 답 앞에 남음.
+- LOW L-B: D-5가 표지와 같은 줄의 내용을 함께 지움(위 S4-P5).
+- LOW L-C: outcome `aborted`가 상한 만료와 클라이언트 끊김을 구분하지 못함(운영 지표).
+- LOW L-D: off 빌드 `sw.js`의 jsxgraph 런타임 라우트(S4-10).
+- LOW L-E: 보정 성공 기준에 의미 보존(표시 의도·role)이 없음(S4-R).
+- LOW L-F: 추적되지 않는 에이전트 메모 디렉터리 `apps/api/src/.claude/`, `apps/web/.claude/`, `apps/web/src/.claude/`가 소스 트리 안에 있음(빌드 영향 없음, 위생).
+- LOW L-G: Chromium 같은 k 픽셀 1개 RGB ±1 차이.
+- LOW L-H: 헤드리스 resume 흐름의 `POST /suggestions` 400은 Stage 4가 바꾸지 않은 `ProblemInputProvider` 코드의 기존 동작(diff에 suggestions 관련 변경 0).
+
+#### 7.16.6 NOT VERIFIED
+계획 §7.5 실기기 12항목 전부(보드 위 손가락 스크롤, Apple Pencil 보드 위 획, 빠른 연속 필기·Scribble, 44px 터치, Default/Extend/Close, 회전 복귀, Split View·Slide Over, 소프트웨어 키보드 시 보드 높이·입력창, 준비 중/없음 표시, VoiceOver 순서·늦은 도형 미낭독, 라벨 겹침·글꼴, 탐색(미구현)). 이 보고의 헤드리스는 물리 iPad가 아니다. 실제 OpenAI 호출은 하지 않았다.
+
+#### 7.16.7 재현 방법
+HEAD worktree(`git worktree add --detach <dir> 74ddd3b` + `pnpm install --offline --frozen-lockfile`)에서 동일 입력 파서 실행 후 비교 / 현재 트리 복사본에 `FIGURES_ENABLED` 값을 바꿔 캡처 테스트 비교 / `l4-server`(어댑터 래퍼로 도형 호출 시작·abort 시각 기록) + Node fetch·Playwright로 abort 확인 / `.omc/research/figures-stage4-headless/`의 server.mts·run.mjs·off.mjs 실행(Playwright 경로는 npx 캐시) / H-1은 같은 하니스에서 `context.route(/figure-visualization\/SolutionFigures/, r => r.abort())` 후 `toSolveResult`.
+
+
+### 7.17 재작업 1/3 (development-agent, 2026-10-25) — stage-qa CONDITIONAL PASS(§7.16) + design 사후 검수 P2·P3 대응
+
+#### 7.17.1 항목별 처리
+
+| 항목 | 처리 | 근거·테스트 |
+|---|---|---|
+| **[QA H-1]** 도형 슬롯 청크 실패 시 결과 화면 전체 오류 | `SolveLandscapePage`가 슬롯 내용을 `FigureErrorBoundary(fallback=null) > Suspense > SolutionFigures`로 감싼다. 기존 `features/figure-visualization/FigureErrorBoundary`를 재사용(page → feature 참조, 계층 규칙 준수. 파일은 import가 없는 작은 클래스라 off 빌드 메인 번들에 커널이 들어오지 않음 — 커널 문자열 0 확인) | jsdom `app/figuresSlotChunkFailure.integration.test.tsx`(실제 라우터 + Provider, `SolutionFigures` 모듈 로드 reject): 라우터 오류 화면 0, "풀이 결과"·단계별 풀이·블록 3·최종 답 "-1"·채팅 입력 유지, 슬롯 래퍼만 비어 있음. 변이: 경계를 빼면 이 테스트 실패. 헤드리스 §7.17.2 |
+| **[design P2-1]** off 래퍼가 슬롯과 함께 새로 삽입됨 | 신규 `features/ai-solution/FigureSlot`(`aria-live="off"`, `data-figure-slot`)을 `ResultPanel`·`ResumeResultCard`가 슬롯 위치에 렌더하고 내용만 지연 로딩으로 채운다. 페이지는 플래그 on이고 ① 풀이가 단계 표지로 분할되거나(`hasSolutionSteps`) ② 도형 단계(waiting/received)일 때 `figureContent`를 넘긴다(①만이면 `null` = 래퍼만). 플래그 off·표지 없음·MyPage는 `undefined` → 래퍼 없음 → WU0 DOM 동일. 빈 래퍼의 간격: **`hidden`이나 `display:contents` 대신** 실제 상자로 두고(Safari에서 `display:contents` 요소가 접근성 트리에서 빠지는 문제, `hidden`은 트리에서 빠져 "새 삽입"과 같아짐) 보이는 자식이 없을 때만 `[&:not(:has(>:not([hidden])))]:-mt-3`으로 부모 `gap-3`을 상쇄 | jsdom `FigureSlot.test.tsx`(null이면 래퍼만, 내용이 생겨도 **같은 래퍼 노드**, 미지정이면 없음, 간격 상쇄 클래스, 이어풀기 순서). WU0 DOM 기준값 12건 통과. 헤드리스: 빈 슬롯 높이 0·주변 간격 12px(= Body gap, margin-top −12px), 그림 있을 때 간격 448 = 높이 424 + 12×2, MutationObserver 기록상 래퍼 노드는 한 번만 생기고 그림 카드는 같은 노드에 채워짐 |
+| [QA L-B] D-5가 표지 줄의 내용까지 지움 | `parseResumeOutput`: 단계 표지는 **토큰만** 지우고 같은 줄의 나머지(예 `**3단계** 3` → `3`)는 남김. 표지만 있는 줄은 빠짐. 개념 JSON 줄은 줄째 제거(변경 없음) | `parseResumeOutput.test.ts` 신규 케이스 3. 정상 resume 오라클 15건 deep-equal 유지. **Stage 4에서 만든 테스트 2개의 기대값 수정**(이전 동작을 고정하던 값: `"\\[-1\\]"` → `"따라서 답은\n\\[-1\\]"`, `"-1"` → `"정리\n-1"`) — 요구된 동작 변경 때문 |
+| [QA L-C] 상한 만료와 끊김 구분 | outcome `deadline`(상한 만료, 보낼 도형 없음) 추가, `aborted`는 클라이언트 끊김만, `partial_deadline` 유지. 로그(`solution_figures` 구조화 로그의 outcome)도 같은 값 | 신규 테스트 2(로그 outcome 순서 `deadline`·`aborted`·`partial_deadline`, 끊김이 먼저면 1차 통과가 있어도 `aborted`). **Stage 3 기존 테스트 1줄 기대값 수정**: "전체 상한을 넘기면 … (aborted)" → `deadline`(요구된 구분 때문, 주석 기록, `git diff --numstat` 삭제 1). Stage 4 S4-L1 테스트 기대값도 `deadline` |
+| [QA L-D] off 빌드 sw.js에 jsxgraph 런타임 라우트 | `vite.config.ts`를 함수형으로 바꾸고 `loadEnv`로 `VITE_FIGURES_ENABLED`를 읽어 on일 때만 `runtimeCaching`에 넣음(`globIgnores`는 무해해 유지) | off 빌드 `sw.js`의 `CacheFirst` 0·`jsxgraph` 0, on 빌드 각 1. on 빌드 청크: index·`FigureErrorBoundary-*`(공통 청크 이름이 바뀜)·SolutionFigures·jsxgraph·runtime, precache 12개에 jsxgraph 없음, 커널 문자열은 SolutionFigures 청크에만 |
+| [QA L-H(조정자 지시)] 스테퍼 이동량 ±1 | `SolutionFigures.test.tsx`에 k=2·3·4·최종에서 이전/다음 6가지 — 호출 1회·정확히 한 칸, 끝(1의 이전·최종의 다음) 호출 0 | 통과 |
+| [QA L-F] 소스 트리 안 에이전트 메모 | 루트 `.gitignore`에 `apps/**/.claude/` 추가(루트 `.claude/`는 추적 유지) | `git check-ignore`: `apps/web/src/.claude`·`apps/api/src/.claude`·`apps/web/.claude` 무시, `.claude/agents` 무시 안 됨 |
+| [design P3-1] 스테퍼 폭 문구 | `FIGURE_DESIGN.md` §17.16 "약 78px 이상(높이 44px로 타깃 충족)" | |
+| [design P3-2] ElevatedCard `className` 규칙 | JSDoc과 `COMPONENT_MAP.md`에 "레이아웃 전용(flex·gap·정렬만, 표면을 바꾸는 클래스 금지)" | |
+| [design P3-3] 카드 그림자 토큰화 | **하지 않음.** Stage 5 이후 과제: `drop-shadow-[0px_2px_0px_rgba(35,43,56,0.18),0px_7px_13px_rgba(35,43,56,0.11)]`(`Elevation/Card`)를 `tokens.css`의 그림자 토큰으로 등록하고 `ElevatedCard`·`ChatFooter`·`ChatBubble`·`ActionMenu`·`RecognizedChip`의 같은 값 교체(시각 변화 0 검사 포함) | 기록만 |
+| [QA L-E] 보정 성공 기준에 의미 보존 없음 | `FIGURE_SPEC.md` §16.1 끝에 한계 기록(C3 role 변경, C4 45° 표시 끔 — 둘 다 검증 통과). 코드 변경 없음 | 기록만 |
+| [QA M-1] work 라우터 플레이크 원인 미확정 | 코드 변경 없음. **재발 시 계측 방법**(아래) | 기록만 |
+
+**M-1 재발 시 계측 방법**: ① 같은 실패가 나오면 즉시 루트 `pnpm test` 로그에서 동시에 돌던 파일과 시각을 남긴다. ② scratchpad 복사본(제품 트리 아님)의 `work.router.test.ts`에서 해당 테스트를 `supertest`의 `.on("request")`/`.on("response")` 대신, 앱 앞에 단계별 시각 기록 미들웨어(요청 수신·`authenticate` 통과·`rateLimiter` 통과·multer `finish`·핸들러 진입·응답 `finish`)와 클라이언트 쪽 `request.agent` 소켓 이벤트(`connect`·`finish`·`close`) 타임스탬프를 `process.hrtime`으로 붙여 실행한다. ③ 같은 시각에 `process.cpuUsage()`·이벤트 루프 지연(`perf_hooks.monitorEventLoopDelay`)을 함께 기록해, 멈춘 구간이 "서버 단계 사이"(코드 경로)인지 "이벤트 루프 전체 정지"(부하)인지 가른다. ④ 재현 빈도를 올리려면 루트 `pnpm test`를 `--pool=forks --poolOptions.forks.maxForks` 기본값으로 반복하되 다른 CPU 작업을 함께 돌린다. ⑤ 서버 단계 사이에서 멈추면 그 단계를 코드 결함으로 고치고 20초 타임아웃을 되돌린다.
+
+#### 7.17.2 헤드리스 확인(H-1·P2-1, Chromium·WebKit, 1194×834, **물리 iPad 아님**)
+
+- 스크립트 `.omc/research/figures-stage4-headless/rework1.mjs`(서버는 같은 폴더 `server.mts`, valid 시나리오), 결과 `rework1.json`.
+- H-1: `context.route(/figure-visualization\/SolutionFigures/, r => r.abort())`로 청크 요청 1건 차단 → solve 결과: React Router "Unexpected Application Error" **없음**, "풀이 결과"·단계별 풀이·최종 답·채팅 입력 유지, 슬롯 래퍼(`aria-live="off"`) 남고 자식 0·높이 0·주변 간격 12px. 콘솔에는 React 개발 모드의 "경계가 잡은 오류" 보고와 차단된 요청 오류만 있다. 스크린샷 `shots/rework1-h1-slot-chunk-blocked-chromium.png`, `shots/rework1-h1-slot-chunk-blocked-webkit.png`.
+- 대조(차단 없음): 그림 카드 표시, 슬롯 높이 424·간격 448, 오류 0. `shots/rework1-p21-normal-{chromium,webkit}.png`.
+- 회귀: 기존 `run.mjs valid` 재실행 — 배치(단계별 풀이 → 그림 → 답), 렌더 노드 같은 k 불일치 0(4상태), S4-12 touch-action ""·defaultPrevented false, 필기 픽셀 불변, Chromium 보드 위 스와이프 스크롤, 콘솔 오류 0(`valid-rework1.json`).
+
+#### 7.17.3 변경 파일(재작업 1)
+
+`apps/web/src/features/ai-solution/{FigureSlot.tsx(신규), FigureSlot.test.tsx(신규), hasSolutionSteps.ts(신규), ResultPanel.tsx, ResumeResultCard.tsx, SolutionStepList.test.tsx}`, `apps/web/src/pages/solve/landscape/SolveLandscapePage.tsx`, `apps/web/src/app/figuresSlotChunkFailure.integration.test.tsx`(신규), `apps/web/src/features/figure-visualization/SolutionFigures.test.tsx`, `apps/web/src/shared/ui/card/ElevatedCard.tsx`(JSDoc), `apps/web/vite.config.ts`, `apps/api/src/infrastructure/ai/{parseResumeOutput.ts, parseResumeOutput.test.ts}`, `apps/api/src/modules/figures/{generateSolutionFigures.ts, generateSolutionFigures.test.ts}`, `.gitignore`, `docs/{FIGURE_SPEC.md, FIGURE_DESIGN.md, COMPONENT_MAP.md, FIGURES_WORKFLOW_STATE.md}`.
+
+변경 금지 파일 diff 0, `figuresOff.baseline.test.ts`·WU0 파서 오라클·WU0 DOM 기준값 통과. 새 의존성 0.
+
+#### 7.17.4 게이트(재작업 1, 저장소 루트)
+
+| 시도 | typecheck | lint | test | build |
+|---|---|---|---|---|
+| **1차(첫 실행)** | exit 0 | exit 0 | **exit 1** — web `ResultPanelResizeHandle.test.tsx` "Default 상태에서 아래쪽 버튼 클릭 시 onClose" 6,314ms 타임아웃 1건(api 809/809, web 1,156/1,157) | exit 0 |
+| 2차(전체 재실행) | exit 0 | exit 0 | exit 0 — api 60 파일/809, web 106 파일/1,157 | exit 0 — 메인 `index-c82YtCJj.js` 972,540B, JS 청크 1, precache 8(1021.21 KiB), `sw.js` `CacheFirst` 0, 커널 문자열·`JXG`·`jsxgraph`·`SolutionFigures` 0 |
+
+- **첫 실행 통과 조건은 충족하지 못했다.** 실패한 테스트는 재작업 1이 건드리지 않은 파일이고(diff 0) **동기 테스트**(render → click → 단언, await 없음)다. 단독 3회 각 88ms 통과.
+- 같은 시간대 증거: 1차 직후 load average 11.65(8코어), 2차 시작 시 23.93. 진단용 루트 `pnpm test` 재실행 2회 중 1회는 서로 무관한 web 테스트 **4건이 모두 6.1~6.3초**로 동시에 타임아웃(`cameraFlow`·`problemInputFlow` RESUME·`routing`·`RegisterPage`), 다른 1회는 전부 통과. 동기 테스트까지 6초 넘게 멈춘 것은 코드 경로가 아니라 **기계 전체가 몇 초씩 멈춘 현상**으로 보이며, §7.13 work 라우터 5,019ms 정체와 같은 모양이다.
+- 가설(확정 아님): 저장소가 `~/Library/CloudStorage/OneDrive-…`(macOS File Provider) 안에 있어, 테스트·변환 캐시 파일 입출력이 동기화로 수 초 막힐 수 있다. 확인 방법: 같은 커밋을 OneDrive 밖(scratchpad 등)으로 `rsync` 해 루트 `pnpm test`를 반복하고 같은 6초대 집단 타임아웃이 사라지는지 비교(M-1 계측 ①~③과 함께).
+
+### 7.18 Stage 4 QA 재검증 (stage-qa-agent, 2026-10-25, 재작업 1/3 이후)
+
+판정: **STAGE PASS — READY FOR NEXT STAGE** (제품 코드 수정 없음. 변이 시험은 scratchpad 복사본에서만)
+
+범위 구분: ① 자동 검사(vitest·tsx·빌드 산출물 grep) ② 헤드리스(Playwright Chromium·WebKit, 물리 iPad 아님) ③ **NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED**(계획 §7.5 실기기 12항목 전부, VoiceOver, 실제 소프트웨어 키보드, Split View, WebKit 터치 스와이프). 실기기 PASS는 보고하지 않는다.
+
+#### 7.18.1 항목별 결과
+| 항목 | 결과 | 독립 증거 |
+|---|---|---|
+| H-1 청크 실패 | **해소** | `SolutionFigures` 모듈 요청을 abort(Chromium·WebKit): 라우터 오류 화면 0, "풀이 결과"·단계 블록 3·최종 답·채팅 입력 유지, 슬롯 래퍼만 비어 있음(높이 0, margin-top −12px, 주변 간격 12px). 콘솔에는 React의 "FigureErrorBoundary가 잡았다" 보고만. 대조(차단 없음): 그림 카드 1·보드 1·간격 448=424+12×2·오류 0. `jsxgraph` 청크만 차단: 결과·카드 유지·오류 0. 변이(경계 제거) → `figuresSlotChunkFailure.integration.test.tsx` 실패 |
+| P2-1 래퍼 선삽입 | 해소 | MutationObserver(두 브라우저): 슬롯 래퍼 추가 1회, 추가 시점 자식 0이고 같은 변이 묶음에 단계별 풀이 카드가 이미 있음. 그림 `section`은 약 300ms 뒤 **같은 래퍼 노드 안**에 추가. 래퍼 `aria-live="off"` |
+| 빈 래퍼 간격(WebKit 포함) | 해소 | scenario none: 빈 슬롯 높이 0, margin-top −12px, 앞 카드→다음 카드 간격 12px(= Body gap, 래퍼 없는 화면과 같음), Chromium·WebKit 동일. 변이(상쇄 클래스 제거) → `FigureSlot.test` 실패 |
+| `:has` 지원 | 문제 없음 | `CSS.supports("selector(:has(*))")` 두 엔진 true. `:has`는 Safari 15.4+, 앱의 Tailwind v4 CSS가 이미 `@property`·`color-mix`(Safari 16.4+)를 쓰므로 `:has`가 지원 하한을 더 높이지 않는다. 미지원 환경에서 규칙이 버려지면 빈 슬롯 주변이 12px 더 벌어질 뿐(기능 영향 없음). PRD에 iPadOS 최소 버전 명시는 없음 |
+| 플래그 off·표지 없음 DOM | PASS | off 빌드 dist: 커널·`SolutionFigures`·`resolveStepStateAt` 0. 헤드리스 웹 off + 서버 on: 슬롯·스테퍼 0. WU0 DOM 기준값 12건 포함 `__baseline__` 통과(§7.16에서 HEAD 직접 렌더 비교 완료, 이번 변경은 래퍼를 `figureContent !== undefined`일 때만 렌더) |
+| L-B (Stage 4 테스트 2개 기대값) | 완화 아님 | 두 테스트는 Stage 4가 만든 것이고 이전 동작("표지 줄째 삭제")을 고정하던 값이었다. 새 기대값(`따라서 답은\n\\[-1\\]`, `정리\n-1`)은 같은 줄 내용 보존이라는 요구된 변경을 **더 엄격하게** 단언한다. 정상 resume 오라클 15건·`parseOutput.baseline` 통과. HEAD 대조 27변형: 정상 입력 변화 0, `**3단계** 3`→`3`으로 해소 |
+| L-C (Stage 3 테스트 1줄) | 완화 아님 | "전체 상한을 넘기면 …" 시나리오는 상한 만료이므로 이제 `deadline`이 맞다. 단언 강도 동일(값만 더 구체적), 신규 테스트가 `aborted`(끊김)·`deadline`·`partial_deadline` 구분을 별도로 단언. 직접 호출 재확인은 §7.16과 같은 시나리오에서 코드 경로 검토로 갈음 |
+| L-D | PASS | off 빌드 `sw.js`: `CacheFirst` 0·`jsxgraph` 0, precache 8(1021.21 KiB), 메인 972,540B(§7.16 대비 +265B), 커널 문자열·`JXG` 0. on 빌드: `CacheFirst` 1, precache 12(jsxgraph 제외), 청크 = index·SolutionFigures·FigureErrorBoundary(공통 청크)·jsxgraph·runtime, 커널 문자열은 SolutionFigures 청크에만, `JXG`는 jsxgraph 청크에만 |
+| L-F | PASS | `.gitignore`의 `apps/**/.claude/`가 세 디렉터리를 무시, 루트 `.claude/agent-memory`는 추적 유지(`git check-ignore`) |
+| L-H | PASS | 스테퍼 ±1 테스트 6가지 통과 |
+| 변경 금지 파일 diff | 0 | drawing-canvas·lib/canvas·styles·problemRepository·migrations·cas·figuresJsonSchema·system.ts·contracts·render.yaml·package.json·락·packages·pages/mypage |
+| 기준 테스트 | 통과 | `figuresOff.baseline`·`parseOutput.baseline`·`parseResumeOutput`·figures 모듈 116 통과, web `__baseline__`(DOM·스트리밍)·FigureSlot·청크 실패·필기 통합·SolutionFigures 336 통과. `parseSolveOutput.ts`는 §7.16 검증 시점과 동일(복사본 diff 없음) |
+| 이번 변경 범위 | 확인 | 이전 QA 복사본 대비 diff 파일 = 기재된 목록과 일치(`parseResumeOutput`·`generateSolutionFigures`(+test)·FigureSlot·hasSolutionSteps·ResultPanel·ResumeResultCard·SolutionStepList.test·SolutionFigures.test·SolveLandscapePage·ElevatedCard·vite.config·청크 실패 테스트) |
+
+#### 7.18.2 신규 발견
+- **LOW N-1**: L-B 이후 `**3단계** {"concept_tags":["a"]}`처럼 표지와 개념 JSON이 **같은 줄**에 있으면 표지만 지워지고 JSON이 `answerMd`에 남는다(이전 구현은 이 줄을 통째로 지움). 표지 제거 뒤 남은 줄을 JSON 줄 검사에 다시 통과시키면 해소. 발생 가능성은 낮음.
+- **LOW N-2**: 페이지 수준의 "표지가 있으면 도형 단계 전이라도 래퍼를 미리 렌더" 규칙(`figureSlotContent`의 `hasSolutionSteps ? null : undefined`)을 지키는 자동 테스트가 없다. 변이(idle에서 `undefined` 반환)가 모든 관련 테스트(청크 실패·필기·FigureSlot)를 통과했다. 동작은 헤드리스 MutationObserver로 확인했으므로 현재 결함은 아니다.
+
+#### 7.18.3 이월·참고
+- 계획 §7.5 실기기 12항목은 그대로 NOT VERIFIED.
+- 소스 트리 안 `.omc/` 상태 디렉터리(apps/api/src, apps/web/src 등)는 훅이 만든 것으로 `.omc/` 규칙으로 무시됨(Stage 4 무관).
+
+#### 7.18.4 게이트와 간헐 실패 측정
+| 실행 | 결과 |
+|---|---|
+| 저장소 루트(OneDrive 폴더) **첫 실행** | typecheck 0, lint 0, **test 1**, build 0. api 807/809: `chat.router.test` "question이 비어 있으면 400"이 **404**를 받음(56ms, 타임아웃 아님), `solutions.router.figures.test` "throw"가 5,007ms 타임아웃. web은 실행되지 않음. 시작 시 `fileproviderd` 61%·OneDrive File Provider 63% CPU, load 6~9 |
+| 같은 트리 `pnpm test` 6회 연속 | 6/6 통과(load 22~44) |
+| OneDrive 밖 복사본(scratchpad) `pnpm test` | 유효 4회(데이터 폴더 누락으로 무효였던 2회 제외) 4/4 통과 |
+| OneDrive 밖 복사본 **전체 게이트 첫 실행** | typecheck 0, lint 0, test 0(api 809, web 1,157), build 0 — load 41~44 중에도 통과 |
+| 실패한 두 파일 10병렬×6 | 60회 0 실패. `chat.router.test` 단독 25회 0 실패 |
+| 읽기 지연 탐침(통계 7분, 두 트리 동시) | stat·read·readdir 최대 3~4ms, 이벤트 루프 지연 최대 6~8ms — OneDrive 폴더와 복사본 차이 없음, 정지 0 |
+
+판정(환경 vs 코드): **Stage 4 코드 결함의 증거는 없다.** 실패한 테스트가 매번 다르고(work 라우터, 동기 컴포넌트 테스트, chat 라우터, figures 라우터, 서로 무관한 web 4건이 동시에 6.1~6.3초), 대부분 diff 0인 파일이며, 부하(load 44)나 병렬 반복으로는 재현되지 않는다. 같은 증상이 재작업 전(§7.13)에도 나왔다. 개발 측 가설(OneDrive File Provider가 기계 전체를 몇 초 멈춤)은 **정황은 맞으나 증명되지 않았다**: 실패 시점에 File Provider 프로세스가 CPU를 쓰고 있었고 OneDrive 밖 복사본에서는 실패가 없었지만(4+전체 게이트 1), 실패율이 낮아(OneDrive 1/7) 표본이 통계적으로 구분하지 못하고 읽기 탐침은 이상이 없었다. `chat.router.test`의 404(타임아웃이 아닌 단언 실패)는 이 가설로 설명되지 않아 **원인 미확정**이다.
+
+처리: 계획 G의 "첫 실행 exit 0"은 **이번 QA 첫 실행에서 문자 그대로는 충족되지 않았다.** 환경성으로 판정해 예외 처리한다(근거: 위 표). 예외 조건과 후속: ① 실패 테스트가 diff 밖이고 단독·재실행에서 통과하면 전체 재실행 1회를 허용한다. ② 이후 Stage 게이트는 OneDrive 밖 복사본에서도 실행해 비교한다(권장). ③ 같은 증상이 다시 나오면 M-1 계측 방법(§7.17.1)을 적용하고, 특히 **타임아웃이 아닌 단언 실패(404)가 재현되면 코드 경로 조사로 격상**한다.
+
+#### 7.18.5 범위 밖 파일 조작 확인
+`~/Library/CloudStorage/`에는 `.DS_Store`와 실제 `OneDrive-개인`(유니코드 분해형 이름)만 있다. `%E1…`형 이름의 폴더는 `~/Library/CloudStorage`(깊이 4), 저장소(깊이 6), 홈(깊이 2~3), `/private/tmp/claude-501` 어디에도 없다. 저장소 `git status --ignored`에도 관련 항목 없음. 조회만 했고 삭제는 하지 않았다.
+
+
+### 7.19 후속 정리(PASS 이후, 재작업 횟수 제외, development-agent 2026-10-25)
+
+| 항목 | 처리 | 테스트 |
+|---|---|---|
+| N-1 표지와 개념 JSON이 한 줄(`**3단계** {"concept_tags":["a"]}`)이면 JSON이 `answerMd`에 남음 | `parseResumeOutput`: 표지를 지운 나머지를 개념 JSON 줄 검사에 한 번 더 통과시켜 JSON이면 줄째 제거 | `parseResumeOutput.test.ts` 신규 1(4단언: JSON만 남는 줄 제거·다른 줄 답 유지·앞 공백·JSON 아니면 L-B대로 유지). 정상 resume 오라클 통과 |
+| N-2 페이지 래퍼 사전 렌더 규칙 테스트 공백 | 코드 변경 없음. 신규 `apps/web/src/app/figuresSlotPrerender.integration.test.tsx`(실제 라우터 + Provider, 플래그 on): 표지 있음 → 도형 없이 스트림 종료(waiting → empty)해도 같은 `aria-live="off"` 래퍼 노드가 단계별 풀이와 최종 답 사이에 남고 자식 0 / 표지 없음 → 종료 뒤 래퍼 없음. 결과 패널은 done 뒤에만 보여 그때 phase가 이미 waiting이라, 페이지에서 관찰되는 "도형 단계 아님"은 `empty`(idle과 같은 `!active` 분기) | 변이: `if (!active) return undefined;`로 바꾸면 첫 테스트 실패, 복원 확인 |
+
+게이트(저장소 루트, **첫 실행**): typecheck 0, lint 0, test 0(api 810, web 1,159), build 0(메인 `index-c82YtCJj.js` 972,540B, precache 8). §7.18.4 플레이크 예외 적용 없음. 변경 금지 파일 diff 0.

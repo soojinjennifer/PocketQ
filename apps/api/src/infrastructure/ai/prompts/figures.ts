@@ -36,8 +36,19 @@ export function buildPriorWork(mode: ResumeMode, workLines: readonly WorkLine[],
     .filter((line) => line.lineNo <= diagnosis.lastValidLine && (stallLine === null || line.lineNo < stallLine))
     .sort((a, b) => a.lineNo - b.lineNo)
     .slice(0, MAX_PRIOR_WORK_LINES)
-    .map((line) => line.latex.slice(0, MAX_PRIOR_WORK_LINE_LENGTH));
+    .map((line) => truncateUtf16(line.latex, MAX_PRIOR_WORK_LINE_LENGTH));
   return { lines };
+}
+
+/**
+ * `maxLength` UTF-16 코드 유닛 이하로 자르되 서러게이트 쌍(이모지·확장 한자 등) 가운데를 자르지 않는다(Stage 4 L-7).
+ * 경계가 쌍의 앞쪽(high surrogate) 바로 뒤면 그 한 글자를 빼고 자른다. `maxLength` 이하 문자열은 그대로 돌려준다.
+ */
+export function truncateUtf16(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const last = text.charCodeAt(maxLength - 1);
+  const cut = last >= 0xd800 && last <= 0xdbff ? maxLength - 1 : maxLength;
+  return text.slice(0, cut);
 }
 
 /** 스키마·검증기 규칙 요약(생성·보정 공통). */

@@ -405,3 +405,102 @@ describe("ProblemInputProvider — Stage 3 추천 질문은 done 직후 요청(S
     resumeStream.release();
   });
 });
+
+describe("ProblemInputProvider — Stage 4 figuresPhase 노출·reset 시 abort", () => {
+  function PhaseConsumer() {
+    const { setCapturedImage, recognizeOnly, problemId, giveUp, diagnose, diagnoseStatus, startResume, returnToWorkFromResult, solveStatus, resumeStatus, solveFiguresPhase, resumeFiguresPhase } =
+      useProblemInput();
+    return (
+      <div>
+        <div data-testid="problemId">{problemId ?? "null"}</div>
+        <div data-testid="solveStatus">{solveStatus}</div>
+        <div data-testid="resumeStatus">{resumeStatus}</div>
+        <div data-testid="diagnoseStatus">{diagnoseStatus}</div>
+        <div data-testid="solveFiguresPhase">{solveFiguresPhase}</div>
+        <div data-testid="resumeFiguresPhase">{resumeFiguresPhase}</div>
+        <button onClick={() => setCapturedImage(new Blob(["fake"], { type: "image/jpeg" }))}>사진설정</button>
+        <button onClick={() => void recognizeOnly()}>인식하기</button>
+        <button onClick={() => void giveUp()}>풀이생성</button>
+        <button
+          onClick={() => {
+            if (problemId) void diagnose({ problemId, workLines: [{ lineNo: 1, latex: "x" }] });
+          }}
+        >
+          진단하기
+        </button>
+        <button onClick={() => void startResume("own")}>이어풀기하기</button>
+        <button onClick={returnToWorkFromResult}>결과에서수정</button>
+      </div>
+    );
+  }
+
+  /** done 뒤 signal abort 전까지 열려 있는 스트림. 받은 signal을 기록한다. */
+  function openUntilAbort<T>(events: T[]) {
+    const seen: { signal: AbortSignal | undefined } = { signal: undefined };
+    async function* impl(_params: unknown, signal?: AbortSignal): AsyncGenerator<T> {
+      seen.signal = signal;
+      await Promise.resolve();
+      for (const event of events) yield event;
+      await new Promise<void>((_resolve, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          },
+          { once: true },
+        );
+      });
+    }
+    return { impl, seen };
+  }
+
+  it("solveFiguresPhase·resumeFiguresPhase: idle → done 뒤 waiting/received, 결과에서 수정(reset)하면 두 스트림 abort·idle·error 0", async () => {
+    vi.mocked(recognizeProblem).mockResolvedValue({ problemId: "problem-1", recognizedText: "1+1=?", recognizedLatex: null, createdAt: "2026-09-01T00:00:00.000Z" });
+    vi.mocked(getSuggestedQuestions).mockReset();
+    vi.mocked(getSuggestedQuestions).mockResolvedValue({ questions: [] });
+    vi.mocked(diagnoseProblem).mockResolvedValue(DIAGNOSIS);
+    const solveStream = openUntilAbort<SolveStreamEvent>([{ type: "done", result: SOLUTION }]);
+    vi.mocked(solveProblemStream).mockImplementation(solveStream.impl);
+    const figure = { schemaVersion: 1, figureId: "fig-p" } as unknown as import("shared-types").FigureSpec;
+    const resumeStream = openUntilAbort<ResumeStreamEvent>([
+      { type: "done", result: RESUME_SOLUTION },
+      { type: "figures", figures: [figure], stepFigureRefs: [] },
+    ]);
+    vi.mocked(resumeProblemStream).mockImplementation(resumeStream.impl);
+
+    render(
+      <MemoryRouter initialEntries={["/solve/pencilcanvas"]}>
+        <Routes>
+          <Route element={<ProblemInputProvider grade="M2" />}>
+            <Route path="/solve/pencilcanvas" element={<PhaseConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("solveFiguresPhase")).toHaveTextContent("idle");
+    expect(screen.getByTestId("resumeFiguresPhase")).toHaveTextContent("idle");
+
+    fireEvent.click(screen.getByText("사진설정"));
+    fireEvent.click(screen.getByText("인식하기"));
+    await waitFor(() => expect(screen.getByTestId("problemId")).toHaveTextContent("problem-1"));
+
+    fireEvent.click(screen.getByText("풀이생성"));
+    await waitFor(() => expect(screen.getByTestId("solveFiguresPhase")).toHaveTextContent("waiting"));
+    expect(solveStream.seen.signal?.aborted).toBe(false);
+
+    fireEvent.click(screen.getByText("진단하기"));
+    await waitFor(() => expect(screen.getByTestId("diagnoseStatus")).toHaveTextContent("success"));
+    fireEvent.click(screen.getByText("이어풀기하기"));
+    await waitFor(() => expect(screen.getByTestId("resumeFiguresPhase")).toHaveTextContent("received"));
+
+    fireEvent.click(screen.getByText("결과에서수정"));
+    await waitFor(() => expect(screen.getByTestId("solveStatus")).toHaveTextContent("idle"));
+    expect(solveStream.seen.signal?.aborted).toBe(true);
+    expect(resumeStream.seen.signal?.aborted).toBe(true);
+    expect(screen.getByTestId("resumeStatus")).toHaveTextContent("idle");
+    expect(screen.getByTestId("solveFiguresPhase")).toHaveTextContent("idle");
+    expect(screen.getByTestId("resumeFiguresPhase")).toHaveTextContent("idle");
+  });
+});

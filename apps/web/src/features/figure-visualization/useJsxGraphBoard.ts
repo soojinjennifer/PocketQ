@@ -14,8 +14,11 @@ export type FigureBoardStatus = "loading" | "ready" | "error";
 /**
  * 요소 폭을 우리 ResizeObserver 하나로 추적한다(프레임당 최대 1회 갱신). 첫 측정도 rAF로 비동기.
  * 폭 0(display:none, 세로 회전 가드 뒤 등)이면 0을 돌려준다 → 보드를 만들지 않고 기다린다.
+ *
+ * `minWidth`(Stage 4 §17.9): 측정 폭이 이보다 작으면 값을 바꾸지 않는다 — 이미 받은 폭이 있으면 직전 폭을 유지하고
+ * (보드 재생성·리사이즈 0), 아직 없으면 0 그대로라 보드를 만들지 않는다. 기본 0이면 기존 동작과 같다.
  */
-export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+export function useElementWidth(ref: RefObject<HTMLElement | null>, minWidth = 0): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const element = ref.current;
@@ -23,7 +26,9 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
     let frame: number | null = null;
     const measure = (): void => {
       frame = null;
-      setWidth(Math.max(0, Math.floor(element.clientWidth)));
+      const measured = Math.max(0, Math.floor(element.clientWidth));
+      if (minWidth > 0 && measured < minWidth) return;
+      setWidth(measured);
     };
     const schedule = (): void => {
       if (frame === null) frame = requestAnimationFrame(measure);
@@ -35,7 +40,7 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
       observer.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [ref]);
+  }, [ref, minWidth]);
   return width;
 }
 

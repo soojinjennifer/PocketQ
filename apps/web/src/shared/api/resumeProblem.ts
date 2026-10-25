@@ -22,13 +22,17 @@ export type ResumeStreamEvent =
   | { type: "figures"; figures: FigureSpec[]; stepFigureRefs: StepFigureRef[] }
   | { type: "error"; code: ErrorCode; message: string };
 
-/** `POST /api/problems/:problemId/resume` — SSE 스트림(`chunk`/`done`/`figures`/`error`)을 순서대로 산출한다. `: keep-alive` 같은 주석 블록은 `parseSseStream`이 무시한다. */
-export async function* resumeProblemStream(params: ResumeProblemParams): AsyncGenerator<ResumeStreamEvent> {
+/**
+ * `POST /api/problems/:problemId/resume` — SSE 스트림(`chunk`/`done`/`figures`/`error`)을 순서대로 산출한다. `: keep-alive` 같은 주석 블록은 `parseSseStream`이 무시한다.
+ * `signal`(선택, Stage 4 L-4)을 abort하면 요청·스트림 읽기가 `AbortError`로 끝나고 연결이 닫혀 서버의 도형 호출도 abort된다.
+ */
+export async function* resumeProblemStream(params: ResumeProblemParams, signal?: AbortSignal): AsyncGenerator<ResumeStreamEvent> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(buildApiUrl(`/api/problems/${encodeURIComponent(params.problemId)}/resume`), {
     method: "POST",
     headers: { ...authHeaders, "Content-Type": "application/json" },
     body: JSON.stringify({ mode: params.mode }),
+    ...(signal ? { signal } : {}),
   });
 
   if (!response.ok) {

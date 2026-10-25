@@ -193,3 +193,9 @@ export function computeViewport(spec: FigureSpec, resolved: ResolvedFigure, widt
 
 /** 측정 전 자리 잡기용 높이(결과 패널 Default 보드 폭 348px 기준, §7.4). */
 export const PLACEHOLDER_BOARD_WIDTH = 348;
+
+/**
+ * 최소 보드 폭(S4-V2, 오너 승인 240px, `docs/FIGURE_DESIGN.md` §17.9). 측정 폭이 이보다 좁으면 보드를 새로 만들지도
+ * 리사이즈하지도 않는다 — 기존 보드는 직전 크기를 유지(보드 상자 overflow-hidden), 아직 없으면 자리만 잡는다.
+ */
+export const MIN_BOARD_WIDTH = 240;

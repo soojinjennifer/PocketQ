@@ -1,10 +1,21 @@
+import type { ReactNode } from "react";
 import type { ResumeMode, ResumeSolution } from "shared-types";
 import { renderMathText } from "../../shared/lib/katex/renderMathText";
 import { AnswerBox } from "./AnswerBox";
-import { ELEVATED_CARD_STYLE } from "./elevatedCardStyle";
+import { ElevatedCard } from "../../shared/ui/card/ElevatedCard";
+import { FigureSlot } from "./FigureSlot";
+import { SolutionStepList } from "./SolutionStepList";
 
 interface ResumeResultCardProps {
   solution: ResumeSolution;
+  /** 그림에 표시 중인 전역 단계 번호(Stage 4). null/미지정이면 최종(강조 없음). */
+  currentStep?: number | null;
+  /**
+   * 이어풀기 카드와 AnswerBox 사이에 둘 도형 슬롯(Stage 4 §17.1). `features/figure-visualization`을 직접
+   * import하지 않도록 페이지가 조립해 넘긴다. 없으면(`undefined`) 아무것도 렌더하지 않는다(기존 DOM 동일).
+   * `null`이면 내용 없이 `aria-live="off"` 슬롯 래퍼만 미리 렌더한다(`FigureSlot`).
+   */
+  figureContent?: ReactNode;
 }
 
 const MODE_LABEL: Record<ResumeMode, string> = {
@@ -27,23 +38,22 @@ const MODE_LABEL: Record<ResumeMode, string> = {
  * - "검증됨" Badge는 제거한다 — Figma엔 이 카드에 배지 자체가 없고, CAS가 스텁이라 항상 true인
  *   값을 배지로 보여주는 것도 의미가 없다는 오너 판단이다(`solution.verified`는 여전히 타입에
  *   남아있지만 이 카드는 렌더링하지 않는다).
- * - 카드 패딩은 Figma 실측값(14px/12px) 대신 기존 `ELEVATED_CARD_STYLE`(16px/16px)을 그대로
+ * - 카드 패딩은 Figma 실측값(14px/12px) 대신 기존 카드 표면(`ElevatedCard`, 16px/16px)을 그대로
  *   유지한다(다른 카드들과의 스타일 일관성 우선, 오너 승인).
  */
-export function ResumeResultCard({ solution }: ResumeResultCardProps) {
+export function ResumeResultCard({ solution, currentStep = null, figureContent }: ResumeResultCardProps) {
   return (
     <div className="flex flex-col gap-3">
-      <div className={`${ELEVATED_CARD_STYLE} flex flex-col gap-2`}>
+      <ElevatedCard className="flex flex-col gap-2">
         <p className="text-accent-orange text-[12px] leading-[16px] font-[590]">
           이어풀기 · {MODE_LABEL[solution.mode]}
         </p>
         <p className="text-label-primary text-[15px] leading-[20px] font-[590] whitespace-pre-wrap">
           {renderMathText(solution.methodName)}
         </p>
-        <p className="text-label-primary text-[13px] leading-[18px] font-normal whitespace-pre-wrap">
-          {renderMathText(solution.solutionMd)}
-        </p>
-      </div>
+        <SolutionStepList body={solution.solutionMd} currentStep={currentStep} />
+      </ElevatedCard>
+      {figureContent !== undefined ? <FigureSlot>{figureContent}</FigureSlot> : null}
       <AnswerBox answerMd={solution.answerMd} tone="resume" />
     </div>
   );

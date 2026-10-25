@@ -1,0 +1,17 @@
+{
+  "note": "Stage 4 WU0 — 단계 표지(`**N단계**`)가 없는 결과 카드 입력. resultDom.baseline.json의 html은 변경 전 코드(HEAD 74ddd3b)로 캡처했다. WU7 이후에도 이 입력들은 DOM이 같아야 한다(S4-6).",
+  "cases": [
+    { "id": "RC01-concept", "component": "ResultCard", "props": { "kind": "concept", "body": "이차함수의 최솟값은 꼭짓점의 y좌표입니다." } },
+    { "id": "RC02-steps-plain", "component": "ResultCard", "props": { "kind": "steps", "body": "1. 완전제곱식으로 변형합니다.\n2. 꼭짓점의 좌표를 구합니다." } },
+    { "id": "RC03-steps-latex", "component": "ResultCard", "props": { "kind": "steps", "body": "### 1단계: 식 정리\n\\[\ny=(x-2)^2-1\n\\]\n따라서 꼭짓점은 \\((2,-1)\\)입니다." } },
+    { "id": "RC04-steps-bold-midline", "component": "ResultCard", "props": { "kind": "steps", "body": "먼저 **무엇을:** 정리합니다. 그다음 **1단계** 표지가 줄 중간에 있습니다." } },
+    { "id": "RC05-steps-colon-style", "component": "ResultCard", "props": { "kind": "steps", "body": "1단계: 인수분해한다. 2단계: 근을 구한다." } },
+    { "id": "RC06-concept-title", "component": "ResultCard", "props": { "kind": "concept", "title": "완전제곱식 개념 정리", "body": "완전제곱식은 \\((x-a)^2\\) 꼴입니다." } },
+    { "id": "RC07-steps-indented-marker", "component": "ResultCard", "props": { "kind": "steps", "body": "  **1단계** 들여쓴 표지는 줄 맨 앞이 아니다.\n- **2단계** 목록 기호 뒤 표지" } },
+    { "id": "RR01-own", "component": "ResumeResultCard", "props": { "solution": { "mode": "own", "methodName": "3번째 줄부터 이어가기", "solutionMd": "이어서 진행합니다.\n\\[\ny=(x-2)^2-1\n\\]", "answerMd": "-1", "verified": true } } },
+    { "id": "RR02-alternative", "component": "ResumeResultCard", "props": { "solution": { "mode": "alternative", "methodName": "판별식 이용", "solutionMd": "판별식 \\(D=b^2-4ac\\)를 이용합니다.", "answerMd": "\\[\n2\\sqrt{3}\n\\]", "verified": false } } },
+    { "id": "RP01-full", "component": "ResultPanel", "props": { "category": "이차함수 › 최대·최소", "recognizedText": "x^2 - 5x + 6 = 0을 풀어라", "conceptMd": "이차방정식은 인수분해로 풀 수 있다.", "solutionMd": "1단계: 인수분해한다. 2단계: 근을 구한다.", "answerMd": "x = 2 또는 x = 3" } },
+    { "id": "RP02-null-sections", "component": "ResultPanel", "props": { "recognizedText": "문제", "conceptMd": null, "solutionMd": null, "answerMd": "42" } },
+    { "id": "RP03-edit-label-chat", "component": "ResultPanel", "props": { "recognizedText": "문제", "editLabel": "다시 풀기", "hasOnEdit": true, "conceptMd": null, "solutionMd": "풀이 \\(\\boxed{5}\\)", "answerMd": "\\[\\boxed{5}\\]", "chatContentText": "채팅 슬롯", "chatFooterText": "입력창 슬롯" } }
+  ]
+}
