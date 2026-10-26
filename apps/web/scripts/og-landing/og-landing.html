@@ -1,0 +1,137 @@
+<!doctype html>
+<!--
+  수풀잉 랜딩 OG 이미지 원본(1200×630, docs/LANDING_DESIGN.md §14.4). 색·모서리·그림자·글꼴은 tokens.css 변수만 쓴다(raw hex 금지).
+  배치 수치(여백 64, 로고 카드 460 @ left 676 / top 85, 텍스트 열 폭 564, 간격 22, 글자 크기)는 §14.4 명세 값이다.
+
+  렌더링(apps/web에서, DPR 1):
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+      --window-size=1200,630 --force-device-scale-factor=1 --virtual-time-budget=15000 \
+      --screenshot=public/og-landing.png "file://$PWD/scripts/og-landing/og-landing.html"
+  Pretendard(CDN)가 늦으면 시스템 글꼴로 찍히므로 document.fonts.ready 전까지 내용을 숨긴다 — 글꼴 없이 찍히면 빈 화면이 나온다.
+  확인: 같은 플래그에 --dump-dom을 주면 <html data-fonts="ready" data-pretendard="true">가 나와야 한다.
+-->
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="../../src/shared/styles/tokens.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--color-landing-bg-page);
+      }
+      .canvas {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        font-family: var(--font-landing-sans);
+        visibility: hidden;
+      }
+      html[data-fonts="ready"] .canvas {
+        visibility: visible;
+      }
+      /* 왼쪽 텍스트 열: x 64, 폭 564(1200 − 64 − 460 − 48 − 64), 로고 카드와 같은 세로 범위(y 85~545)에서 가운데 정렬. */
+      .copy {
+        position: absolute;
+        left: 64px;
+        top: 85px;
+        width: 564px;
+        height: 460px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 22px;
+      }
+      /* Landing/Badge L(tint) */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--color-landing-brand-tint);
+        color: var(--color-landing-brand-deep);
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      /* Hero H1을 564px 열에 맞춰 52px로 줄였다(§14.4). */
+      .title {
+        margin: 0;
+        font-size: 52px;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -2px;
+        color: var(--color-landing-brand-deep);
+        word-break: keep-all;
+      }
+      .title .accent {
+        color: var(--color-landing-brand-green);
+      }
+      /* Landing/Lead. 줄바꿈되면 스크립트가 18px로 줄인다(§14.4). */
+      .lead {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 400;
+        line-height: 1.6;
+        color: var(--color-landing-label-ink);
+        white-space: nowrap;
+      }
+      .lead[data-size="small"] {
+        font-size: 18px;
+      }
+      /* 오른쪽 로고 카드 460×460 @ left 676 / top 85. logo-2000의 배경이 bg/canvas와 같아 이음매가 없다. */
+      .logo-card {
+        position: absolute;
+        left: 676px;
+        top: 85px;
+        width: 460px;
+        height: 460px;
+        overflow: hidden;
+        border-radius: var(--radius-landing-cta);
+        background: var(--color-bg-canvas);
+        border: 1px solid var(--color-landing-border-edge);
+        box-shadow: var(--shadow-landing-raised);
+      }
+      .logo-card img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas">
+      <div class="copy">
+        <span class="badge">중1~고3 · Tablet Pencil</span>
+        <h1 class="title">어디서 막혔는지,<br /><span class="accent">수풀잉</span>이 찾아줄게요.</h1>
+        <p class="lead">AI가 내 풀이를 한 줄씩 읽고, 막힌 곳을 짚어줘요.</p>
+      </div>
+      <div class="logo-card"><img src="logo-960.png" alt="" /></div>
+    </div>
+    <script>
+      const logo = document.querySelector(".logo-card img");
+      const logoReady = logo.complete ? Promise.resolve() : new Promise((resolve) => logo.addEventListener("load", resolve));
+      Promise.all([document.fonts.ready, logoReady]).then(() => {
+        const lead = document.querySelector(".lead");
+        if (lead.scrollWidth > lead.parentElement.clientWidth) lead.dataset.size = "small";
+        const root = document.documentElement;
+        // fonts.check는 해당 글꼴이 아예 없어도 true라서, 실제로 받은 Pretendard 면이 있는지 같이 본다.
+        const loadedFaces = [...document.fonts].filter((face) => face.family.includes("Pretendard") && face.status === "loaded");
+        root.dataset.pretendard = String(loadedFaces.length > 0 && document.fonts.check('800 52px "Pretendard Variable"', "수풀잉"));
+        root.dataset.fonts = "ready";
+      });
+    </script>
+  </body>
+</html>

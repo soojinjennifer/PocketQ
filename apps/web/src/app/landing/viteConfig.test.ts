@@ -2,7 +2,11 @@
 import type { UserConfig } from "vite";
 import type { VitePWAOptions } from "vite-plugin-pwa";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import viteConfig, { BUILD_INPUT, NAVIGATE_FALLBACK_DENYLIST } from "../../../vite.config";
+import viteConfig, {
+  BUILD_INPUT,
+  NAVIGATE_FALLBACK_DENYLIST,
+  STATIC_HTML_PAGES,
+} from "../../../vite.config";
 
 // VitePWA에 실제로 넘어가는 옵션을 가로챈다 — 상수만 보는 테스트는 플러그인 설정에서 빠져도 통과해 버린다(M-QA-2).
 const { vitePwaCalls } = vi.hoisted(() => ({ vitePwaCalls: [] as Partial<VitePWAOptions>[] }));
@@ -45,9 +49,12 @@ describe("vite 멀티 페이지 설정(랜딩 /home.html)", () => {
     expect(workbox.navigateFallbackDenylist).toBe(NAVIGATE_FALLBACK_DENYLIST);
   });
 
-  it("VitePWA workbox 옵션이 home.html을 precache에서 뺀다(항상 네트워크에서 새로 받음)", () => {
+  it("VitePWA workbox 옵션이 정적 HTML(home·privacy·terms)을 precache에서 뺀다(항상 네트워크에서 새로 받음)", () => {
     const workbox = resolveWorkboxOptions();
-    expect(workbox.globIgnores).toContain("home.html");
+    expect(STATIC_HTML_PAGES).toEqual(["home.html", "privacy.html", "terms.html"]);
+    expect(workbox.globIgnores).toEqual(
+      expect.arrayContaining(["home.html", "privacy.html", "terms.html"]),
+    );
   });
 
   it.each([
@@ -55,6 +62,13 @@ describe("vite 멀티 페이지 설정(랜딩 /home.html)", () => {
     ["/home.html?ref=x", true],
     ["/home.html?ref=kakao&utm_source=share", true],
     ["/home.html#video", true],
+    ["/privacy.html", true],
+    ["/privacy.html?v=2", true],
+    ["/terms.html", true],
+    ["/terms.html#section-3", true],
+    ["/privacy", false],
+    ["/terms.htmlx", false],
+    ["/legal/terms.html", false],
     ["/home", false],
     ["/home.htmlx", false],
     ["/", false],

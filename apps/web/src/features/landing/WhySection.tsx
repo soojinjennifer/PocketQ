@@ -1,6 +1,6 @@
-import appIconUrl from "../../assets/landing/app-icon-120.webp";
 import { CheckNegativeIcon, CheckPositiveIcon } from "./LandingIcons";
 import { SectionHeader } from "./SectionHeader";
+import { LANDING_APP_ICON_SRC, LANDING_APP_ICON_SRCSET } from "./landingAppIcon";
 import { LANDING_CONTAINER, LANDING_SCROLL_MARGIN } from "./landingStyles";
 
 const OLD_WAY = [
@@ -54,7 +54,8 @@ export function WhySection() {
           <div className={`${COMPARE_CARD} bg-landing-brand-deep shadow-landing-raised`}>
             <h3 className="text-landing-brand-mint m-0 flex items-center gap-2.5 text-[15px] font-bold">
               <img
-                src={appIconUrl}
+                src={LANDING_APP_ICON_SRC}
+                srcSet={LANDING_APP_ICON_SRCSET}
                 alt=""
                 width={30}
                 height={30}

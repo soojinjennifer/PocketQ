@@ -860,3 +860,387 @@ Chromium과 WebKit(헤드리스 근사. 실제 iPad Safari 아님)에서 폭 320
 남은 LOW(차단 아님): LOW-1 jsxgraph 런타임 캐시 설정 무테스트(위), L-QA-2 영상 실제 재생 미확인, L-QA-4 `/home`·`/home.html/`는 SW 활성 때와 운영 서버 동작이 다름(범위 밖), L-QA-5 앱 `global-*.css`에 랜딩 유틸리티 포함, L-QA-6 `og:image` 없음. L-QA-7 CTA 문구는 Figma대로 유지(오너 결정). 영상 "맨 아래" 배치 해석은 오너 확인 항목으로 남는다.
 
 NOT VERIFIED: 실제 iPad Safari·Split View(PHYSICAL DEVICE TEST REQUIRED), 실제 OAuth 왕복, 운영 도메인 `/home.html`(미배포; 배포 뒤 `curl -I`로 200 text/html과 `home-*.js` 확인), YouTube 실제 재생, WebKit 포커스 링.
+
+---
+
+## 14. Round 2 사전 검토(design-agent, 2026-10-26)
+
+- 기준
+  - 승인된 계획 `.omc/plans/landing-round2.md`(D2-1 ~ D2-12)
+  - Install 섹션은 Figma 프레임이 없다. 그래서 Video 섹션(`447:78`)의 실측값과 기존 토큰만으로 정한다.
+- 측정에 쓴 자료
+  - 썸네일 4장: `maxresdefault`(두 영상 모두 1280×720, 실재)와 `hqdefault`(480×360을 16:9로 잘라 씀). 각각 932×524로 줄인 뒤 픽셀 단위로 WCAG 대비를 계산했다.
+  - 오너 에셋 3종
+  - headless Chrome 페인트 순서 실험
+
+### 14.0 계획 수정이 필요한 항목(**BLOCKER**, 구현 전에 반영)
+
+- **D2-8 포커스 링이 썸네일에 가려진다.**
+  - 원인: facade `<button>`에 주는 inset `box-shadow`(ring)와 음수 offset `outline`이, 버튼 안의 `absolute` 썸네일 `<img>` 아래에 그려진다.
+  - 실험: 실험 페이지에서 ring과 outline 둘 다 자식 이미지 아래로 들어가 보이지 않았다. 마지막 자식 span에 같은 스타일을 주면 이미지 위에 그려졌다(ring 0~4px, 사이 틈 4~6px, outline 6~8px).
+  - 지금 랜딩에서 링이 보이는 이유: 썸네일이 없고, 덮개 span이 투명이기 때문이다.
+- 수정 명세
+  - `YouTubeEmbed`의 `focusRingClassName`을 **버튼이 아니라 버튼의 마지막 자식인 장식 span**에 적용한다. span은 `aria-hidden`, `pointer-events-none absolute inset-0 rounded-[inherit]`이다.
+  - 버튼에 `group`을 주고, prop 값은 `group-focus-visible:` 접두사를 붙여 쓴다.
+  - 버튼과 그 장식 span이 패널 radius를 따르도록 버튼에도 `rounded-[inherit]`를 준다.
+  - 기본값(`ring-brand`)의 동작은 유지한다. 앱에는 썸네일을 쓰는 곳이 없다.
+- 테스트: "썸네일이 있을 때 포커스 장식 span이 img보다 뒤(DOM 순서)에 있다"를 추가한다.
+
+### 14.1 Install 섹션(`features/landing/InstallVideoSection.tsx`)
+
+| 항목 | 명세 |
+|---|---|
+| 셸 | Video와 같다. `<section id="install" aria-labelledby="install-title" class="bg-landing-brand-deep {LANDING_SCROLL_MARGIN}">` 안에 `mx-auto flex w-full max-w-[1000px] flex-col gap-7 px-6 py-14 lg:py-[76px]`를 둔다. 같은 조합이 두 번 쓰이므로 `LANDING_DARK_BAND_INNER` 상수로 묶기를 권장한다. 바깥 `bg-landing-brand-deep`은 섹션 의미 클래스라서 각 섹션에 그대로 둔다. |
+| 위치와 간격 | CTA(`pb-14 lg:pb-[88px]`) 다음, Footer 앞에 둔다. CTA 카드의 아래 여백이 밝은 띠로 남으므로 따로 간격을 더하지 않는다. Footer의 위 hairline(`border-landing-border-hairline`)은 어두운 띠 다음에도 그대로 둔다(밝은 배경 위라 보인다). |
+| 헤더 | `SectionHeader align="center" tone="dark"`, 굵기는 기본 extrabold(`Landing/H2`)다. 문구는 다음과 같다. eyebrow `INSTALL`, H2 `홈 화면에 추가하는 방법`, subtitle `설치 없이 브라우저에서 홈 화면에 추가하면 앱처럼 열려요.` D2-9의 H2를 유지하고 subtitle을 더했다. Hero 체크 "설치 없이 브라우저에서 …"와 같은 어휘를 쓴다. CTA 본문 "홈 화면에 추가하면 앱처럼 써요"와 문장이 겹치지 않게 했다. |
+| 영상 | `LandingVideoFrame videoId="2RgyXWjlH9I" title="수풀잉 설치" caption="수풀잉 설치 영상" autoplayOnView`. 프레임은 Video와 같다(`bg-bg-canvas rounded-landing-panel shadow-landing-video-frame p-1.5 md:p-2.5`). |
+| 내용 확인(결정 대기, D2-5) | 이 영상의 YouTube 제목에 "설치"라는 말이 없고, 썸네일에는 타사 표기 **"IDEAi+"**가 크게 나온다(계획서의 "IDPAi+"는 오타). 섹션이 "홈 화면에 추가하는 방법"을 약속하므로 영상 내용과 맞는지 오너가 확인한다. 오너가 YouTube에서 커스텀 썸네일로 바꾸는 것을 권장한다. |
+| 기타 | Video 섹션 eyebrow `WATCH · 1분`은 이제 사용 방법 영상 하나만 가리키므로 그대로 맞다. Nav에는 항목을 추가하지 않는다(D2-10). |
+
+### 14.2 썸네일 위 캡션, 재생 아이콘, 포커스 링
+
+대비 측정값(최솟값 / 하위 5% / 중앙값). 위치는 932×524 패널 기준으로 캡션 220×30 영역(가운데 y≈325), 재생 원 둘레 37~44px, 가장자리 10px 띠다.
+
+| 대상 | `vSsyDRtZmKw`(밝은 UI 화면) | `2RgyXWjlH9I`(어두운 배경) | 판정 |
+|---|---|---|---|
+| 캡션 글자를 썸네일 위에 바로 올림 | 1.00 / 1.02 / 1.13 | 2.2 / 4.2 / 7.1 (hq) | 미달. pill이 꼭 필요하다 |
+| 캡션 pill `bg-landing-brand-deeper/60` | 4.06 / 4.06 / 4.35 | 7.0 / 9.6 / 11.9 | 미달 |
+| **캡션 pill `bg-landing-brand-deeper/80`(D2-7)** | **8.16** / 8.16 / 8.48 | **10.8** / 12.5 / 13.7 | **확정**. 최악의 픽셀에서도 AA 통과 |
+| 재생 원(`label/on-deep`)과 주변 썸네일 | 1.00 / 1.05 / 1.12 | 1.00 / 1.04 / 5.45 | **미달**. 밝은 화면 위에서 원이 보이지 않는다 |
+| 포커스 ring `brand/deeper`와 베젤 `bg/canvas` | 16.68 | 16.68 | 통과(썸네일과 무관) |
+| 포커스 outline `label/on-deep`과 썸네일 가장자리 | 1.00 / 1.08 / 17.2 | 17.5 이상 | 1번 영상에서는 보조 역할만 한다. ring이 주 표시이므로 허용 |
+
+- **D2-7 확정**
+  - pill: `rounded-full bg-landing-brand-deeper/80 px-3 py-1 text-sm font-semibold text-landing-label-on-deep`
+  - 글자색을 `label/on-deep-secondary`에서 `label/on-deep`으로 바꾼다. 72% 알파를 겹치면 대비가 떨어지기 때문이다.
+  - 아이콘과 pill 사이 `gap-3`(Figma 12)은 그대로 둔다.
+- **재생 아이콘 수정(신규)**
+  - `VideoPlayIcon`을 감싸는 요소에 `rounded-full ring-4 ring-landing-brand-deeper/80`를 준다.
+  - 어두운 테두리와 흰 배경의 대비는 약 9:1, 밝은 원과는 약 8:1이다. Figma의 밝은 원 모양은 그대로 둔다.
+  - 덮개 전체(예전 60% scrim)는 다시 넣지 않는다. 썸네일을 보여 달라는 것이 오너 요청이다.
+- **D2-8 확정, 단 §14.0 수정이 전제다.**
+  - 값: `group-focus-visible:ring-4 group-focus-visible:ring-inset group-focus-visible:ring-landing-brand-deeper group-focus-visible:outline-2 group-focus-visible:outline-solid group-focus-visible:outline-offset-[-8px] group-focus-visible:outline-landing-label-on-deep`
+  - 이 값을 장식 span에 준다.
+- 참고(LOW)
+  - 1번 썸네일은 가장자리가 흰색이라서, 포커스가 없을 때 패널 경계가 베젤(`#fbfaf6`)과 붙어 보인다. 바깥 베젤 radius가 30, 안쪽이 22라서 모서리는 구별된다. 따로 처리하지 않는다.
+  - muted 자동 재생 뒤 보이는 YouTube 자체 UI(음소거 해제 버튼)는 디자인 범위 밖이다.
+
+### 14.3 오너 앱 아이콘(Nav 40px, Why 카드 30px)
+
+| 항목 | 측정 |
+|---|---|
+| `app-icon-rounded.png` 168×168 | 둥근 모서리, 청록 테두리, 아래쪽 그림자가 이미지에 구워져 있다. 불투명 영역은 x 8~160, y 4~156이다. **"수풀잉" 글자가 y 114~144(높이의 18%)에 들어 있다.** |
+| 40px로 표시 | 글자 높이가 약 7px이다. 판독할 수 없는 얼룩처럼 보이고, 바로 옆 워드마크 "수풀잉"(26px)과 같은 말을 반복한다. |
+| 30px로 표시(Why 카드, `brand/deep` 위) | 글자 높이가 약 5px이다. 바로 옆에 제목 텍스트 "수풀잉"이 있어 역시 반복된다. CSS `rounded-landing-icon-sm`(8)이 이미지에 구워진 모서리(30px 기준 약 5px)보다 커서, 테두리 모서리가 조금 잘린다. |
+
+- **판정: 그대로는 권장하지 않는다(결정 필요, 오너).** 코드는 바꾸지 않았다.
+- 권장 순서
+  1. 오너에게 **글자 없는 아이콘**(일러스트만, 정사각형, 투명 테두리 없음, 최소 120px)을 요청한다.
+  2. 받을 수 없으면 168 원본에서 **x 30~138, y 4~112(108×108)**를 잘라 글자를 뺀 뒤, 40/80px WebP로 만든다. 모서리는 CSS radius(`rounded-landing-icon` 11, `-icon-sm` 8)가 담당한다.
+  3. 오너가 "글자 포함"을 원하면 그대로 쓰고, 중복을 의도된 것으로 기록한다.
+- `app-icon-small.png`(84)도 글자가 들어 있어 같은 문제가 있다.
+- 2x(80px)는 168 원본에서 줄이므로 해상도는 충분하다.
+
+### 14.4 OG 이미지 1200×630(`apps/web/scripts/og-landing/og-landing.html`)
+
+- 캔버스: 1200×630, `background: var(--color-landing-bg-page)`
+  - 모든 콘텐츠는 가운데 **1200×600 안전 영역(y 15~615)** 안에 둔다. 아래 배치에서 실제로 쓰는 범위는 y 85~545다.
+  - 좌우 여백은 64다.
+  - 2:1 미리보기(카카오톡 등)에서도 잘리지 않는다.
+- 오른쪽 로고 카드
+  - 크기와 위치: 460×460, left 676, top 85
+  - 모양: `border-radius: var(--radius-landing-cta)`(36), `background: var(--color-bg-canvas)`, `border: 1px solid var(--color-landing-border-edge)`, `box-shadow: var(--shadow-landing-raised)`
+  - 이미지: `logo-960.png`를 `object-fit: contain`, 460×460으로 넣는다.
+  - 근거: logo-2000의 배경이 `#fbfaf6`로 `bg/canvas`와 같아서 카드와 이음매 없이 붙는다.
+- 왼쪽 텍스트 열: x 64, 폭 564(1200 − 64 − 460 − 48 − 64), 세로 가운데 정렬, 세로 간격 22(Figma Hero gap)
+  1. 배지 `중1~고3 · Tablet Pencil`(Hero 원문)
+     - `background: var(--color-landing-brand-tint)`, `color: var(--color-landing-brand-deep)`
+     - 13px Bold, padding 7/12, radius 999(`Landing/Badge L`)
+  2. H1 두 줄 `어디서 막혔는지,` / `수풀잉이 찾아줄게요.`
+     - `font-family: var(--font-landing-sans)`, 800, **52px**, line-height 1.1, letter-spacing -2px
+     - 색은 `var(--color-landing-brand-deep)`이고, "수풀잉"만 `var(--color-landing-brand-green)`이다.
+     - 52px는 1440 기준 66px에서 측정한 둘째 줄 폭 691px를 564px에 맞게 줄인 값이다(691 × 52/66 ≈ 544).
+  3. 설명 한 줄 `AI가 내 풀이를 한 줄씩 읽고, 막힌 곳을 짚어줘요.`
+     - 20px Regular, line-height 1.6(`Landing/Lead`), `color: var(--color-landing-label-ink)`
+     - home.html description을 줄인 문장이다. 20px에서 약 500px로 한 줄에 들어간다. 줄바꿈되면 18px로 줄인다.
+- 금지 사항
+  - raw hex를 쓰지 않는다.
+  - 워드마크는 넣지 않는다. 로고 안에 "수풀잉"이 이미 있다.
+  - 도메인 텍스트는 넣지 않는다. 미리보기 카드가 도메인을 따로 보여 준다.
+- 렌더링: 계획 D대로 1200×630, DPR 1로 만든다. 렌더링 전에 `document.fonts.ready`를 기다린다. Pretendard가 CDN에서 늦게 오면 시스템 글꼴로 찍힌다.
+- 메타: 계획 D대로 넣는다. `og:image:alt` = `수풀잉 — 어디서 막혔는지, 수풀잉이 찾아줄게요`
+
+### 14.5 사후 검수 때 확인할 항목
+
+- 썸네일이 있는 상태에서 Tab으로 facade에 포커스했을 때 ring과 outline이 보이는지. 375, 820, 1180, 1440 캡처로 확인한다.
+- 캡션 pill과 재생 아이콘 테두리를 실제 화면에서 측정한다.
+- Install 섹션의 H2가 6번째 H2이고, Footer 링크 두 개의 히트 영역이 44 이상이며 focus 링이 보이는지.
+- OG PNG가 1200×630이고 300KB 이하인지. 텍스트가 안전 영역 안에 있는지.
+
+### 14.6 Round 2 구현 기록(development-agent, 2026-10-26)
+
+- 기준: 계획 `.omc/plans/landing-round2.md`(D2-1 ~ D2-12 승인), 위 §14.0 ~ 14.4(계획보다 우선).
+
+#### 결정 확정
+
+- **"막힌 지점" 배지(§12 M-3) — 오너 확정(2026-10-26).** Figma 색을 그대로 둔다. 일러스트 예외(`role="img"`, 2.94:1)로 기록하고 코드는 바꾸지 않는다. M-3은 더 이상 결정 대기가 아니다.
+- **오너 앱 아이콘(§14.3) — 오케스트레이터 결정: 2안(crop).** `app-icon-rounded.png`(168)에서 x 30~138, y 4~112(108×108)를 잘라 구워진 "수풀잉" 글자를 뺐다. 이것으로 `assets/landing/app-icon-40.webp`(1x)와 `app-icon-80.webp`(2x)를 만들었고, 모서리는 CSS radius(`rounded-landing-icon` 11, `-icon-sm` 8)가 담당한다. `app-icon-120.webp`는 지웠다.
+  - 오너가 **글자 없는 아이콘**(정사각형, 일러스트만, 120px 이상)을 주면 같은 두 파일만 바꾸면 된다. 원본 파일은 세션 scratchpad `landing/owner/`에만 두고 저장소에는 넣지 않았다.
+  - crop 윗줄(y 4)에 원본 청록 테두리가 1px 정도 걸친다. 40px 표시에서는 약 0.4px라 보이지 않는다(2x 캡처로 확인).
+  - 두 WebP가 4KB 미만이라 Vite가 data URI로 인라인한다(빌드 산출물에 별도 파일이 없다).
+- **법적 고지(D-19) — 링크로 전환.** Footer `개인정보처리방침` → `/privacy.html`, `이용약관` → `/terms.html`(같은 탭, `LANDING_HIT_AREA`로 히트 영역 44 이상, `LANDING_FOCUS_RING`). 오너가 `apps/web/public/{privacy,terms}.html`을 올려 배포하기 전까지 운영(Render)은 이 두 URL에 **text/plain 404("Not Found")**를 돌려준다 — Render는 없는 `.html` 경로에 SPA rewrite를 하지 않는다(§15 L-R2-2 운영 확인, 2026-10-26 정정. 처음 기록한 "SPA 404 화면"은 로컬 에뮬레이션 서버 기준이라 틀렸다). **공개 전에 두 페이지를 반드시 올린다.** 올리기 전에 Footer가 공개되면 사용자는 빈 "Not Found"를 본다.
+
+#### 구현 요약(계획 항목 대응)
+
+| 계획 | 구현 |
+|---|---|
+| A 공유 코드 | `shared/ui/video-embed/`에 `youTubeUrls.ts`, `youTubePlayerMessages.ts`, `useViewportPlayback.ts`, `YouTubePlaybackGroup.tsx` + `youTubePlaybackGroupContext.ts`(react-refresh 규칙 때문에 context·hook을 분리)를 두었다. `YouTubeEmbed`에는 `thumbnailFallbackSrc`와 `autoplayOnView`를 추가했다. `shared/lib/dom/usePrefersReducedMotion.ts`도 추가했다. |
+| §14.0 | `focusRingClassName`은 버튼의 마지막 자식 장식 span(`aria-hidden pointer-events-none absolute inset-0 rounded-[inherit]`)에 붙는다. 버튼에는 `group rounded-[inherit]`를 준다. 기본값은 `group-focus-visible:ring-4 group-focus-visible:ring-inset group-focus-visible:ring-brand`이다. 앱에는 다른 사용처가 없다. |
+| A 랜딩 | `features/landing/LandingVideoFrame.tsx`가 베젤, 썸네일(maxres → hq → 패널 단색), 재생 아이콘 ring(`ring-landing-brand-deeper/80`), 캡션 pill(`bg-landing-brand-deeper/80 text-landing-label-on-deep`), §14.2 포커스 값을 담는다. `VideoSection`은 `vSsyDRtZmKw` 하나만 보인다. `LandingPage`는 `<main>`을 `YouTubePlaybackGroup`으로 감싼다. |
+| B | `features/landing/InstallVideoSection.tsx`(`id="install"`)는 §14.1 문구를 쓰고 `2RgyXWjlH9I`를 `autoplayOnView`로 재생한다. 셸 조합은 `LANDING_DARK_BAND_INNER`(`landingStyles.ts`)로 뽑아 Video와 함께 쓴다. 페이지 순서는 Hero → Why → How → Video → Demo → CTA → Install → Footer이고, Nav는 바꾸지 않았다. |
+| D | `apps/web/scripts/og-landing/og-landing.html` + `logo-960.png`(`sips -Z 960`). §14.4 배치를 그대로 따르고, 색·모서리·그림자·글꼴은 `tokens.css` 변수만 쓴다. `document.fonts.ready`와 로고 load 전까지 내용을 숨긴다. 결과물 `apps/web/public/og-landing.png`는 1200×630, 135,549 bytes이다. 렌더 명령은 HTML 주석에 있다. `--dump-dom`으로 `data-pretendard="true"`(실제로 받은 Pretendard 면이 있음)를 확인했다. 설명 문장은 20px로 한 줄에 들어가 18px 축소는 일어나지 않았다. `home.html`에는 `og:image`(+width/height/type/alt), `twitter:card=summary_large_image`, `twitter:image`를 넣었다. |
+| F | `vite.config.ts`에 `STATIC_HTML_PAGES = ['home.html','privacy.html','terms.html']`(globIgnores)와 denylist `/^\/(?:home|privacy|terms)\.html(?:[?#]|$)/`를 두었다. |
+
+#### 계획과 다르게 구현한 점
+
+- 자동 재생 직후 바로 만든 iframe에는 `playVideo`를 보내지 않는다(`autoplay=1&mute=1`이 이미 재생한다). 그 사이에 pauseVideo가 보류돼 있으면 playVideo로 바꿔 둔다.
+- 우리가 보낸 pauseVideo가 이미 멈춘 플레이어로 가면 상태 알림이 오지 않는다. 그래서 마지막 상태가 2(일시정지)이면 `expectingPause`를 세우지 않는다. 그러지 않으면 다음 실제 사용자 일시정지를 놓친다.
+- 그룹이 멈춘 경우에도 `expectingPause`를 세운다. 그룹 일시정지를 사용자 일시정지로 잘못 기록하지 않게 하기 위해서다.
+- 동작 줄이기 상태에서도 화면을 벗어나면 일시정지한다. 다시 들어왔을 때 이어 재생하지는 않는다(자동 재생으로 보기 때문이다). 클릭으로 재생한 영상도 같은 규칙을 따른다.
+- 화면 가운데에 오는 순간 facade를 iframe으로 바꾸는 일은 effect가 아니라 렌더 중 state 조정으로 처리한다(`react-hooks/set-state-in-effect` 규칙). 명령과 claim은 `useEffectEvent`(React 19.2)로 보낸다.
+
+#### 브라우저 확인(프로덕션 빌드, Render 흉내 서버 :5199, 확인 뒤 종료)
+
+- 구조: H2 6개(마지막 "홈 화면에 추가하는 방법"). `main`의 마지막 자식은 `#install`이다. `#video`의 버튼은 1개(사용 방법)다. 두 maxres 썸네일 모두 1280×720으로 실재한다. 아이콘 currentSrc는 40/80 WebP다. Footer 링크 두 개의 히트 영역은 각각 89.97×44, 44.98×44다.
+- 포커스(실제 Tab, 375/820/1180/1440): 장식 span이 img 뒤에 있다. `box-shadow` inset 4px `rgb(15,28,30)`, outline `solid 2px rgb(243,241,234) offset -8px`가 썸네일 위에 보인다.
+- 자동 재생(1440×900, 실제 YouTube 상태 메시지 기준):
+  - 가운데 → `mute=1` iframe, 상태 1, 포커스는 BODY에 그대로다.
+  - 맨 위 → 상태 2.
+  - 다시 가운데 → 상태 1.
+  - 맨 아래 → Install 상태 1, Video 상태 2.
+  - Video에 playVideo를 직접 보냄 → Video 1, Install 2(그룹 동작).
+- 820×1180 맨 아래: Install 영상은 top 620 / 가운데 590이라 가운데 선에 닿지 않는다. 그래도 보이는 비율 1.0이라 상태 1로 재생된다(0.9 규칙).
+- SW(제어 상태 확인 뒤):
+  - `/login`, `/some/spa/route` → `fromServiceWorker: true`(대조군).
+  - `/privacy.html`, `/privacy.html?v=2`, `/terms.html`, `/terms.html#section-3`, `/home.html?ref=kakao` → `fromServiceWorker: false`, 서버 문서가 그대로 온다.
+  - precache에 세 HTML이 없다. (대역 페이지가 없을 때 로컬 에뮬레이션 서버는 SPA 404 화면을 냈지만, 운영 Render는 text/plain 404다 — 위 "법적 고지" 정정 참고.)
+
+#### 오너 확인 남은 항목
+
+- `2RgyXWjlH9I` 영상 내용과 "홈 화면에 추가하는 방법" 제목이 맞는지 확인하고, 썸네일의 타사 표기 "IDEAi+"(D2-5)를 처리한다. YouTube 커스텀 썸네일로 바꾸는 것을 권장한다.
+- 글자 없는 앱 아이콘을 줄 수 있으면 주고, `public/privacy.html`·`public/terms.html`을 올린다. 개인정보처리방침에 YouTube(썸네일·스크롤 시 iframe 요청, D2-6)를 적는다.
+
+### 14.7 Round 2 사후 검수(design-agent, 2026-10-26)
+
+- 방법
+  - QA가 쓰는 `dist`를 건드리지 않으려고, 빌드를 scratchpad 경로(`--outDir`)로 따로 만들었다. 이 빌드를 `vite preview --port 5199`로 띄웠고, 검수가 끝난 뒤 종료했다.
+  - headless Chrome에서 375×812, 820×1180, 1180×820, 1440×900(DPR 2) 네 가지를 측정했다.
+  - facade 화면을 고정해 캡처하려고 `prefers-reduced-motion: reduce`를 켰다. 이 상태에서는 자동 재생이 막힌다.
+  - 실제 Tab 키로 포커스를 옮기며 캡처했다.
+
+#### 판정: **PASS with minor**(BLOCKER 0 · HIGH 0 · MEDIUM 0 · LOW 3)
+
+| 항목 | 결과 |
+|---|---|
+| Install 셸 | `#video`와 `#install` 안쪽 클래스가 같다(`LANDING_DARK_BAND_INNER`). padding은 56/56(1024 미만), 76/76(1024 이상)이고 gap 28, max-w 1000이다. 순서는 `top > why > how > video > demo > start > install > footer`이고, H2 6개 가운데 마지막이 "홈 화면에 추가하는 방법"이다. eyebrow, H2, subtitle 문구는 §14.1과 같다. |
+| 간격 | CTA 카드 아래의 밝은 띠(88)와 어두운 Install 띠, Footer hairline이 1440과 375 모두에서 자연스럽게 이어진다. Install 높이는 375에서 454, 820에서 684, 1180과 1440에서 840이다. |
+| 썸네일 | 4개 폭 모두 두 영상의 `maxresdefault`(1280w)를 불러왔다. 버튼 radius 22는 `rounded-[inherit]`가 적용된 결과다. |
+| 캡션 pill | `bg-landing-brand-deeper/80` 위에 `label/on-deep` 글자다. 높이는 28이다. 밝은 썸네일(1번)에서도 또렷하다. §14.2 측정 기준으로 최소 8.16:1이다. |
+| 재생 아이콘 ring | `ring-4 ring-landing-brand-deeper/80`이 밝은 UI 위에서 원의 윤곽을 만든다. 375와 1440 캡처에서 확인했다. |
+| 포커스 span | 두 facade 모두 마지막 자식 span(`aria-hidden="true"`)이 DOM 순서상 `img` 뒤에 있다. 실제 Tab 포커스에서 어두운 4px ring과 그 안쪽 밝은 2px outline이 썸네일 **위에** 그려진다. 4개 폭 모두 캡처로 확인했다. §14.0 BLOCKER는 해결되었다. |
+| 오너 아이콘 | Nav는 40px(radius 11), Why는 30px(radius 8)이고, 같은 80px WebP를 쓴다(data URI). 구워진 "수풀잉" 글자는 없다. 테두리 잔선은 L-12에 적었다. |
+| OG | 1200×630, 135,549 bytes. §14.4 배치(로고 카드 460 at 676/85, 배지·H1·설명 한 줄)와 같다. 그림자를 포함한 콘텐츠 범위가 y 81~587로 안전 영역(15~615) 안에 들어 있다. `og-landing.html`에 raw hex와 rgb가 0건이고, 색, 모서리, 그림자, 글꼴은 모두 토큰 변수다. 메타 7개(og:image, width, height, type, alt, twitter:card, twitter:image)를 확인했다. |
+| Footer 링크 | `/privacy.html`과 `/terms.html`을 같은 탭에서 연다. 보이는 크기는 90×18과 45×18이고 히트 영역은 90×44와 45×44다. 둘이 겹치지 않는다. 글자색은 `label/ink`(Footer 텍스트와 같음, 밑줄 없음)이고, 포커스 링은 `brand/deep` 2px에 offset 2px다. 4개 폭에서 확인했다. |
+| 가로 overflow | 4개 폭 모두 clip을 해제해도 `scrollWidth == clientWidth`다. |
+| 토큰 | `features/landing/*`와 `shared/ui/video-embed/*`에 raw hex와 rgb가 0건이다. 새로 생긴 임의 값은 계획에 있는 `outline-offset-[-8px]`과 `rounded-[inherit]`(키워드)뿐이다. |
+
+#### LOW
+
+| ID | 파일 | 근거 | 권장 수정 |
+|---|---|---|---|
+| L-12 | `assets/landing/app-icon-40.webp`, `app-icon-80.webp` | crop 시작선 y 4에 원본 청록 테두리가 **두 줄**(원본 y 4~5, `#9fc6cc`) 걸린다. 80px 결과물에서 0~1행이 청록색이다. 화면에서는 Nav 40px에서 약 0.7 CSS px, Why 30px에서 약 1 device px 두께로 아이콘 윗변에 옅은 청록 선이 남는다. §14.6에 적힌 "약 0.4px라 보이지 않는다"는 과소평가다. | 원본에서 **x 31~137, y 7~113(106×106)**으로 다시 자른다. y 6은 아직 청록과 흰색이 섞인 행이고, 글자 띠는 y 114부터 시작한다. 이 영역으로 40/80 WebP를 다시 만든다. 코드는 바꿀 필요가 없다. |
+| L-13 | `features/landing/SectionHeader.tsx`(subtitle `<p>`) | 375에서 Install subtitle이 "…추가하면 앱처럼 / **열려요.**"로 끊긴다. Video subtitle도 같은 구조다. | subtitle `<p>`에 `text-balance`를 준다. H2와 Step h3는 이미 같은 처리를 하고 있다. |
+| L-14 | `features/landing/LandingFooter.tsx`(링크 클래스) | 포커스 링이 글자에 바로 붙어 offset의 흰 띠가 글자 끝과 겹친다. Nav 링크도 같은 패턴이다. 기능에는 문제가 없다. | 링크에 `px-1 -mx-1`을 준다. 보이는 위치는 그대로 두고 링과 글자 사이에 여백만 생긴다. Nav 링크에도 같게 적용할지는 선택이다. |
+
+#### 오너 확인(디자인 범위 밖, §14.6과 같음)
+
+- 설치 영상의 썸네일에 타사 표기 "IDEAi+"가 있다. 영상 내용과 "홈 화면에 추가하는 방법"이 맞는지 확인이 필요하다.
+- 1번 썸네일 오른쪽 위에 **이전 앱 아이콘(글자 포함)**이 보인다. 오너가 YouTube 썸네일을 새로 만들 때 함께 바꾸기를 권장한다.
+
+---
+
+## 15. Stage QA (round 2)(stage-qa-agent, 2026-10-26)
+
+대상: 6849c94 위의 커밋 전 변경(Round 2: 썸네일, 가운데 자동 재생·일시정지, 한 번에 하나만 재생, Install 하단 이동, OG 이미지, 오너 아이콘, 푸터 법적 링크, SW denylist/globIgnores 일반화). 계획 `.omc/plans/landing-round2.md`, 구현 기록 §14.6. 제품 코드는 고치지 않았다. 변이 시험 뒤 제품 파일 해시와 `git diff`가 시험 전과 같다(이 문서만 다른 에이전트의 추가로 달라졌다).
+
+### 15.1 판정: **STAGE CONDITIONAL PASS — FIX REQUIRED**(BLOCKER 0 · HIGH 0 · MEDIUM 2 · LOW 8)
+
+동작은 실제 브라우저에서 요구대로 확인했다. 막는 것은 **오너가 말한 규칙을 지키는 자동 테스트의 공백**(MEDIUM 2)뿐이고, 제품 코드 수정은 필요 없다.
+
+### 15.2 게이트(저장소 루트)
+
+| 단계 | 결과 |
+|---|---|
+| typecheck | 0 |
+| lint | 0 |
+| test | **첫 실행과 §7.18.4 재실행 1회가 모두 실패**했고 세 번째에 통과했다. 1회차: web 123/125 파일(`figuresChatStep.integration` 5초 타임아웃·`waitFor`, `MyPage.figures` 5초 타임아웃), 2회차: 같은 두 파일(MyPage.figures는 다른 케이스). 둘 다 diff 밖이고 JSXGraph 지연 로딩 테스트다. 실패 시 기계 부하는 load 13~65(OneDrive File Provider·다른 프로젝트 Playwright가 CPU 점유). 두 파일 단독 3회 연속 통과(load 146 중에도), load 8에서 시작한 3회차 전체 실행 통과(api 71/1,045, web 125 파일/1,331). 규칙상 "첫 실행 0"은 충족하지 못했고 재실행 한도(1회)도 넘었다. 환경 부하로 판정하되 근거는 이 표다 |
+| build | 0. precache 11개, `main-*.js` 576.01kB·`global-*.js` 400.50kB는 Round 1과 바이트 수가 같아 랜딩 코드가 앱 번들에 섞이지 않았다. `sw.js`에 `home/privacy/terms.html` precache 항목 없음, denylist `/^\/(?:home|privacy|terms)\.html(?:[?#]|$)/`. `dist/og-landing.png` 포함 |
+
+### 15.3 요구사항별 결과(브라우저는 Chromium 헤드리스, 실제 YouTube 응답, Render rewrite 에뮬레이션 서버 5198)
+
+| 요구 | 결과 | 증거 |
+|---|---|---|
+| 로드 시 썸네일 | PASS | 로드 직후 iframe 0개, `i.ytimg.com` maxres 2건(둘 다 1280×720), youtube(nocookie) 요청 0건 |
+| 가운데 자동 재생(음소거) | PASS | 가운데 도달 → iframe `…&enablejsapi=1&origin=http%3A%2F%2Flocalhost%3A5198&mute=1`, 플레이어 상태 1, `document.activeElement`는 BODY |
+| 벗어나면 일시정지, 히스테리시스 | PASS | 가운데 상태 1 → 50% 보임 상태 1 유지 → 10% 보임 상태 2 → 다시 50%에서도 상태 2 유지 → 가운데 복귀 상태 1 |
+| 한 번에 하나만 | PASS | 맨 아래로 이동 시 Install 1·Video 2. Install 재생 중 Video에 `playVideo`를 보내면 Video 1·Install 2(그룹) |
+| 사용자 일시정지 후 자동 재개 없음 | PASS | 화면 안에서 외부 `pauseVideo` → 상태 2, 위로 갔다 돌아와도 2 유지. 다시 재생시키면(상태 1) 이후 이탈·복귀에서 자동 재개됨 |
+| 동작 줄이기, 데이터 절약 | PASS | 둘 다 스크롤해도 iframe 0개. 클릭하면 `mute=1` 없는 iframe이 생기고 포커스가 iframe으로 이동 |
+| 자동 재생은 포커스를 옮기지 않음 | PASS | 자동 재생 두 경우 모두 `activeElement` = BODY |
+| Install이 페이지 맨 아래, 푸터 위 | PASS | DOM 순서 CTA → `#install` → footer(변이 L3이 잡음). H2 6개. `#video`에는 사용 방법 영상만 |
+| 막힌 지점 배지 불변 | PASS | `DemoSection`/`LandingBadge` 변경 없음(git status에 없음) |
+| OG | PASS | `og-landing.png` 1200×630 PNG 135,549B, `og:image`는 절대 URL, width/height/type/alt, `twitter:card=summary_large_image`, `twitter:image`. 이미지를 직접 열어 확인(제목·로고 카드, 잘림 없음) |
+| 오너 아이콘 | PASS | Nav와 Why가 `app-icon-40/80.webp` srcset을 쓴다. `app-icon-120.webp` 삭제, 코드 참조 없음(테스트에서 부재 단언) |
+| 푸터 링크 | PASS | `/privacy.html`, `/terms.html`, 같은 탭. 클릭 시 해당 문서로 이동 |
+| SW denylist·globIgnores | PASS | SW 활성 상태에서 `/privacy.html`, `/privacy.html?x`, `/terms.html`, `/terms.html#y`, `/terms.html?a=1#y`, `/home.html`, `/home.html?ref=kakao`, `/home.html#video` 모두 `fromServiceWorker=false`로 서버 문서가 온다(대역 페이지 사용). `/login`, 없는 경로, `/privacy`, `/privacy.html/`는 SW가 SPA로 응답(기존 동작). precache의 html은 `index.html` 하나 |
+
+### 15.4 보안
+
+- `postMessage`는 `youTubePlayerMessages.ts` 한 곳에서만 호출하고 targetOrigin은 항상 `https://www.youtube-nocookie.com`이다(`*` 없음, 변이 S1이 잡음). 수신은 `event.origin`, `iframe` 존재, `event.source === iframe.contentWindow`를 모두 확인하고 파싱 오류는 무시한다(변이 S2, S3, S3b 모두 잡음).
+- 도메인은 nocookie 유지(변이 S4가 9개 테스트 실패), `origin` 파라미터는 `encodeURIComponent(window.location.origin)`(S5a/b/d 모두 잡음), `enablejsapi=1`(S5c 잡음). `allow`, `referrerpolicy`, `allowFullScreen` 유지.
+- 새 의존성 없음, 비밀값·`dangerouslySetInnerHTML`·`console`·`eslint-disable` 0건. `shared/ui/video-embed`는 랜딩 토큰을 알지 못한다.
+- 개인정보: 이제 **클릭 전에도** `i.ytimg.com`(Google)으로 썸네일 요청이 나간다(D2-6, 오너 수용). 방침 문서에 YouTube 항목이 있어야 한다.
+
+### 15.5 변이 시험(제품 파일 백업 → 변이 → `video-embed`·`lib/dom`·`pages/landing`·`app/landing` 테스트 → 복원)
+
+잡힘(대표): 가운데 rootMargin 변경, 재생 비율 0.9를 1.1·0.5로, 비율 분기 제거, 일시정지 비율 0.25→0.05, 사용자 일시정지 재개 방지 제거·기록 제거, 그룹 claim 무동작, 클릭 claim 제거, 이탈 시 pause 제거, 자동 재생 음소거 제거, 포커스(자동 재생이 포커스 이동 / 클릭이 포커스 안 옮김), 동작 줄이기·데이터 절약·IntersectionObserver 가드 제거, 썸네일(오류 무시·자리표시 폭 검사 제거·fallback 후보 제거·maxres/hq 바꿈·URL 오류), denylist 3종과 해시 분기, STATIC_HTML_PAGES의 privacy·terms 제거, spread 제거, 푸터 두 href, Install 순서, Install 영상 id, 아이콘 srcset, `og:image` 상대경로·`twitter:card`·width·`twitter:image`·type, PNG IHDR 폭 1바이트 변경.
+
+**살아남음(테스트 공백)**
+
+| ID | 변이 | 의미 |
+|---|---|---|
+| T-1 | `autoplayOnView`를 **Install에서 제거**, **Video에서 제거** | 랜딩 두 영상의 자동 재생 연결을 보는 테스트가 없다. 오너 핵심 기능이 조용히 꺼질 수 있다 |
+| T-2 | `LandingPage`에서 `YouTubePlaybackGroup` 제거 | 랜딩의 "한 번에 하나만"이 통째로 빠져도 통과 |
+| T-3 | 일시정지 비율 0.25→0.5, 히스테리시스 제거(`ratio !== null`만) | 25~90% 구간 "재생 중이면 유지" 테스트가 없다(현 테스트는 facade 상태에서 iframe이 안 생기는 것만 본다) |
+| T-4 | `centerHit` 제거(`shouldPlay`가 비율 분기만) | 가운데 선 규칙을 비율 1과 따로 시험하지 않는다(`enterCenter`가 항상 비율 1을 같이 보낸다) |
+| T-5 | 그룹 claim이 **자기 자신도** 멈춤 | 그룹 테스트가 A가 멈추는 것만 보고 B가 멈추지 않는 것은 안 본다 |
+| T-6 | `thumbnailFallbackSrc`를 랜딩에서 전달하지 않음 | 랜딩의 hq fallback 연결 무테스트 |
+| T-7 | "재생 상태 1일 때 claim", "구역 진입 시 claim" 제거, 이탈 중 일시정지도 사용자 일시정지로 기록 | 다른 경로가 같은 효과를 내거나 경계 사례. 낮은 위험 |
+
+위 공백의 실제 동작은 15.3의 브라우저 시험으로 확인했으므로 **현재 제품 동작은 맞다**. 문제는 이후 수정이 조용히 깨뜨릴 때 잡히지 않는다는 점이다.
+
+### 15.6 이슈
+
+**MEDIUM**
+
+| ID | 내용 | 필요한 수정(테스트만) |
+|---|---|---|
+| M-R2-1 | T-1, T-2, T-6: 랜딩 연결 테스트 공백 | `LandingPage.test`에서 IntersectionObserver를 스텁하고, Video·Install 두 영상이 각각 가운데 진입 시 iframe(`mute=1`)을 만드는지, 한쪽 재생 시 다른 쪽에 pauseVideo가 가는지, 썸네일 오류 시 hq로 바뀌는지 단언 |
+| M-R2-2 | T-3, T-4, T-5: 재생 규칙 테스트 공백 | `YouTubeEmbed.test`에 ① 재생 중 비율 0.5에서 pauseVideo가 가지 않음 ② 0.1이면 감 ③ 가운데만 닿고 비율 0.5일 때 재생 ④ claim 뒤 claim한 영상에 pauseVideo가 가지 않음을 추가 |
+
+**LOW**
+
+| ID | 내용 |
+|---|---|
+| L-R2-1 | 게이트 환경 불안정(15.2). 도형 지연 로딩 테스트 2개(`figuresChatStep.integration`, `MyPage.figures`)가 부하 13 이상에서 연속 실패했다. Round 1에서도 같은 파일이 한 번 실패했다. 랜딩 diff와 무관하지만 반복되므로 후속에서 타임아웃 여유나 병렬 수를 검토할 만하다 |
+| L-R2-2 | 운영 도메인 확인(읽기 요청): `/privacy.html`, `/terms.html`, `/home.html`, `/og-landing.png`가 모두 **text/plain 404**다(미배포). §14.6과 계획은 "SPA 404 화면"이라고 적었지만 Render는 없는 `.html`에 rewrite를 하지 않고 일반 404를 돌려준다. 법적 페이지를 올리기 전에 푸터를 공개하면 사용자는 빈 "Not Found"를 본다. **공개 전 두 페이지 업로드 필수** |
+| L-R2-3 | 카카오톡·페이스북은 OG 이미지를 캐시한다. 배포 직후 미리보기가 안 나오면 각 서비스의 캐시 초기화 도구를 쓴다 |
+| L-R2-4 | `expectingPause`: 이미 재생 중이 아닌 상태(버퍼링 등)의 플레이어에 `pauseVideo`를 보내면 일시정지 알림이 안 와서 플래그가 남고, 이후 진짜 사용자 일시정지 한 번을 놓칠 수 있다(구현은 마지막 상태가 2인 경우만 예외 처리). 최악의 결과는 자동 재개 한 번 |
+| L-R2-5 | iframe `load` 시점에 `playerReady=true`로 보고 보류 명령을 보낸다. onReady 전에 보낸 pause는 플레이어가 무시할 수 있다(undocumented 채널, 계획 위험 항목) |
+| L-R2-6 | 맨 아래 Install 영상이 90% 규칙으로 재생되는 것은 1440×900에서만 확인했다. 820×1180은 §14.6 개발 측 확인에 의존 |
+| L-R2-7 | `Install` 영상 썸네일의 타사 표기(IDEAi+)와 영상 내용 일치 여부는 오너 확인 항목이다(D2-5) |
+| L-R2-8 | 앱 아이콘은 168px 원본의 crop이다. 글자 없는 원본을 받으면 두 파일만 교체 |
+
+### 15.7 NOT VERIFIED
+
+- 실제 iPad Safari의 음소거 자동 재생, IntersectionObserver 가운데 선 동작, iOS 저전력 모드: NOT VERIFIED — PHYSICAL DEVICE TEST REQUIRED(WebKit 헤드리스는 구조 확인에만 썼고 YouTube 자동 재생 시험은 하지 않았다)
+- 카카오톡·페이스북·X의 OG 미리보기 렌더(미배포)
+- 운영 도메인의 `/home.html`, `/privacy.html`, `/terms.html`, `/og-landing.png`(미배포·미업로드)
+- 썸네일 위 캡션 pill 대비와 포커스 링의 시각 판정(design-agent 범위)
+
+### 15.8 다음 단계 전 필수 수정
+
+1. M-R2-1, M-R2-2: 위 테스트 추가(제품 코드 변경 없음). 재검증은 해당 변이(T-1~T-6) 재시험이면 충분하다.
+2. 공개 전: `public/privacy.html`, `public/terms.html` 업로드(L-R2-2), 방침에 YouTube 항목 포함.
+
+### 15.9 수정 반영(development-agent, 2026-10-26)
+
+- **M-R2-1:** `LandingPage.test`에 IntersectionObserver 대역을 넣었다(공용 `src/test/youTubeTestUtils.ts`, 대상별 조종 `controlsFor`). 다음을 단언한다.
+  - Video·Install 각각 관찰자 2개가 있고, 가운데 진입 시 `mute=1` iframe이 생긴다.
+  - Install이 재생을 시작하면, 화면을 벗어나지 않은 Video에 pauseVideo가 간다.
+  - 두 영상 모두 maxres 오류 시 hq로 바뀐다.
+- **M-R2-2:** `YouTubeEmbed.test`에 다음을 추가했다.
+  - 재생 중 비율 0.5와 경계값 0.25에서는 pauseVideo가 없고, 0.1에서는 보낸다.
+  - 비율 0.5에 가운데 선만 닿아도 재생한다.
+  - claim한 영상 자신에게는 pauseVideo가 가지 않는다.
+- **변이 재시험:** T-1a/1b, T-2, T-3a(0.25→0.5)/3b(히스테리시스 제거), T-4, T-5, T-6과 아래 두 수정의 역변이 M-7, M-8, 모두 10/10을 잡았다. 처음에는 T-3a를 놓쳤는데(0.5에서 `0.5 < 0.5`가 거짓), 0.25 경계 단언을 더해 잡았다. 변이는 모두 복원했다.
+- **L-R2-4:** 우리가 보낸 pauseVideo의 일시정지 알림을 2초(`EXPECTED_PAUSE_WINDOW_MS`)만 기다린다. 시간이 지나면 `expectingPause`가 풀린다. 재생 상태 알림이 와도 풀린다.
+- **L-R2-5:** iframe `load`는 더 이상 준비 신호가 아니다.
+  - 준비는 onReady 또는 상태 알림(플레이어가 이미 듣고 있음)으로 판단한다.
+  - 보류 명령은 준비될 때 보내고 비운다.
+  - `load` 때는 보류 중인 `playVideo`만 미리 보낸다(onReady가 안 오는 환경 대비). 준비되면 한 번 더 보낸다.
+- **L-R2-6:** 프로덕션 빌드 실기 재확인(Chrome, 실제 YouTube 상태 메시지).
+  - 820×1180 맨 아래에서 Install 영상은 top 620 / 가운데 590이라 가운데 선에 닿지 않는다. 그래도 보이는 비율 1.0으로 상태 1(재생)이다.
+  - 1440×900에서 가운데 재생, 맨 위 일시정지, 다시 재생, Install 재생 시 Video 일시정지, 그룹 동작 모두 L-R2-5 수정 뒤에도 그대로다.
+- **L-12:** x 31~137, y 7~113(106×106)으로 다시 잘라 `app-icon-40.webp`·`app-icon-80.webp`를 다시 만들었다. 윗변 가운데는 흰색이다. 네 귀퉁이 몇 픽셀만 원본 둥근 테두리에 걸리는데, CSS radius가 잘라 낸다.
+- **L-13:** SectionHeader subtitle에 `text-balance`를 주었다. 375에서 "열려요."만 한 줄에 남던 줄바꿈이 두 줄로 고르게 나뉜다.
+- **L-14:** Footer 법적 링크에 `-mx-1 px-1`을 주었다. 히트 영역은 97.97×44, 52.98×44다.
+- **법적 페이지 404 정정:** §14.6 "법적 고지" 항목을 운영 기준(text/plain 404, 공개 전 업로드 필수)으로 고쳤다.
+
+### 15.10 재검증(stage-qa-agent, 2026-10-26, §15.9 수정 반영 뒤)
+
+**판정: STAGE CONDITIONAL PASS — FIX REQUIRED**(BLOCKER 0 · HIGH 0 · MEDIUM 1 · LOW 이월 + 신규). Round 2 MEDIUM 2건(M-R2-1, M-R2-2)은 **해결**됐고 동작도 실제 브라우저에서 그대로다. 새로 도입한 L-R2-5 로직에서 같은 종류의 테스트 공백 1건이 남았다(제품 코드 수정 불필요).
+
+| 항목 | 결과 |
+|---|---|
+| 게이트 | 첫 실행에서 전부 0. typecheck 0, lint 0, test 0(api 71/1,045, web 125 파일/1,340, load 56 중에도 통과), build 0(precache 11, 랜딩 세 HTML 항목 없음, denylist 유지, `main-*.js` 576.01kB·`global-*.js` 400.50kB 불변) |
+| T-1 ~ T-6 독립 재시험 | 전부 잡힘: T-1a/b(두 영상 `autoplayOnView` 제거), T-2(`YouTubePlaybackGroup` 제거), T-3a(0.25→0.5)·3b(히스테리시스 제거)·3c(0.25→0.1), T-4(`centerHit` 제거), T-5(claim이 자신도 멈춤), T-6(landing hq fallback 미전달). T-7b(진입 시 claim)도 이번에는 잡힘 |
+| 복원 | 변이 34개 시험 뒤 변경·untracked 파일 해시와 `git diff`가 시험 전과 동일 |
+| 실기기 아님 · 라이브 점검(Chromium, 실제 YouTube 상태, 5198) | 1440×900과 820×1180 모두 같은 결과. 로드 시 iframe 0 → 가운데 도달 `mute=1`·상태 1·포커스 BODY → 맨 위 상태 2 → 다시 가운데 상태 1 → 맨 아래 Install 1·Video 2 → Video에 `playVideo`를 보내면 Video 1·Install 2. 820×1180 맨 아래에서도 Install 재생(90% 규칙) 확인. 히스테리시스(가운데 1 → 50% 1 → 10% 2 → 50% 2 유지 → 가운데 1)와 사용자 일시정지 후 자동 재개 없음(재생 후 재개 복구)도 그대로 |
+
+**L-R2-4 / L-R2-5 변이 결과**: 잡힘 — 창 타이머 제거, 창 3,600,000ms, load가 곧 준비(옛 동작), load 때 보류 pause 전송, 상태 메시지가 준비로 인정 안 됨, ready 메시지가 준비로 인정 안 됨, 준비 시 보류 명령 버림, 보류 명령 미저장.
+
+| ID | 내용 |
+|---|---|
+| **M-R3-1 (MEDIUM)** | 생존: **`postListening` 호출 삭제(L5j)**. L-R2-5로 준비 판단이 onReady·상태 메시지에만 의존하게 되어 `listening`을 안 보내면 YouTube가 아무 메시지도 안 보내 보류 pause가 영영 안 나간다(영상이 화면을 벗어나도 안 멈춤). 이전에는 load 폴백이 가려 줬다. 같은 구역의 생존: 로드 후 요청된 pause를 곧바로 보내는 변이(L5g, 정확히 L-R2-5가 막으려던 동작), load 때 playVideo 미리 보내기 제거(L5h). 수정(테스트만): iframe `load` 때 nocookie targetOrigin으로 `{event:"listening",channel:"widget"}`가 간다, load 직후·준비 전 `pauseVideo`는 전송되지 않고 첫 상태 메시지 뒤에 나간다, 준비 전 보류 `playVideo`는 load 때 먼저 간다 |
+| LOW | 생존(L-R2-4 쪽): 창 1ms로 줄여도 통과(조기 만료 경계 미시험), 재생 상태·일시정지 알림이 플래그를 푸는 경로(L4d/e), 이미 멈춘 플레이어는 플래그 안 세움(L4f), 플래그 자체를 안 세워도 통과(L4g — 그룹이 멈춘 영상이 화면 안에 남아 있을 때 사용자 일시정지로 오인되어 자동 재개가 안 되는 경우), 언마운트 타이머 해제(L4h). 영향은 자동 재개 한 번 놓치는 정도. 보류 명령 비우기 누락(L5f)도 생존 |
+| LOW(이월) | L-R2-1 게이트 환경 부하(이번엔 재현 없음), L-R2-2 운영 404·법적 페이지 업로드, L-R2-3 OG 캐시, L-R2-7·8 오너 확인. 새 가설: 화면을 막 벗어난 영상의 늦은 "재생" 알림이 claim으로 이미 재생 중인 다른 영상을 멈출 수 있는 경합(빠른 스크롤, 미재현) |
+
+NOT VERIFIED: 실제 iPad Safari·iOS 저전력 모드(PHYSICAL DEVICE TEST REQUIRED), 운영 배포 후 `/home.html`·`/privacy.html`·`/terms.html`·`/og-landing.png`, OG 미리보기 렌더, 디자인 L-12/13/14의 시각 판정(design-agent).
+
+**다음 단계 전 필수**: M-R3-1 테스트 추가. 재검증은 변이 L5g, L5h, L5j 재시험이면 충분하다. 공개 전에는 법적 두 페이지 업로드(L-R2-2)가 여전히 필요하다.
+
+### 15.11 M-R3-1 수정 반영(development-agent, 2026-10-26)
+
+- 테스트만 추가했다(`YouTubeEmbed.test.tsx`, 7건). 제품 코드는 바꾸지 않았다.
+  1. iframe load 때 nocookie targetOrigin으로 `{event:"listening", id(비어 있지 않은 문자열), channel:"widget"}`를 한 번 보낸다.
+  2. load 뒤·준비 전 `pauseVideo`는 보내지 않는다. 첫 onReady 때 정확히 한 번 가고, 이후 onReady·상태 메시지로는 다시 가지 않는다.
+  3. 상태 메시지(첫 알림)도 준비 신호라서, 보류된 `pauseVideo`가 한 번 간다.
+  4. load 뒤·준비 전 `playVideo`는 미리 간다.
+  5. 준비 때 보류 명령을 비운다. 그 뒤 onReady, 상태 메시지, iframe `load` 재발생이 와도 다시 보내지 않는다.
+  6. L4g: 그룹이 멈춘 영상이 화면 안에 있는 동안 받은 일시정지 알림은 사용자 일시정지로 기록되지 않는다. 다시 화면에 들어오면 playVideo가 간다.
+  7. L4h: 일시정지 대기 타이머가 언마운트 때 해제된다(fake timer 개수 1 → 0).
+- 변이 재시험(백업 → 변이 → video-embed·lib/dom·pages/landing·app/landing 테스트 → 복원). 모두 잡았다.
+  - L5j(`postListening` 삭제)
+  - L5g(준비 전 pause 즉시 전송)
+  - L5h-a(load 때 보류 playVideo 제거)
+  - L5h-b(load 뒤 playVideo 미리 전송 제거)
+  - L5f(준비 때 보류 비우기 누락)
+  - L4g(플래그 미설정)
+  - L4h(언마운트 해제 누락)
+  - L5f는 `markPlayerReady`가 이미 준비됐으면 바로 돌아오기 때문에 "다음 준비 메시지"로는 드러나지 않는다. 남은 보류 명령은 iframe `load`가 다시 올 때 다시 보내지므로, 그 경로로 단언한다.
+- 복원 뒤 대상 테스트는 89/89다.
+
+### 15.12 최종 재검증(stage-qa-agent, 2026-10-26, §15.11 M-R3-1 수정 뒤)
+
+**최종 판정: STAGE PASS — READY FOR NEXT STAGE**(BLOCKER 0 · HIGH 0 · MEDIUM 0 · LOW 이월). M-R3-1은 해결됐다. 제품 코드는 바뀌지 않았다(빌드 산출물 해시 `main-DQYVuLwG`, `global-OH8_r4CV`가 직전 재검증과 같다).
+
+| 항목 | 결과 |
+|---|---|
+| 독립 변이 재시험 | 잡힘: L5j(`postListening` 삭제), L5g(준비 전 pause 즉시 전송), L5h(load 뒤 playVideo 미리 전송 제거)와 L5h-b(load 때 보류 playVideo 전송 제거), L5f(준비 때 보류 비우기 누락), L4g(플래그 미설정), L4h(언마운트 타이머 해제 누락). 덤으로 L4a/L4b(창 타이머), L5a~L5e, L5i도 잡힘 |
+| 복원 | 변이 19개 뒤 `git diff`와 변경·untracked 파일 해시 전부 동일 |
+| 게이트 | 첫 실행 전부 0. typecheck 0, lint 0, test 0(api 71/1,045, web 125 파일/1,347), build 0(precache 11, main 576.01kB·global 400.50kB 불변) |
+
+남은 LOW(차단 아님): L4c(창을 1ms로 줄여도 통과: 조기 만료 경계 미시험), L4d/L4e(재생·일시정지 알림이 플래그를 푸는 경로), L4f(이미 멈춘 플레이어는 플래그 안 세움). 영향은 자동 재개 한 번 놓치는 정도. 이월: L-R2-1 환경 부하, L-R2-2 운영 404·법적 페이지 업로드(공개 전 필수), L-R2-3 OG 캐시, L-R2-7·8 오너 확인, 막 벗어난 영상의 늦은 "재생" 알림 경합(미재현 가설).
+
+NOT VERIFIED: 실제 iPad Safari·iOS 저전력 모드(PHYSICAL DEVICE TEST REQUIRED), 운영 배포 후 `/home.html`·`/privacy.html`·`/terms.html`·`/og-landing.png`와 OG 미리보기, 디자인 L-12/13/14 시각 판정(design-agent). 라이브 동작(자동 재생·일시정지·그룹·히스테리시스)은 직전 재검증(§15.10)에서 확인했고, 이후 제품 코드가 바뀌지 않았다.

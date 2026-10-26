@@ -1,6 +1,6 @@
-import appIconUrl from "../../assets/landing/app-icon-120.webp";
 import wordmarkUrl from "../../assets/landing/wordmark.png";
 import { LandingButton } from "./LandingButton";
+import { LANDING_APP_ICON_SRC, LANDING_APP_ICON_SRCSET } from "./landingAppIcon";
 import { LANDING_CONTAINER, LANDING_FOCUS_RING, LANDING_HIT_AREA } from "./landingStyles";
 
 const NAV_LINKS = [
@@ -28,7 +28,14 @@ export function LandingNav() {
           aria-label="수풀잉 홈"
           className={`flex items-center gap-2.5 rounded-landing-icon ${LANDING_HIT_AREA} ${LANDING_FOCUS_RING}`}
         >
-          <img src={appIconUrl} alt="" width={40} height={40} className="rounded-landing-icon size-10" />
+          <img
+            src={LANDING_APP_ICON_SRC}
+            srcSet={LANDING_APP_ICON_SRCSET}
+            alt=""
+            width={40}
+            height={40}
+            className="rounded-landing-icon size-10"
+          />
           <img src={wordmarkUrl} alt="" width={68} height={26} className="h-[26px] w-auto" />
         </a>
         <nav aria-label="주요 메뉴" className="flex items-center gap-2 md:gap-[22px]">

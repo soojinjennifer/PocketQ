@@ -32,3 +32,10 @@ export const LANDING_CANVAS_SURFACE = "bg-bg-canvas border border-landing-border
 
 /** 본문(`Landing/Body L` 17/1.65). */
 export const LANDING_BODY_L = "text-base leading-[1.65] md:text-[17px]";
+
+/**
+ * `brand/deep` 띠 섹션(Video·Install)의 안쪽 셸(Figma `447:78`, 최대 폭 1000). 바깥 `bg-landing-brand-deep`은
+ * 섹션 의미 클래스라서 각 섹션에 둔다(§14.1).
+ */
+export const LANDING_DARK_BAND_INNER =
+  "mx-auto flex w-full max-w-[1000px] flex-col gap-7 px-6 py-14 lg:py-[76px]";

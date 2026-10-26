@@ -59,7 +59,7 @@ export function SectionHeader({
       </h2>
       {subtitle ? (
         <p
-          className={`m-0 text-base leading-[1.5] ${isDark ? "text-landing-label-on-deep-secondary" : "text-landing-label-ink"}`}
+          className={`m-0 text-base leading-[1.5] text-balance ${isDark ? "text-landing-label-on-deep-secondary" : "text-landing-label-ink"}`}
         >
           {subtitle}
         </p>
