@@ -6,6 +6,7 @@ import { resolveAdapter } from "./infrastructure/ai/resolve-adapter";
 import type { CasClient } from "./infrastructure/cas/casClient";
 import { resolveCasClient } from "./infrastructure/cas/resolveCasClient";
 import { errorHandler } from "./middleware/error-handler";
+import { createAccountRouter } from "./modules/account/account.router";
 import { createChatRouter } from "./modules/chat/chat.router";
 import { createDiagnosisRouter } from "./modules/diagnosis/diagnosis.router";
 import { healthRouter } from "./modules/health/health.router";
@@ -41,6 +42,7 @@ export function createApp(
   app.use("/api", createChatRouter(adapter));
   app.use("/api", createSuggestionsRouter(adapter));
   app.use("/api", createProblemsRouter());
+  app.use("/api", createAccountRouter());
   app.use("/api", createWorkRouter(adapter));
   app.use("/api", createDiagnosisRouter(adapter, casClient));
   app.use("/api", createResumeRouter(adapter, casClient));

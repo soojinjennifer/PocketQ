@@ -51,3 +51,5 @@
 | 컴포넌트 | Figma 인스턴스명 | Figma 위치 | 비고 |
 |---|---|---|---|
 | 알림 팝업 | `Popup/Register`, `Popup/Login`, `Popup/Emailcheck` | [Figma 열기](https://www.figma.com/design/ltyPrCk8UT8DsB3tFuw7Sr/MathService?node-id=97-309&t=LrZQeZ022Z7LUbtl-4) (`Popup` 섹션, node `97:309`) | 2026-08-01 실측. 회원가입 완료/로그인 완료/이메일 인증 대기 3종. `shared/ui/modal`로 컴포넌트화(`docs/COMPONENT_MAP.md` 참고). **2026-08-18 재조사**: AUTH-9/AUTH-10(이메일/비밀번호 찾기) 팝업 4종+새 비밀번호 설정 팝업은 이 `Popup` 섹션에 대응 프레임이 없음을 확인 — Figma 미디자인 상태로 오너 승인 하에 임시 구현됨, 상세는 `docs/COMPONENT_MAP.md` §1 참고 |
+| 가입 동의 게이트 (PRD AUTH-11, Gate A) | **없음 — Figma 프레임 없음, 임시 구현** | — | 2026-10-26. 별도 라우트가 아니다 — `ProtectedRoute`가 인증됐지만 동의 기록이 없는 사용자에게 보호 라우트(`/grade-setup`, `/solve/*`, `/mypage`, `/camera`, `/camera/preview`)의 원래 화면 대신 같은 경로에서 렌더한다. `2. Grade Setup`(`37:30`)·`0. Register/Desktop`(`83:138`) 실측과 기존 공용 컴포넌트만으로 구성한 임시 화면(D7). 정식 프레임이 생기면 사후 재검수한다(C-8). 상세 `docs/SIGNUP_CONSENT_DESIGN.md`, 컴포넌트 `docs/COMPONENT_MAP.md` §2 `SignupConsentGate` |
+| 만 14세 미만 안내 팝업 | **없음 — Figma 프레임 없음, 임시 구현** | `Popup` 섹션 `97:309`의 2버튼 구조 재사용 | 2026-10-26. 가입 동의 게이트 위 `shared/ui/modal`(`icon="error"`, "삭제하고 나가기"/"취소", 초기 포커스 취소). 파괴적 액션 색상(C-5)은 결정 필요 |

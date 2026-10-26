@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { supabase } from "../../shared/lib/supabase/client";
 import { createFakeSession } from "../../test/supabaseTestUtils";
+import { buildSignupConsentMetadata } from "./signupConsent";
 import { useAuthActions } from "./useAuthActions";
 
 vi.mock("../../shared/lib/supabase/client", () => ({
@@ -120,6 +121,36 @@ describe("useAuthActions", () => {
       email: "new-student@example.com",
       password: "new-pw-123",
       options: { data: { nickname: "새싹" } },
+    });
+  });
+
+  it("이메일 가입 시 동의 기록을 넘기면 닉네임과 함께 options.data에 합쳐 signUp을 호출한다", async () => {
+    const session = createFakeSession();
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: session.user, session },
+      error: null,
+    });
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+    const consent = buildSignupConsentMetadata(new Date("2026-10-26T09:00:00.000Z"));
+
+    const { result } = renderHook(() => useAuthActions(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.signUpWithEmail("new-student@example.com", "new-pw-123", "새싹", consent);
+    });
+
+    expect(supabase.auth.signUp).toHaveBeenCalledWith({
+      email: "new-student@example.com",
+      password: "new-pw-123",
+      options: {
+        data: {
+          nickname: "새싹",
+          age14_confirmed_at: "2026-10-26T09:00:00.000Z",
+          terms_agreed_at: "2026-10-26T09:00:00.000Z",
+          privacy_agreed_at: "2026-10-26T09:00:00.000Z",
+          consent_policy_version: "2026-10-26",
+        },
+      },
     });
   });
 

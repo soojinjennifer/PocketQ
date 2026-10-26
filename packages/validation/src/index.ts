@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 export * from "./figures";
+export * from "./signupConsent";
 
 /**
  * 풀이·이어풀기 응답과 이력 상세의 도형 필드(선택). 외곽에서는 원소를 검사하지 않고 관대하게

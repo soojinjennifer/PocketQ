@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../shared/lib/supabase/client";
 import { getUserNickname } from "./getUserNickname";
+import type { SignupConsentMetadata } from "./signupConsent";
 import { startOAuthSignIn, type AuthActionResult, type OAuthProvider } from "./startOAuthSignIn";
 
 export type { AuthActionResult, OAuthProvider };
@@ -53,12 +54,21 @@ export function useAuthActions() {
     [],
   );
 
+  /**
+   * `consent`를 넘기면 가입 동의 기록(PRD AUTH-11)을 닉네임과 함께 `options.data`(→ `user_metadata`)에 저장한다.
+   * `/register` 이메일 폼은 체크리스트를 모두 고른 뒤에만 호출하므로 항상 넘긴다.
+   */
   const signUpWithEmail = useCallback(
-    async (email: string, password: string, nickname: string): Promise<SignUpActionResult> => {
+    async (
+      email: string,
+      password: string,
+      nickname: string,
+      consent?: SignupConsentMetadata,
+    ): Promise<SignUpActionResult> => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { nickname } },
+        options: { data: { nickname, ...consent } },
       });
       if (error) {
         const isAlreadyRegistered =

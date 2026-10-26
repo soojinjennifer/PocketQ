@@ -52,7 +52,7 @@ export function CtaSection({ onStartOAuth }: CtaSectionProps) {
             <p className={`text-landing-brand-deep m-0 ${LANDING_BODY_L}`}>
               PC에서, 혹은 iPad, 갤럭시 탭에서 열고, 홈 화면에 추가하면 앱처럼 써요.
               <br />
-              이메일·닉네임·학년만 받아요.
+              이메일·닉네임·학년과 동의 기록만 받아요.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <LandingButton

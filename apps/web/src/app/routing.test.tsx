@@ -186,6 +186,9 @@ describe("라우팅", () => {
     });
     fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
     fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: "password123" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 만 14세 이상입니다" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 이용약관에 동의합니다" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 개인정보처리방침에 동의합니다" }));
     fireEvent.click(screen.getByRole("button", { name: "이메일로 가입하기" }));
 
     // 레이스 컨디션 회귀 방지: signUp이 발급한 세션으로 인해 잠깐 authenticated 상태가 되더라도

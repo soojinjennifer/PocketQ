@@ -58,6 +58,8 @@ export type ErrorCode =
   | "provider_error"
   | "timeout"
   | "rate_limited"
+  /** 요청이 현재 리소스 상태와 충돌한다(예: 이미 가입 동의가 기록된 계정의 미동의 계정 삭제 요청, 409). */
+  | "conflict"
   | "internal_error";
 
 /** 이미지에서 줄 단위로 인식된 학생 풀이(WORK-2, 진단 전 인식 결과). */

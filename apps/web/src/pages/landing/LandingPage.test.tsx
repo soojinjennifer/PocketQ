@@ -53,6 +53,13 @@ describe("LandingPage", () => {
     expect(within(cta).getByText("iPad 가로 화면에 최적화되어 있어요")).toBeInTheDocument();
   });
 
+  it("CTA 본문은 동의 기록까지 포함한 수집 항목을 알린다(PRD AUTH-4)", () => {
+    render(<LandingPage />);
+    const cta = screen.getByRole("region", { name: /오늘 막힌 문제/ });
+    expect(within(cta).getByText(/이메일·닉네임·학년과 동의 기록만 받아요\./)).toBeInTheDocument();
+    expect(within(cta).queryByText(/학년만 받아요/)).toBeNull();
+  });
+
   it("#video에는 사용 방법 영상만, Install 섹션(CTA 다음·Footer 앞)에는 설치 영상을 facade로 그린다", () => {
     render(<LandingPage />);
     const video = screen.getByRole("region", { name: "직접 보면 바로 알아요" });

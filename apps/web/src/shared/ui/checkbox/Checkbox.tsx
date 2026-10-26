@@ -1,14 +1,26 @@
 import type { MouseEvent } from "react";
 
-interface CheckboxProps {
+interface CheckboxBaseProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  /** 스크린리더 전용 라벨. 화면에 별도 텍스트 라벨이 없는 아이콘형 체크박스라 필수로 받는다. */
-  "aria-label": string;
   /** 부모 요소(예: 클릭 가능한 행)로 클릭이 전파되지 않게 막고 싶을 때 추가로 넘긴다. */
   onClick?: (event: MouseEvent<HTMLInputElement>) => void;
+  /** 제출 중처럼 조작을 막아야 할 때. `Button primary`와 같은 `opacity-50` 비활성 표현을 쓴다. */
+  disabled?: boolean;
   className?: string;
 }
+
+/**
+ * 접근 가능한 이름은 둘 중 하나로만 준다(`docs/SIGNUP_CONSENT_DESIGN.md` §3.3).
+ * - 아이콘형(화면에 라벨 텍스트 없음, MyPage `HistoryRow`): `aria-label` 필수.
+ * - 보이는 라벨이 있는 경우(`<label htmlFor={id}>`, 가입 동의 체크리스트): `id`만 주고 `aria-label`은 금지한다.
+ *   `aria-label`이 보이는 문구를 덮어쓰면 WCAG 2.5.3(Label in Name) 위반이 된다.
+ */
+type CheckboxLabelProps =
+  | { "aria-label": string; id?: string }
+  | { id: string; "aria-label"?: never };
+
+type CheckboxProps = CheckboxBaseProps & CheckboxLabelProps;
 
 /**
  * 마이페이지 개선 3번(History Row 일괄 삭제) 전용 신규 공용 체크박스.
@@ -33,12 +45,15 @@ export function Checkbox({
   checked,
   onChange,
   onClick,
+  disabled = false,
   className,
   ...rest
 }: CheckboxProps) {
-  const wrapperClassName = className
-    ? `relative inline-flex h-6 w-6 shrink-0 items-center justify-center ${className}`
+  // 비활성 표현(`opacity-50`)은 체크 아이콘까지 함께 흐려지도록 input이 아닌 래퍼에 건다.
+  const baseClassName = disabled
+    ? "relative inline-flex h-6 w-6 shrink-0 items-center justify-center opacity-50"
     : "relative inline-flex h-6 w-6 shrink-0 items-center justify-center";
+  const wrapperClassName = className ? `${baseClassName} ${className}` : baseClassName;
 
   return (
     <span className={wrapperClassName}>
@@ -47,7 +62,8 @@ export function Checkbox({
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         onClick={onClick}
-        className="peer border-stroke-1 checked:border-brand-rest checked:bg-brand-rest bg-bg-elevated focus-visible:ring-brand absolute inset-0 h-6 w-6 cursor-pointer appearance-none rounded-[2px] border outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        disabled={disabled}
+        className="peer border-stroke-1 checked:border-brand-rest checked:bg-brand-rest bg-bg-elevated focus-visible:ring-brand absolute inset-0 h-6 w-6 cursor-pointer appearance-none rounded-[2px] border outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
         {...rest}
       />
       <svg

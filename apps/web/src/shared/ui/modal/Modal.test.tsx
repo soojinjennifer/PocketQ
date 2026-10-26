@@ -242,7 +242,9 @@ describe("Modal", () => {
       expect(second).toHaveAccessibleDescription("둘째 설명");
     });
 
-    it("className은 바뀌지 않는다(시각 변화 0)", () => {
+    // 가입 동의 게이트(2026-10-26, design-agent P2): 제목·설명에 `break-keep`만 추가됐다(한글 어절 단위 줄바꿈).
+    // 그 밖의 클래스는 그대로다.
+    it("className은 바뀌지 않는다(시각 변화 0, 제목·설명 break-keep 추가분 제외)", () => {
       const { rerender } = render(
         <Modal icon="check" title="제목" description="설명" actionLabel="확인" onAction={() => {}} />,
       );
@@ -252,15 +254,82 @@ describe("Modal", () => {
         "bg-bg-canvas border-modal-border w-[342px] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11)]",
       );
       expect(screen.getByRole("heading", { name: "제목" }).className).toBe(
-        "text-label-primary text-center text-[19px] font-bold",
+        "text-label-primary text-center text-[19px] font-bold break-keep",
       );
-      expect(screen.getByText("설명").className).toBe("text-modal-subtitle text-center text-sm");
+      expect(screen.getByText("설명").className).toBe("text-modal-subtitle text-center text-sm break-keep");
       expect(screen.getByText("설명").tagName).toBe("P");
 
       rerender(<Modal icon="check" title="제목" description="설명" wide actionLabel="확인" onAction={() => {}} />);
       expect(screen.getByRole("dialog", { name: "제목" }).className).toBe(
         "bg-bg-canvas border-modal-border w-[690px] max-w-[calc(100%-3rem)] overflow-hidden rounded-[28px] border shadow-[0px_6px_0px_0px_rgba(35,43,56,0.22),0px_18px_32px_0px_rgba(35,43,56,0.21),0px_34px_56px_0px_rgba(35,43,56,0.11),inset_0px_2px_0px_1px_rgba(255,255,255,0.9),inset_0px_-2px_0px_1px_rgba(35,43,56,0.07)]",
       );
+    });
+  });
+
+  describe("initialFocus", () => {
+    it("기본값은 기존과 같이 주 액션 버튼에 포커스를 준다(2버튼)", () => {
+      render(
+        <Modal
+          icon="error"
+          title="삭제할까요?"
+          description="설명"
+          actionLabel="삭제"
+          onAction={() => {}}
+          cancelLabel="취소"
+          onCancel={() => {}}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "삭제" })).toHaveFocus();
+    });
+
+    it("initialFocus='cancel'이면 취소 버튼에 포커스를 준다", () => {
+      render(
+        <Modal
+          icon="error"
+          title="삭제할까요?"
+          description="설명"
+          actionLabel="삭제"
+          onAction={() => {}}
+          cancelLabel="취소"
+          onCancel={() => {}}
+          initialFocus="cancel"
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
+    });
+
+    it("initialFocus='cancel'이라도 취소 버튼이 없는 1버튼 레이아웃이면 주 액션에 포커스를 준다", () => {
+      render(
+        <Modal icon="check" title="완료" description="설명" actionLabel="확인" onAction={() => {}} initialFocus="cancel" />,
+      );
+
+      expect(screen.getByRole("button", { name: "확인" })).toHaveFocus();
+    });
+
+    it("initialFocus='cancel'에서 Enter로 취소가 눌려도 주 액션은 실행되지 않는다", () => {
+      const onAction = vi.fn();
+      const onCancel = vi.fn();
+      render(
+        <Modal
+          icon="error"
+          title="삭제할까요?"
+          description="설명"
+          actionLabel="삭제"
+          onAction={onAction}
+          cancelLabel="취소"
+          onCancel={onCancel}
+          initialFocus="cancel"
+        />,
+      );
+
+      const focused = document.activeElement;
+      expect(focused).toBeInstanceOf(HTMLButtonElement);
+      fireEvent.click(focused as HTMLButtonElement);
+
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(onAction).not.toHaveBeenCalled();
     });
   });
 });

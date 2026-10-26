@@ -45,9 +45,9 @@ function renderRegisterPage() {
 }
 
 describe("RegisterPage", () => {
-  it("입력 필드는 닉네임/이메일/비밀번호 3개를 초과하지 않는다", () => {
+  it("입력 필드는 닉네임/이메일/비밀번호 3개를 초과하지 않는다(가입 동의 체크박스는 입력 필드가 아니다)", () => {
     renderRegisterPage();
-    const inputs = document.querySelectorAll("input");
+    const inputs = document.querySelectorAll("input:not([type='checkbox'])");
     expect(inputs).toHaveLength(3);
     expect(
       screen.getByPlaceholderText("제가 부를 수 있는 닉네임을 입력해 주세요"),
@@ -63,14 +63,73 @@ describe("RegisterPage", () => {
     expect(screen.getByRole("button", { name: "Google로 가입하기" })).toBeInTheDocument();
   });
 
+  function tickAllConsents() {
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 만 14세 이상입니다" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 이용약관에 동의합니다" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 개인정보처리방침에 동의합니다" }));
+  }
+
   function fillAndSubmit() {
     fireEvent.change(screen.getByPlaceholderText("제가 부를 수 있는 닉네임을 입력해 주세요"), {
       target: { value: "새싹" },
     });
     fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "student@example.com" } });
     fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: "password123" } });
+    tickAllConsents();
     fireEvent.click(screen.getByRole("button", { name: "이메일로 가입하기" }));
   }
+
+  it("하단 안내는 동의 기록까지 포함한 수집 항목을 알린다", () => {
+    renderRegisterPage();
+    expect(screen.getByText("가입하면 이메일·닉네임·학년과 동의 기록만 수집해요")).toBeInTheDocument();
+  });
+
+  it("가입 동의 체크리스트가 비밀번호 카드와 제출 버튼 사이에 있다", () => {
+    renderRegisterPage();
+    const password = screen.getByLabelText("비밀번호");
+    const firstCheckbox = screen.getByRole("checkbox", { name: "(필수) 만 14세 이상입니다" });
+    const submit = screen.getByRole("button", { name: "이메일로 가입하기" });
+
+    expect(password.compareDocumentPosition(firstCheckbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(firstCheckbox.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("group", { name: "가입 동의 (모두 필수)" })).toBeInTheDocument();
+  });
+
+  it("세 항목을 모두 고르기 전에는 제출 버튼이 비활성이고, 사유를 sr-only 안내로 연결한다", () => {
+    renderRegisterPage();
+    const submit = screen.getByRole("button", { name: "이메일로 가입하기" });
+
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription("세 항목에 모두 동의하면 시작할 수 있어요");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 만 14세 이상입니다" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 이용약관에 동의합니다" }));
+    expect(submit).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "(필수) 개인정보처리방침에 동의합니다" }));
+    expect(submit).toBeEnabled();
+    expect(submit).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("제출하면 signUp options.data에 닉네임과 동의 기록 4개 키를 함께 넘긴다", async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: createFakeSession().user, session: null },
+      error: null,
+    });
+
+    renderRegisterPage();
+    fillAndSubmit();
+
+    await screen.findByText("이메일 인증 대기중");
+    expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+    const [credentials] = vi.mocked(supabase.auth.signUp).mock.calls[0] ?? [];
+    const data = (credentials as { options?: { data?: Record<string, unknown> } }).options?.data ?? {};
+    expect(data["nickname"]).toBe("새싹");
+    expect(data["consent_policy_version"]).toBe("2026-10-26");
+    expect(typeof data["age14_confirmed_at"]).toBe("string");
+    expect(data["terms_agreed_at"]).toBe(data["age14_confirmed_at"]);
+    expect(data["privacy_agreed_at"]).toBe(data["age14_confirmed_at"]);
+  });
 
   it("가입 성공(세션 즉시 발급) 시 완료 팝업을 표시하고, 팝업 버튼 클릭 후에만 /login으로 이동한다", async () => {
     vi.mocked(supabase.auth.signUp).mockResolvedValue({

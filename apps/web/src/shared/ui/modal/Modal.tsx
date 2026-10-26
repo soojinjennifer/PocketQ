@@ -23,6 +23,13 @@ interface ModalProps {
   cancelLabel?: string;
   /** 취소 버튼 클릭 핸들러. `cancelLabel`과 함께 제공될 때만 2버튼(확인/취소) 레이아웃으로 전환된다. */
   onCancel?: () => void;
+  /**
+   * 마운트 시 포커스를 줄 버튼. 기본값 `"action"`은 기존 동작(주 액션)을 그대로 유지한다.
+   * 되돌릴 수 없는 동작을 확인하는 팝업(예: 미성년자 계정 삭제)은 Enter 한 번에 실행되지 않도록
+   * `"cancel"`을 넘긴다(WAI-ARIA APG, `docs/SIGNUP_CONSENT_DESIGN.md` §5 P1). 2버튼 레이아웃이 아니면
+   * 취소 버튼이 없으므로 `"action"`과 같게 동작한다.
+   */
+  initialFocus?: "action" | "cancel";
 }
 
 /**
@@ -39,7 +46,8 @@ interface ModalProps {
  * 일반 `role="dialog"`를 사용한다. 대화상자의 접근 가능한 이름은 제목(`h2`)을
  * `aria-labelledby`로 연결하고, `content` 슬롯이 없고 `description`이 비어 있지 않을 때만 설명 문단을
  * `aria-describedby`로 연결한다(id는 `useId`로 인스턴스마다 다르다). 마운트 시 하단 주 액션(확인) 버튼으로 포커스를 이동시켜
- * 키보드/스크린리더 사용자가 즉시 다음 동작을 취할 수 있게 한다.
+ * 키보드/스크린리더 사용자가 즉시 다음 동작을 취할 수 있게 한다(`initialFocus="cancel"`이면 취소 버튼).
+ * 제목·설명에는 `break-keep`을 걸어 한글이 어절 중간에서 줄바꿈되지 않게 한다.
  */
 export function Modal({
   icon,
@@ -51,8 +59,10 @@ export function Modal({
   onAction,
   cancelLabel,
   onCancel,
+  initialFocus = "action",
 }: ModalProps) {
   const actionButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const isError = icon === "error";
   const hasCancel = cancelLabel !== undefined && onCancel !== undefined;
   const titleId = useId();
@@ -63,7 +73,10 @@ export function Modal({
   const hasDescription = rendersDescription && description !== undefined && description.trim() !== "";
 
   useEffect(() => {
-    actionButtonRef.current?.focus();
+    const target = initialFocus === "cancel" ? (cancelButtonRef.current ?? actionButtonRef.current) : actionButtonRef.current;
+    target?.focus();
+    // 마운트 시 1회만 포커스를 옮긴다(이후 prop 변경으로 사용자의 포커스를 빼앗지 않는다).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -94,9 +107,9 @@ export function Modal({
               )}
             </div>
           )}
-          <h2 id={titleId} className="text-label-primary text-center text-[19px] font-bold">{title}</h2>
+          <h2 id={titleId} className="text-label-primary text-center text-[19px] font-bold break-keep">{title}</h2>
           {content ?? (
-            <p id={hasDescription ? descriptionId : undefined} className="text-modal-subtitle text-center text-sm">
+            <p id={hasDescription ? descriptionId : undefined} className="text-modal-subtitle text-center text-sm break-keep">
               {description}
             </p>
           )}
@@ -114,6 +127,7 @@ export function Modal({
             </button>
             <div className="bg-modal-divider w-px self-stretch" />
             <button
+              ref={cancelButtonRef}
               type="button"
               onClick={onCancel}
               className="text-modal-subtitle outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 flex-1 py-[15px] text-center text-[17px] font-semibold"

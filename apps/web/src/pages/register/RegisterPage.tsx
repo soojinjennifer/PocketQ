@@ -1,7 +1,14 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { useAuthActions, type OAuthProvider } from "../../features/auth/useAuthActions";
 import { useAuth } from "../../features/auth/useAuth";
+import { ConsentChecklist } from "../../features/auth/ConsentChecklist";
+import {
+  buildSignupConsentMetadata,
+  EMPTY_CONSENT_STATE,
+  isConsentComplete,
+  type ConsentState,
+} from "../../features/auth/signupConsent";
 import { Button } from "../../shared/ui/button/Button";
 import { InputGroup } from "../../shared/ui/input/Input";
 import { Logo } from "../../shared/ui/logo/Logo";
@@ -22,7 +29,7 @@ type RegisterModalState =
 
 /**
  * 최소 기술 회원가입 UI (Figma 최종 디자인 아님).
- * 닉네임/이메일/비밀번호 필드 3개, 이메일 가입 제출, Kakao/Google 소셜 가입,
+ * 닉네임/이메일/비밀번호 필드 3개, 가입 동의 체크리스트(필수 3항목, PRD AUTH-11), 이메일 가입 제출, Kakao/Google 소셜 가입,
  * 오류 메시지 영역, 로딩 인디케이터만 구현한다.
  * 가입 성공 시에는 즉시 이동하지 않고 완료/이메일 인증 대기 팝업을 띄운 뒤,
  * 팝업의 버튼 클릭 시점에 이동(또는 팝업 닫기만) 처리한다.
@@ -39,15 +46,21 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(null);
   const [modalState, setModalState] = useState<RegisterModalState>({ kind: "none" });
+  const [consent, setConsent] = useState<ConsentState>(EMPTY_CONSENT_STATE);
+  const consentHintId = useId();
 
   const isBusy = isSubmitting || pendingProvider !== null || modalState.kind !== "none";
+  const isConsentGiven = isConsentComplete(consent);
 
   const handleSignUp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isConsentGiven) {
+      return;
+    }
     setErrorMessage(null);
     setIsSubmitting(true);
     setHoldPublicRedirect(true);
-    const result = await signUpWithEmail(email, password, nickname);
+    const result = await signUpWithEmail(email, password, nickname, buildSignupConsentMetadata());
     setIsSubmitting(false);
     if (result.alreadyRegistered) {
       setHoldPublicRedirect(false);
@@ -151,17 +164,29 @@ export function RegisterPage() {
             ]}
           />
 
+          <ConsentChecklist
+            value={consent}
+            onChange={setConsent}
+            disabled={isBusy}
+            hintId={consentHintId}
+          />
+
           <div role="alert" aria-live="polite" className="min-h-5 text-sm">
             {errorMessage ? <span className="text-accent-orange">{errorMessage}</span> : null}
           </div>
 
-          <Button type="submit" variant="primary" disabled={isBusy}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={isBusy || !isConsentGiven}
+            aria-describedby={isConsentGiven ? undefined : consentHintId}
+          >
             이메일로 가입하기
           </Button>
         </form>
 
         <p className="text-label-tertiary text-center text-xs">
-          가입하면 이메일·닉네임·학년만 수집해요
+          가입하면 이메일·닉네임·학년과 동의 기록만 수집해요
         </p>
 
         {isBusy && modalState.kind === "none" ? (
