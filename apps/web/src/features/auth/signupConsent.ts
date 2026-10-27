@@ -5,7 +5,7 @@ import { hasSignupConsentMetadata } from "validation";
  * 가입 동의 정책 버전(D3). 약관·방침 개정 시 올린다. 게이트는 버전을 비교하지 않는다(D4) —
  * 재동의가 필요해지면 그때 비교 로직을 추가한다.
  */
-export const CONSENT_POLICY_VERSION = "2026-10-26";
+export const CONSENT_POLICY_VERSION = "2026-10-29";
 
 export interface SignupConsentMetadata {
   age14_confirmed_at: string;

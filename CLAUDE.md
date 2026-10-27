@@ -4,7 +4,7 @@
 
 ## 프로젝트
 
-포켓큐(PocketQ) — iPad 중심 수학 개념 튜터 웹앱. 제품 요구사항의 유일한 기준은 `docs/PRD_WHYMATH.md`이며, 다른 어떤 문서나 참고 자료보다 우선한다.
+포켓큐(PocketQ) — iPad 중심 수학 개념 튜터 웹앱. 제품 요구사항의 기준은 Level 0 PRD `docs/PRD_WHYMATH.md`이며, 다른 어떤 문서나 참고 자료보다 우선한다. 영역별 상세는 Level 1 PRD(`docs/prd/L1_*.md`)에 있고, L1은 L0를 구체화할 뿐 바꾸지 않는다. 계층 규칙은 `docs/prd/README.md`.
 
 ## 확정 프론트엔드 기술 스택
 
@@ -51,7 +51,8 @@
 
 ## 참고 문서
 
-- `docs/PRD_WHYMATH.md` — 제품 요구사항 (최고 우선순위)
+- `docs/PRD_WHYMATH.md` — Level 0 제품 요구사항 (최고 우선순위)
+- `docs/prd/` — Level 1 영역별 상세 PRD (예: `L1_BILLING.md` 결제·구독)와 계층 규칙(`README.md`)
 - `docs/PROJECT_STRUCTURE.md` — 목표 폴더 구조
 - `docs/FIGMA_SCREEN_MAP.md` — 화면 ↔ Figma 프레임 ↔ 라우트 매핑
 - `docs/DESIGN_SYSTEM.md` / `docs/DESIGN_TOKEN_MAP.md` / `docs/COMPONENT_MAP.md` — 확정 디자인 시스템/토큰/컴포넌트 지도

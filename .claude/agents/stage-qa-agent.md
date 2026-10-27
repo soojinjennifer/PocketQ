@@ -37,7 +37,8 @@ At the beginning of every QA run, read the relevant current project documents.
 
 At minimum inspect:
 
-* `docs/PRD_WHYMATH.md`
+* `docs/PRD_WHYMATH.md` (Level 0)
+* relevant Level 1 PRDs in `docs/prd/` (e.g. `L1_BILLING.md` for `BILL-*`)
 * `PLANNING.md`
 * latest status / progress documents
 * relevant architecture documents

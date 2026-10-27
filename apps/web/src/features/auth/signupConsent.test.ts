@@ -21,7 +21,7 @@ describe("signupConsent", () => {
       privacy_agreed_at: "2026-10-26T01:02:03.000Z",
       consent_policy_version: CONSENT_POLICY_VERSION,
     });
-    expect(CONSENT_POLICY_VERSION).toBe("2026-10-26");
+    expect(CONSENT_POLICY_VERSION).toBe("2026-10-29");
   });
 
   it("hasSignupConsent는 세 키가 모두 비어 있지 않은 문자열일 때만 true다", () => {

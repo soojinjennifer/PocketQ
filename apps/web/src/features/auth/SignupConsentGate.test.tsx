@@ -122,7 +122,7 @@ describe("SignupConsentGate", () => {
     expect(Object.keys(data).sort()).toEqual(
       ["age14_confirmed_at", "consent_policy_version", "privacy_agreed_at", "terms_agreed_at"].sort(),
     );
-    expect(data["consent_policy_version"]).toBe("2026-10-26");
+    expect(data["consent_policy_version"]).toBe("2026-10-29");
     expect(data["terms_agreed_at"]).toBe(data["age14_confirmed_at"]);
     expect(data["privacy_agreed_at"]).toBe(data["age14_confirmed_at"]);
   });

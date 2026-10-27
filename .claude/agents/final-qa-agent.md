@@ -50,7 +50,8 @@ actual test execution
 
 Read:
 
-* `docs/PRD_WHYMATH.md`
+* `docs/PRD_WHYMATH.md` (Level 0 — source of requirement IDs)
+* all Level 1 PRDs in `docs/prd/` (detailed acceptance criteria)
 * `PLANNING.md`
 * latest progress / status documents
 * `CLAUDE.md`

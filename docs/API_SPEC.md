@@ -6,6 +6,7 @@
 - 도형 데이터 계약: `docs/FIGURE_SPEC.md`(§2 응답 위치, §16 AI 생성)
 - 기능 플래그: 서버 환경변수 `FIGURES_ENABLED`(정확히 `"true"`일 때만 on, 기본 off). Stage 5 영속 플래그 `FIGURES_PERSIST_ENABLED`·`RESUME_PERSIST_ENABLED`(같은 규칙). 4종 조합은 `docs/DEPLOYMENT.md`
 - Stage 5에서 chat·상세 조회의 도형 관련 계약을 이 문서 끝에 더했다(§ Stage 5 추가).
+- **결제·구독(BILL, 구현 전)**: `/api/billing/*`·`/internal/billing/*` 엔드포인트는 구현될 때까지 L1 결제 PRD(`docs/prd/L1_BILLING.md` §8)가 기준이다. 구현하면 이 문서에 billing 절을 추가한다.
 
 ---
 
@@ -15,7 +16,7 @@
 |---|---|
 | 인증 | `Authorization: Bearer <Supabase access token>` 필수. 없거나 무효면 `401 unauthorized` |
 | 속도 제한 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` |
-| 스트림 전 오류 | JSON `{ "error": { "code", "message", "details"? } }` + HTTP 상태(400 `validation_error`, 401, 404, 429, 500 `internal_error`) |
+| 스트림 전 오류 | JSON `{ "error": { "code", "message", "details"? } }` + HTTP 상태(400 `validation_error`, 401, 404, 429, 500 `internal_error`). **BILL-3 구현 후**: 무료 이용·구독이 끝난 사용자는 402 `subscription_required`(스트림 시작 전, L1 결제 PRD §3.4) |
 | 스트림 응답 | `200`, `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive` |
 
 SSE 블록 형식은 `event: <이름>\ndata: <JSON 한 줄>\n\n`이다. `:`로 시작하는 줄만 있는 블록(예: `: keep-alive`)은 **주석**이며 클라이언트는 무시한다(`apps/web/src/shared/api/parseSse.ts`는 data가 없는 블록을 버린다).

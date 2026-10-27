@@ -148,7 +148,7 @@ describe("useAuthActions", () => {
           age14_confirmed_at: "2026-10-26T09:00:00.000Z",
           terms_agreed_at: "2026-10-26T09:00:00.000Z",
           privacy_agreed_at: "2026-10-26T09:00:00.000Z",
-          consent_policy_version: "2026-10-26",
+          consent_policy_version: "2026-10-29",
         },
       },
     });

@@ -125,7 +125,7 @@ describe("RegisterPage", () => {
     const [credentials] = vi.mocked(supabase.auth.signUp).mock.calls[0] ?? [];
     const data = (credentials as { options?: { data?: Record<string, unknown> } }).options?.data ?? {};
     expect(data["nickname"]).toBe("새싹");
-    expect(data["consent_policy_version"]).toBe("2026-10-26");
+    expect(data["consent_policy_version"]).toBe("2026-10-29");
     expect(typeof data["age14_confirmed_at"]).toBe("string");
     expect(data["terms_agreed_at"]).toBe(data["age14_confirmed_at"]);
     expect(data["privacy_agreed_at"]).toBe(data["age14_confirmed_at"]);
