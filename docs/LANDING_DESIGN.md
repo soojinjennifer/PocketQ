@@ -5,7 +5,7 @@
   - 검토 대상: `Landing Page`(`456:235`) → 실제 화면 프레임 `Supuling Landing · Desktop 1440`(`446:8`)
   - 같은 페이지의 컴포넌트 섹션: `Supuling Landing · Components`(`441:2`)
 - 영상(오너 제공)
-  - 사용 방법: `vSsyDRtZmKw`
+  - 사용 방법: `jI4vfnx2AEk` (2026-10-27 변경, 이전 `vSsyDRtZmKw`)
   - 설치 영상: `2RgyXWjlH9I`
 - 측정 방법: Figma MCP `get_metadata`, `get_design_context`(섹션별 7회), `get_variable_defs`, `get_screenshot`을 썼다. 에셋은 MCP 임시 URL에서 scratchpad로 받아 크기만 확인했고, 저장소에는 넣지 않았다.
 

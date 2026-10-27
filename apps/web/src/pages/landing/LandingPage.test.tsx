@@ -85,7 +85,7 @@ describe("LandingPage", () => {
   it("영상은 maxres 썸네일을 보이고, 포커스 표시는 썸네일 위 장식 span에 그리며, 누르면 nocookie iframe으로 바뀐다", () => {
     const { container } = render(<LandingPage />);
     expect(
-      container.querySelector('img[src="https://i.ytimg.com/vi/vSsyDRtZmKw/maxresdefault.jpg"]'),
+      container.querySelector('img[src="https://i.ytimg.com/vi/jI4vfnx2AEk/maxresdefault.jpg"]'),
     ).not.toBeNull();
     expect(
       container.querySelector('img[src="https://i.ytimg.com/vi/2RgyXWjlH9I/maxresdefault.jpg"]'),
@@ -106,7 +106,7 @@ describe("LandingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "수풀잉 설치 영상 재생" }));
     expect(screen.getByTitle("수풀잉 사용 방법 영상 (YouTube)")).toHaveAttribute(
       "src",
-      expect.stringContaining("youtube-nocookie.com/embed/vSsyDRtZmKw?"),
+      expect.stringContaining("youtube-nocookie.com/embed/jI4vfnx2AEk?"),
     );
     expect(screen.getByTitle("수풀잉 설치 영상 (YouTube)")).toHaveAttribute(
       "src",
@@ -190,7 +190,7 @@ describe("LandingPage 영상 연결(QA M-R2-1)", () => {
     expect(io.observers.filter((o) => o.observed.some(inSection("install")))).toHaveLength(2);
 
     io.controlsFor(inSection("video")).enterCenter();
-    expect(iframeIn("video").getAttribute("src")).toContain("embed/vSsyDRtZmKw?");
+    expect(iframeIn("video").getAttribute("src")).toContain("embed/jI4vfnx2AEk?");
     expect(iframeIn("video").getAttribute("src")).toContain("mute=1");
     expect(document.querySelector("#install iframe")).toBeNull();
 
@@ -214,7 +214,7 @@ describe("LandingPage 영상 연결(QA M-R2-1)", () => {
 
   it("maxres 썸네일을 못 불러오면 hq 썸네일로 바꾼다(두 영상 모두)", () => {
     const { container } = render(<LandingPage />);
-    for (const id of ["vSsyDRtZmKw", "2RgyXWjlH9I"]) {
+    for (const id of ["jI4vfnx2AEk", "2RgyXWjlH9I"]) {
       const maxres = container.querySelector(
         `img[src="https://i.ytimg.com/vi/${id}/maxresdefault.jpg"]`,
       );
