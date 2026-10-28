@@ -15,6 +15,9 @@ import type {
 import { env } from "../../config/env";
 import { OpenAIAdapter } from "./openai-adapter";
 
+/** `AI_GATEWAY=runyour`일 때 OpenAI 어댑터가 요청을 보내는 OpenAI 호환 엔드포인트. */
+const RUNYOUR_BASE_URL = "https://api.runyour.ai/v1";
+
 export interface SolveRequest {
   problem: RecognizedProblem;
   options: SolveOptions;
@@ -179,6 +182,15 @@ export interface LLMAdapter {
 export function createAdapter(provider: AiProvider, model: string): LLMAdapter {
   switch (provider) {
     case "openai": {
+      if (env.aiGateway === "runyour") {
+        if (!env.runyourApiKey) {
+          throw new Error("AI_GATEWAY=runyour로 설정됐지만 RUNYOUR_API_KEY 환경변수가 비어 있습니다.");
+        }
+        if (!model) {
+          throw new Error("AI_GATEWAY=runyour로 설정됐지만 AI_MODEL 환경변수가 비어 있습니다.");
+        }
+        return new OpenAIAdapter(model, env.runyourApiKey, RUNYOUR_BASE_URL);
+      }
       if (!env.openaiApiKey) {
         throw new Error(
           "AI_PROVIDER=openai로 설정됐지만 OPENAI_API_KEY 환경변수가 비어 있습니다.",

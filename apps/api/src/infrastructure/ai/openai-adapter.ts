@@ -175,8 +175,9 @@ export class OpenAIAdapter implements LLMAdapter {
   constructor(
     private readonly model: string,
     apiKey: string,
+    baseURL?: string,
   ) {
-    this.client = new OpenAI({ apiKey, timeout: OPENAI_REQUEST_TIMEOUT_MS });
+    this.client = new OpenAI({ apiKey, baseURL, timeout: OPENAI_REQUEST_TIMEOUT_MS });
   }
 
   async recognizeProblem(image: Buffer, grade: Grade): Promise<RecognizedProblem> {

@@ -10,6 +10,10 @@ function readString(value: string | undefined, fallback: string): string {
   return value === undefined || value === "" ? fallback : value;
 }
 
+function readAiGateway(value: string | undefined): "runyour" | undefined {
+  return value === "runyour" ? value : undefined;
+}
+
 function readAiProvider(value: string | undefined): AiProvider | undefined {
   return value === "openai" || value === "claude" ? value : undefined;
 }
@@ -28,6 +32,13 @@ export const env = {
   aiModel: process.env["AI_MODEL"] ?? "",
   anthropicApiKey: process.env["ANTHROPIC_API_KEY"] ?? "",
   openaiApiKey: process.env["OPENAI_API_KEY"] ?? "",
+  /**
+   * OpenAI 호환 게이트웨이 선택. 정확히 "runyour"일 때만 `AI_PROVIDER=openai` 어댑터가 OpenAI 대신
+   * Runyour(`RUNYOUR_BASE_URL`)로 같은 Responses API 요청을 보낸다. 비우면 OpenAI 직접 호출(기존 동작).
+   * 원복은 이 값을 비우고 `AI_MODEL`을 이전 OpenAI 모델로 되돌리면 된다.
+   */
+  aiGateway: readAiGateway(process.env["AI_GATEWAY"]),
+  runyourApiKey: process.env["RUNYOUR_API_KEY"] ?? "",
   /**
    * CAS(Computer Algebra System, Python/SymPy 별도 서비스)의 base URL.
    * 빈 문자열이면 "미설정"으로 간주해 `resolveCasClient()`가 기존

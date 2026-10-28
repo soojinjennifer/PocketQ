@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAdapter } from "./adapter";
 import { OpenAIAdapter } from "./openai-adapter";
+
+const gateway = vi.hoisted(() => ({ aiGateway: undefined as "runyour" | undefined, runyourApiKey: "" }));
+
+vi.mock("../../config/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../config/env")>();
+  return {
+    ...actual,
+    env: new Proxy(actual.env, {
+      get: (target, key): unknown =>
+        key === "aiGateway" || key === "runyourApiKey" ? gateway[key] : Reflect.get(target, key),
+    }),
+  };
+});
 
 describe("createAdapter", () => {
   it("openai인데 OPENAI_API_KEY가 비어 있으면(테스트 환경 기본값) 명확한 설정 오류를 던진다", () => {
@@ -11,6 +24,33 @@ describe("createAdapter", () => {
 
   it("claude는 아직 구현되지 않았으므로 명확한 에러를 던진다", () => {
     expect(() => createAdapter("claude", "claude-sonnet-5")).toThrow(/구현되지 않았습니다/);
+  });
+});
+
+describe("createAdapter — AI_GATEWAY=runyour", () => {
+  afterEach(() => {
+    gateway.aiGateway = undefined;
+    gateway.runyourApiKey = "";
+  });
+
+  function useRunyour(apiKey: string) {
+    gateway.aiGateway = "runyour";
+    gateway.runyourApiKey = apiKey;
+  }
+
+  it("RUNYOUR_API_KEY가 비어 있으면 명확한 설정 오류를 던진다", () => {
+    useRunyour("");
+    expect(() => createAdapter("openai", "anthropic/claude-sonnet-5")).toThrow(/RUNYOUR_API_KEY/);
+  });
+
+  it("AI_MODEL이 비어 있으면 명확한 설정 오류를 던진다", () => {
+    useRunyour("test-key");
+    expect(() => createAdapter("openai", "")).toThrow(/AI_MODEL/);
+  });
+
+  it("키와 모델이 있으면 OPENAI_API_KEY 없이도 OpenAI 호환 어댑터를 만든다", () => {
+    useRunyour("test-key");
+    expect(createAdapter("openai", "anthropic/claude-sonnet-5")).toBeInstanceOf(OpenAIAdapter);
   });
 });
 
