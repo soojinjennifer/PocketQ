@@ -108,6 +108,12 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: AI_GATEWAY
+        # runyour면 OPENAI_API_KEY 대신 RUNYOUR_API_KEY로 Runyour(OpenAI 호환)에 요청한다.
+        # 비우면 OpenAI 직접 호출. 원복은 이 값을 지우고 AI_MODEL을 OpenAI 모델로 되돌리면 된다.
+        sync: false
+      - key: RUNYOUR_API_KEY
+        sync: false
       - key: CAS_SERVICE_URL
         # pocketq-cas는 Private Service라 Render 내부 네트워크 주소로만 접근 가능하다.
         # 값은 `http://pocketq-cas:10000` 형태(Render의 Private Service 내부 호스트명 규칙 —

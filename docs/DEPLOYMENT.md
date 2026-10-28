@@ -52,6 +52,8 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `AI_PROVIDER` | `openai` | render.yaml에 이미 고정값으로 있음 |
 | `AI_MODEL` | 로컬 `apps/api/.env`의 `AI_MODEL` 값과 동일 | **비워두면 서버가 기동 즉시 에러로 종료합니다**(이번 세션에 직접 재현·확인) |
 | `OPENAI_API_KEY` | 운영용 OpenAI API 키 | 로컬 개발 키와 분리 권장(사용량 추적) |
+| `AI_GATEWAY` | 비움(OpenAI 직접) 또는 `runyour` | `runyour`면 같은 요청을 `https://api.runyour.ai/v1`로 보낸다. 이때 `AI_MODEL`은 Runyour 모델 ID(예: `anthropic/claude-sonnet-5`). 원복: 이 값을 지우고 `AI_MODEL`을 이전 OpenAI 모델(`gpt-5.6-terra`)로 되돌린 뒤 재배포 |
+| `RUNYOUR_API_KEY` | Runyour API 키 | `AI_GATEWAY=runyour`일 때만 필요. 비어 있으면 서버가 기동 즉시 에러로 종료 |
 | `CAS_SERVICE_URL` | `pocketq-cas`의 Internal Address | 비워두면 CAS는 결정론적 스텁으로 자동 폴백(`resolveCasClient.ts`) — RESUME/DIAG 검증이 실제 SymPy가 아니라 스텁으로 동작하니 운영에서는 반드시 채울 것 |
 | `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 서버 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **웹 `VITE_FIGURES_ENABLED`보다 먼저 켜지 않는다**(아래 "도형 시각화 플래그 조합", D-9). 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 넣지 않았다(D-8) |
 | `FIGURES_PERSIST_ENABLED` | **설정하지 않음(= off)** | Stage 5 도형 저장. 정확히 `true`일 때만 on. `supabase/migrations/20261025000000_solution_figures.sql` 적용 **후** 켠다(적용 전에 켜도 컬럼 탐지 실패로 텍스트만 저장 — 안전). 적용 직후 서버 재시작 권장. **한번 켜면 끄지 않는 것을 권장**: 꺼진 동안 재풀이된 행에 이전 도형이 남아 다시 켰을 때 새 텍스트와 함께 보일 수 있다(오케스트레이터 결정, `docs/FIGURE_SPEC.md` §10) |
