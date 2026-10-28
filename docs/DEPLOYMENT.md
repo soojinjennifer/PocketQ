@@ -52,8 +52,8 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 | `AI_PROVIDER` | `openai` | render.yaml에 이미 고정값으로 있음 |
 | `AI_MODEL` | 로컬 `apps/api/.env`의 `AI_MODEL` 값과 동일 | **비워두면 서버가 기동 즉시 에러로 종료합니다**(이번 세션에 직접 재현·확인) |
 | `OPENAI_API_KEY` | 운영용 OpenAI API 키 | 로컬 개발 키와 분리 권장(사용량 추적) |
-| `AI_GATEWAY` | 비움(OpenAI 직접) 또는 `runyour` | `runyour`면 같은 요청을 `https://api.runyour.ai/v1`로 보낸다. 이때 `AI_MODEL`은 Runyour 모델 ID(예: `anthropic/claude-sonnet-5`). 원복: 이 값을 지우고 `AI_MODEL`을 이전 OpenAI 모델(`gpt-5.6-terra`)로 되돌린 뒤 재배포 |
-| `RUNYOUR_API_KEY` | Runyour API 키 | `AI_GATEWAY=runyour`일 때만 필요. 비어 있으면 서버가 기동 즉시 에러로 종료 |
+| `AI_GATEWAY` | 비움(OpenAI 직접) 또는 `runyour` | `runyour`면 같은 요청을 `https://api.runyour.ai/v1`로 보낸다. 값은 **정확히 소문자 `runyour`**(공백·따옴표·대문자가 섞이면 OpenAI 직접 호출로 동작). 이때 `AI_MODEL`은 Runyour 모델 ID(권장 `openai/gpt-6-astra`). 원복: 이 값을 지우고 `AI_MODEL`을 이전 OpenAI 모델(`gpt-5.6-terra`)로 되돌린 뒤 재배포 |
+| `RUNYOUR_API_KEY` | Runyour API 키 | `AI_GATEWAY=runyour`일 때만 필요. 비어 있으면 서버가 기동 즉시 에러로 종료. 키를 다시 발급받으면 이 값만 바꿔 저장하면 된다(아래 "AI 키·모델 교체") |
 | `CAS_SERVICE_URL` | `pocketq-cas`의 Internal Address | 비워두면 CAS는 결정론적 스텁으로 자동 폴백(`resolveCasClient.ts`) — RESUME/DIAG 검증이 실제 SymPy가 아니라 스텁으로 동작하니 운영에서는 반드시 채울 것 |
 | `FIGURES_ENABLED` | **설정하지 않음(= off)** | 도형 시각화(PRD §4.12 FIG) 서버 플래그. 정확히 `true`일 때만 켜진다. 켜면 풀이·이어풀기 프롬프트가 `**N단계**` 표지를 요청하고, `done` 뒤 도형 생성 호출(OpenAI 추가 호출·비용)과 `event: figures`가 생긴다. **웹 `VITE_FIGURES_ENABLED`보다 먼저 켜지 않는다**(아래 "도형 시각화 플래그 조합", D-9). 끄려면 변수를 지우거나 `true` 외 값으로 바꾸고 서버만 재시작하면 기존 흐름과 바이트 단위로 같아진다. `render.yaml`에는 넣지 않았다(D-8) |
 | `FIGURES_PERSIST_ENABLED` | **설정하지 않음(= off)** | Stage 5 도형 저장. 정확히 `true`일 때만 on. `supabase/migrations/20261025000000_solution_figures.sql` 적용 **후** 켠다(적용 전에 켜도 컬럼 탐지 실패로 텍스트만 저장 — 안전). 적용 직후 서버 재시작 권장. **한번 켜면 끄지 않는 것을 권장**: 꺼진 동안 재풀이된 행에 이전 도형이 남아 다시 켰을 때 새 텍스트와 함께 보일 수 있다(오케스트레이터 결정, `docs/FIGURE_SPEC.md` §10) |
@@ -164,6 +164,23 @@ Authentication → URL Configuration을 아래처럼 설정합니다.
    ```
 
 **주의**: 이 마이그레이션의 트리거는 신규 가입(`auth.users` INSERT)에만 반응합니다 — 이미 가입한 기존 사용자에게는 `profiles` 행이 생기지 않습니다. 지금은 스키마만 준비하는 단계라 문제 없지만, 나중에 실제로 트라이얼 만료/과금 로직을 켤 때는 기존 가입자용 백필(예: `insert into profiles (id, trial_ends_at) select id, now() + interval '15 days' from auth.users where id not in (select id from profiles)`)이 별도로 필요합니다.
+
+## AI 키·모델 교체 (Runyour)
+
+키를 다시 발급받았거나 모델을 바꿀 때 순서입니다. 키 값은 코드·문서·채팅에 쓰지 않고 환경변수로만 넣습니다.
+
+1. **로컬에서 먼저 확인**: `apps/api/.env`의 `RUNYOUR_API_KEY`(와 필요하면 `AI_MODEL`)를 바꾸고 `pnpm -F api dev`로 문제 인식·풀이를 한 번 해 본다.
+2. **Render 반영**: pocketq-api → Environment → Edit에서 같은 값을 바꾸고 **한 번에** 저장한다. 저장하면 서버가 다시 시작된다(약 1분).
+3. **확인**: pocketq-api Logs에서 `PocketQ API listening`과 그 뒤 요청에 오류가 없는지 본다. 키가 틀리면 첫 AI 요청에서 `401`, 모델 ID가 틀리면 `404 model_not_found`가 남는다. `api.openai.com`으로 요청이 가면 `AI_GATEWAY` 값이 정확히 `runyour`가 아닌 것이다.
+
+**모델별 도형(FIG) 지원 (2026-10-28 로컬 확인)**
+
+| `AI_MODEL` | 풀이 | 도형 생성 | 비고 |
+|---|---|---|---|
+| `openai/gpt-6-astra` | 됨 (완료 5~8초) | **됨** (1회 약 15초) | 권장 |
+| `anthropic/claude-sonnet-5` | 됨 (완료 12~14초) | **안 됨** — 도형 JSON 스키마의 재귀 정의(`expr → expr`)를 거부(400) | 도형을 끄고 쓸 때만 |
+
+도형을 화면에 보이려면 모델과 별개로 `FIGURES_ENABLED`(서버)·`VITE_FIGURES_ENABLED`(웹) 플래그를 켜야 한다(켜는 순서는 위 "`pocketq-web` (Static Site)" 절의 도형 플래그 표 아래).
 
 ## 배포 전 마지막 확인
 
