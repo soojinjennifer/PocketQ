@@ -958,10 +958,10 @@ NOT VERIFIED: 실제 iPad Safari·Split View(PHYSICAL DEVICE TEST REQUIRED), 실
   1. 배지 `중1~고3 · Tablet Pencil`(Hero 원문)
      - `background: var(--color-landing-brand-tint)`, `color: var(--color-landing-brand-deep)`
      - 13px Bold, padding 7/12, radius 999(`Landing/Badge L`)
-  2. H1 두 줄 `어디서 막혔는지,` / `수풀잉이 찾아줄게요.`
+  2. H1 두 줄 `학교에서는 알겠다는데,` / `혼자 풀면 막히나요?`(Hero H1과 같은 문구, 2026-10-31 Figma 문구 갱신)
      - `font-family: var(--font-landing-sans)`, 800, **52px**, line-height 1.1, letter-spacing -2px
-     - 색은 `var(--color-landing-brand-deep)`이고, "수풀잉"만 `var(--color-landing-brand-green)`이다.
-     - 52px는 1440 기준 66px에서 측정한 둘째 줄 폭 691px를 564px에 맞게 줄인 값이다(691 × 52/66 ≈ 544).
+     - 색은 전체 `var(--color-landing-brand-deep)`이다(Hero와 같이 강조 색 없음).
+     - 52px는 1440 기준 66px에서 측정한 이전 문구의 둘째 줄 폭 691px를 564px에 맞게 줄인 값이다(691 × 52/66 ≈ 544). 새 문구는 52px에서 가장 긴 줄이 453px이다.
   3. 설명 한 줄 `AI가 내 풀이를 한 줄씩 읽고, 막힌 곳을 짚어줘요.`
      - 20px Regular, line-height 1.6(`Landing/Lead`), `color: var(--color-landing-label-ink)`
      - home.html description을 줄인 문장이다. 20px에서 약 500px로 한 줄에 들어간다. 줄바꿈되면 18px로 줄인다.
@@ -970,7 +970,8 @@ NOT VERIFIED: 실제 iPad Safari·Split View(PHYSICAL DEVICE TEST REQUIRED), 실
   - 워드마크는 넣지 않는다. 로고 안에 "수풀잉"이 이미 있다.
   - 도메인 텍스트는 넣지 않는다. 미리보기 카드가 도메인을 따로 보여 준다.
 - 렌더링: 계획 D대로 1200×630, DPR 1로 만든다. 렌더링 전에 `document.fonts.ready`를 기다린다. Pretendard가 CDN에서 늦게 오면 시스템 글꼴로 찍힌다.
-- 메타: 계획 D대로 넣는다. `og:image:alt` = `수풀잉 — 어디서 막혔는지, 수풀잉이 찾아줄게요`
+- 메타: 계획 D대로 넣는다. `<title>`, `og:title`, `og:image:alt` = `수풀잉 — 학교에서는 알겠다는데, 혼자 풀면 막히나요?`
+- 파일 이름: 문구를 바꿀 때 카카오톡·페이스북 미리보기 캐시를 피하려고 파일 이름을 바꾼다. 현재 `public/og-landing-v2.png`(2026-10-31, 131,128 bytes, `data-pretendard="true"` 확인)이다. 이 아래 검수 기록의 `og-landing.png`는 이전 판이다.
 
 ### 14.5 사후 검수 때 확인할 항목
 

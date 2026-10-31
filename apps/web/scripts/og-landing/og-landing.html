@@ -6,7 +6,7 @@
   렌더링(apps/web에서, DPR 1):
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
       --window-size=1200,630 --force-device-scale-factor=1 --virtual-time-budget=15000 \
-      --screenshot=public/og-landing.png "file://$PWD/scripts/og-landing/og-landing.html"
+      --screenshot=public/og-landing-v2.png "file://$PWD/scripts/og-landing/og-landing.html"
   Pretendard(CDN)가 늦으면 시스템 글꼴로 찍히므로 document.fonts.ready 전까지 내용을 숨긴다 — 글꼴 없이 찍히면 빈 화면이 나온다.
   확인: 같은 플래그에 --dump-dom을 주면 <html data-fonts="ready" data-pretendard="true">가 나와야 한다.
 -->
@@ -75,9 +75,6 @@
         color: var(--color-landing-brand-deep);
         word-break: keep-all;
       }
-      .title .accent {
-        color: var(--color-landing-brand-green);
-      }
       /* Landing/Lead. 줄바꿈되면 스크립트가 18px로 줄인다(§14.4). */
       .lead {
         margin: 0;
@@ -115,7 +112,7 @@
     <div class="canvas">
       <div class="copy">
         <span class="badge">중1~고3 · Tablet Pencil</span>
-        <h1 class="title">어디서 막혔는지,<br /><span class="accent">수풀잉</span>이 찾아줄게요.</h1>
+        <h1 class="title">학교에서는 알겠다는데,<br />혼자 풀면 막히나요?</h1>
         <p class="lead">AI가 내 풀이를 한 줄씩 읽고, 막힌 곳을 짚어줘요.</p>
       </div>
       <div class="logo-card"><img src="logo-960.png" alt="" /></div>
