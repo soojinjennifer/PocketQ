@@ -61,7 +61,7 @@ describe("LandingApp(세션 확인)", () => {
     const redirect = vi.fn();
     render(<LandingApp redirectToService={redirect} />);
 
-    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("어디서 막혔는지");
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("학교에서는 알겠다는데");
     expect(redirect).not.toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe("LandingApp(세션 확인)", () => {
 
       fireTimeout();
 
-      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("어디서 막혔는지");
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("학교에서는 알겠다는데");
       expect(redirect).not.toHaveBeenCalled();
     });
 

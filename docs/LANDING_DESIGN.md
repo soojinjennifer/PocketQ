@@ -182,11 +182,13 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
 - 왼쪽 열(세로 `gap 22`)
   1. 배지(Badge Tint L): `중1~고3 · Tablet Pencil`
   2. H1(2줄)
-     - `어디서 막혔는지,`
-     - `수풀잉`(`brand/green`) + `이 찾아줄게요.`
-     - 나머지 글자는 `brand/deep`
-  3. Lead(폭 520, Figma에서 4개 문단으로 나뉨)
-     - `수학 선생님에게 다 물어보지 못했던건들, 나는 열심히 푸는데, 어디가 잘 못 되었을까 누가 알려줬으면 좋겠었죠? `
+     - `학교에서는 알겠다는데,`
+     - `혼자풀면 막히나요?`(코드는 `혼자 풀면`으로 띄어 쓴다, D-11 교정 기준)
+     - 전체 `brand/deep`(강조 색 없음)
+  3. Lead(폭 520, Figma에서 6줄로 나뉨)
+     - `학원이나 학교, 수학 선생님에게 다 물어보지 못했던 것들, `
+     - `나는 열심히 푸는데, 어디가 잘 못 되었을까 `
+     - `누가 알려줬으면 좋겠었죠? `
      - **`이제 AI가 내가 쓴 풀이`**`를 하나하나 읽고, 어디까지 맞았는지 , `
      - `어디서 왜 막혔는지 알려줘요. `
      - **`내 방법 그대로`**` 이어서 풀수 있게, 혹은 또 다른 방법으로 더 잘 풀게! `
@@ -211,15 +213,15 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
 - `pt 40`, `pb 64`, 세로 `gap 34`, 가운데 정렬
 - Eyebrow: `자기주도 학습을 통해 진짜 실력을 키우려면`(16 SemiBold, `brand/green`, 자간 1.5)
 - H2(가운데 정렬, 2줄)
-  - `정답만 찾는게 아니라`
+  - `학원이나 과외를 계속하는데,`
   - `“내 풀이 방법이 어디서 막히는지” 알아야 하잖아요.`
 - 비교 카드 2개(가로 `gap 18`, 같은 폭으로 나눔, 높이를 맞춤)
   - 카드 공통: `p 28`, radius 28, 세로 gap 14, 목록 gap 12
   - 왼쪽 카드 "기존 방식"
     - 배경 `surface/well`, Landing/Well 안쪽 그림자
-    - 제목: `해설지 · 인강 · 검색 AI`(15 Bold)
+    - 제목: `해설지 · 인강 · 학원`(15 Bold)
     - Check Item Negative(빨간 X 16px)
-      - `정답 풀이를 처음부터 다시 보여줘요, 그리고 풀이 공식을 외우게 해요`
+      - `정답 풀이를 처음부터 그냥 보여줘요, 그리고 풀이 공식을 외우게 해요`
       - `내가 쓴 풀이는 아무도 안 봐줘요. 혼자 공부, 어떻게 해야되요?`
       - `“뭘 잘못 생각했는지”는 끝내 모르고, 그냥 풀이 방법을 외워요ㅠㅠ`
   - 오른쪽 카드 "수풀잉"
@@ -457,7 +459,7 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
   - 다른 방법: 내부 텍스트를 그대로 읽게 둔다. 어느 쪽인지는 D-15로 정한다.
 - 목록과 아이콘
   - Hero 체크 3개와 Check Item 6개는 `<ul>`로 만든다.
-  - `✓` 글자와 X/체크 아이콘은 `aria-hidden`으로 숨긴다. 카드 제목("해설지·인강·검색 AI" / "수풀잉")이 맥락을 전달한다.
+  - `✓` 글자와 X/체크 아이콘은 `aria-hidden`으로 숨긴다. 카드 제목("해설지·인강·학원" / "수풀잉")이 맥락을 전달한다.
   - Step 번호는 `<ol>`로 의미를 전달하고 큰 숫자는 장식으로 처리한다.
 - 대체 텍스트
   - Nav: 로고 링크 전체에 `aria-label="수풀잉 홈"`, 아이콘 alt는 빈 값, 워드마크 alt는 "수풀잉"
@@ -956,10 +958,10 @@ NOT VERIFIED: 실제 iPad Safari·Split View(PHYSICAL DEVICE TEST REQUIRED), 실
   1. 배지 `중1~고3 · Tablet Pencil`(Hero 원문)
      - `background: var(--color-landing-brand-tint)`, `color: var(--color-landing-brand-deep)`
      - 13px Bold, padding 7/12, radius 999(`Landing/Badge L`)
-  2. H1 두 줄 `어디서 막혔는지,` / `수풀잉이 찾아줄게요.`
+  2. H1 두 줄 `학교에서는 알겠다는데,` / `혼자 풀면 막히나요?`(Hero H1과 같은 문구, 2026-10-31 Figma 문구 갱신)
      - `font-family: var(--font-landing-sans)`, 800, **52px**, line-height 1.1, letter-spacing -2px
-     - 색은 `var(--color-landing-brand-deep)`이고, "수풀잉"만 `var(--color-landing-brand-green)`이다.
-     - 52px는 1440 기준 66px에서 측정한 둘째 줄 폭 691px를 564px에 맞게 줄인 값이다(691 × 52/66 ≈ 544).
+     - 색은 전체 `var(--color-landing-brand-deep)`이다(Hero와 같이 강조 색 없음).
+     - 52px는 1440 기준 66px에서 측정한 이전 문구의 둘째 줄 폭 691px를 564px에 맞게 줄인 값이다(691 × 52/66 ≈ 544). 새 문구는 52px에서 가장 긴 줄이 453px이다.
   3. 설명 한 줄 `AI가 내 풀이를 한 줄씩 읽고, 막힌 곳을 짚어줘요.`
      - 20px Regular, line-height 1.6(`Landing/Lead`), `color: var(--color-landing-label-ink)`
      - home.html description을 줄인 문장이다. 20px에서 약 500px로 한 줄에 들어간다. 줄바꿈되면 18px로 줄인다.
@@ -968,7 +970,8 @@ NOT VERIFIED: 실제 iPad Safari·Split View(PHYSICAL DEVICE TEST REQUIRED), 실
   - 워드마크는 넣지 않는다. 로고 안에 "수풀잉"이 이미 있다.
   - 도메인 텍스트는 넣지 않는다. 미리보기 카드가 도메인을 따로 보여 준다.
 - 렌더링: 계획 D대로 1200×630, DPR 1로 만든다. 렌더링 전에 `document.fonts.ready`를 기다린다. Pretendard가 CDN에서 늦게 오면 시스템 글꼴로 찍힌다.
-- 메타: 계획 D대로 넣는다. `og:image:alt` = `수풀잉 — 어디서 막혔는지, 수풀잉이 찾아줄게요`
+- 메타: 계획 D대로 넣는다. `<title>`, `og:title`, `og:image:alt` = `수풀잉 — 학교에서는 알겠다는데, 혼자 풀면 막히나요?`
+- 파일 이름: 문구를 바꿀 때 카카오톡·페이스북 미리보기 캐시를 피하려고 파일 이름을 바꾼다. 현재 `public/og-landing-v2.png`(2026-10-31, 131,128 bytes, `data-pretendard="true"` 확인)이다. 이 아래 검수 기록의 `og-landing.png`는 이전 판이다.
 
 ### 14.5 사후 검수 때 확인할 항목
 
