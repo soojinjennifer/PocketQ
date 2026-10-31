@@ -38,7 +38,7 @@ describe("LandingPage", () => {
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent);
     expect(h2Texts).toEqual([
-      "정답만 찾는 게 아니라“내 풀이 방법이 어디서 막히는지” 알아야 하잖아요.",
+      "학원이나 과외를 계속하는데,“내 풀이 방법이 어디서 막히는지” 알아야 하잖아요.",
       "딱 3번 터치면 끝.",
       "직접 보면 바로 알아요",
       "처음부터 다시?아니요, 막힌 곳부터.",

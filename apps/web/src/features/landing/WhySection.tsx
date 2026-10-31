@@ -4,7 +4,7 @@ import { LANDING_APP_ICON_SRC, LANDING_APP_ICON_SRCSET } from "./landingAppIcon"
 import { LANDING_CONTAINER, LANDING_SCROLL_MARGIN } from "./landingStyles";
 
 const OLD_WAY = [
-  "정답 풀이를 처음부터 다시 보여줘요, 그리고 풀이 공식을 외우게 해요",
+  "정답 풀이를 처음부터 그냥 보여줘요, 그리고 풀이 공식을 외우게 해요",
   "내가 쓴 풀이는 아무도 안 봐줘요. 혼자 공부, 어떻게 해야 돼요?",
   "“뭘 잘못 생각했는지”는 끝내 모르고, 그냥 풀이 방법을 외워요ㅠㅠ",
 ] as const;
@@ -33,7 +33,7 @@ export function WhySection() {
           eyebrow="자기주도 학습을 통해 진짜 실력을 키우려면"
           title={
             <>
-              정답만 찾는 게 아니라
+              학원이나 과외를 계속하는데,
               <br />
               “내 풀이 방법이 어디서 막히는지” 알아야 하잖아요.
             </>
@@ -41,7 +41,7 @@ export function WhySection() {
         />
         <div className="grid gap-4.5 md:grid-cols-2">
           <div className={`${COMPARE_CARD} bg-surface-well shadow-landing-well`}>
-            <h3 className="text-landing-brand-deep m-0 text-[15px] font-bold">해설지 · 인강 · 검색 AI</h3>
+            <h3 className="text-landing-brand-deep m-0 text-[15px] font-bold">해설지 · 인강 · 학원</h3>
             <ul className={CHECK_LIST}>
               {OLD_WAY.map((item) => (
                 <li key={item} className={`${CHECK_ITEM} text-landing-label-ink`}>

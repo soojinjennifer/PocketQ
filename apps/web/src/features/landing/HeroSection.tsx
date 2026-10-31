@@ -18,7 +18,7 @@ const CHIP_BASE = "rounded-landing-chip shadow-landing-chip inline-flex items-ce
 const CHIP_LIGHT = `${CHIP_BASE} bg-bg-elevated text-landing-brand-deep px-3.5 py-2.5`;
 const CHIP_ACTION = `${CHIP_BASE} ${LANDING_PRIMARY_SURFACE} px-4 py-[11px]`;
 
-/** Figma Lead의 문단 경계 — 1024 이상에서만 줄을 바꾸고(4문단), 그 아래 폭에서는 이어서 흘린다. */
+/** Figma Lead의 줄 경계 — 1024 이상에서만 줄을 바꾸고(6줄), 그 아래 폭에서는 이어서 흘린다. */
 const LEAD_BREAK = <br className="hidden lg:inline" />;
 
 /**
@@ -37,13 +37,16 @@ export function HeroSection() {
             id="hero-title"
             className="text-landing-brand-deep m-0 text-4xl leading-[1.1] font-extrabold tracking-[-2px] md:text-5xl lg:text-6xl xl:text-[66px]"
           >
-            어디서 막혔는지,
+            학교에서는 알겠다는데,
             <br />
-            <span className="text-landing-brand-green">수풀잉</span>이 찾아줄게요.
+            혼자 풀면 막히나요?
           </h1>
           <p className="text-landing-label-ink m-0 max-w-[520px] text-lg leading-[1.6] text-pretty lg:max-w-[546px] lg:text-xl">
-            수학 선생님에게 다 물어보지 못했던건들, 나는 열심히 푸는데, 어디가 잘 못 되었을까 누가 알려줬으면
-            좋겠었죠?{" "}
+            학원이나 학교, 수학 선생님에게 다 물어보지 못했던 것들,{" "}
+            {LEAD_BREAK}
+            나는 열심히 푸는데, 어디가 잘 못 되었을까{" "}
+            {LEAD_BREAK}
+            누가 알려줬으면 좋겠었죠?{" "}
             {LEAD_BREAK}
             <strong className="font-bold">이제 AI가 내가 쓴 풀이</strong>를 하나하나 읽고, 어디까지 맞았는지,{" "}
             {LEAD_BREAK}
