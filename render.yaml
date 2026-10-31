@@ -31,9 +31,9 @@ services:
   - type: web
     name: pocketq-web
     runtime: static
-    # 첫 배포와 QA가 끝날 때까지 git push마다 자동 재배포되지 않도록 끈다. QA 통과 후 Render
-    # 대시보드에서 Settings → Build & Deploy → Auto-Deploy를 켜거나, 이 값을 `commit`으로 바꾼다.
-    autoDeployTrigger: "off"
+    # 연결된 브랜치(기본 브랜치 main)에 커밋이 들어올 때마다 자동 재배포한다(2026-10-31 오너 요청).
+    # pocketq-api·pocketq-cas는 아직 "off"다 — 정적 사이트만 먼저 켰다.
+    autoDeployTrigger: "commit"
     rootDir: .
     # Render의 Node 환경엔 pnpm이 이미 read-only 시스템 경로(/usr/bin/pnpm)에 설치돼 있어
     # `corepack enable`이 이를 덮어쓰려다 `EROFS: read-only file system` 오류로 빌드가 실패한다
