@@ -96,6 +96,17 @@ CAS 엔드포인트(`/verify-work-lines`, `/verify-final-answer`)는 인증이 �
 - 켜는 순서: **웹(`VITE_FIGURES_ENABLED=true`로 재빌드·배포) → 서버(`FIGURES_ENABLED=true`, 재시작)**. 끄는 순서는 반대(서버 → 웹). 급히 끌 때는 서버만 끄면 된다(웹 on + 서버 off는 허용 조합).
 - 운영에서 켜기 전 조건: `docs/FIGURES_WORKFLOW_STATE.md` §6.10.8·§7(Stage 4 stage-qa 판정, 실기기 iPad 확인).
 
+## 자동 배포 (`pocketq-web`)
+
+`render.yaml`의 `autoDeployTrigger: "commit"`은 **Blueprint로 관리되는 서비스에만** 반영된다. 위 "배포 순서"처럼 대시보드에서 서비스를 하나씩 만들었다면 Render가 이 파일을 읽지 않으므로, 2026-10-31에 이 값을 `commit`으로 바꾼 뒤에도 `main` 머지 후 자동 배포가 일어나지 않았다(2026-11-01 확인). 대시보드에서 직접 켠다.
+
+1. Render 대시보드 → `pocketq-web` → **Settings → Build & Deploy**.
+2. **Branch**가 `main`인지 확인한다.
+3. **Auto-Deploy**를 **On Commit**으로 바꾸고 저장한다.
+4. 확인: 다음에 `main`에 머지하면 **Events**에 해당 커밋으로 "Deploy started"가 자동으로 생긴다. 이번에 켠 직후에는 아직 배포되지 않은 커밋이 있으므로 **Manual Deploy → Deploy latest commit**을 한 번 누른다.
+
+`pocketq-api`·`pocketq-cas`는 의도적으로 수동 배포로 둔다.
+
 ## 도메인 연결 (`pocketq.groundmoyo.com` / `pocketq-api.groundmoyo.com`)
 
 > `app.groundmoyo.com`은 "내편문서"가 쓰고 있는 도메인입니다. 아래 절차에서 이 도메인이나 그
