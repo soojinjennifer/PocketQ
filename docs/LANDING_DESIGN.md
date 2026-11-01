@@ -199,13 +199,15 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
      - `✓ 설치 없이 브라우저에서 “홈화면 추가"로 `
      - `✓ 5초 소셜 로그인`
      - `✓ 3번 터치로 진단까지`
-- **2026-11-01 변경(오너 요청): 오른쪽 비주얼을 홍보 영상으로 바꿨다.** 아래 Figma 원래 명세(스크린샷 + Status Chip 3개)는 기록으로 남긴다.
-  - 원본 `supuling_ad_15s.mp4`(1920×1080, 15초, 2.9MB)를 1280×720 H.264(CRF 26, AAC 96k, faststart)로 줄여 `assets/landing/hero-ad-720.mp4`(674KB)로 넣었다. 포스터는 0.5초 프레임 `hero-ad-poster.webp`(9KB).
-  - 카드: `bg/canvas` + `border/edge`, `rounded-landing-media`(24), Shadow Raised, 16:9. 1024 이상 오른쪽 열, 그 아래는 카피 아래 전체 폭.
+- **2026-11-01 변경 이력(오너 요청)**
+  - 1차: 오른쪽 비주얼을 15초 홍보 영상으로 바꿨다(PR #4).
+  - 2차(Figma 갱신): 오른쪽 비주얼은 아래 원래 명세(스크린샷 + Status Chip 3개)로 되돌리고, Hero 위에 전체 폭 칠판 영상 섹션(`446:20`)을 새로 뒀다. Hero 본문은 Figma `468:177`이다.
+- 전체 폭 칠판 영상(`HeroVideoBanner`, Figma `446:20`, 1440×786)
+  - 원본 `supuling_chalk_ad_20s.mp4`(1280×720, 20초, 17.8MB)를 H.264 CRF 30(AAC 96k, faststart)으로 다시 인코딩해 `assets/landing/hero-chalk-720.mp4`(1.5MB)로 넣었다. 포스터는 제목이 다 써진 2초 프레임 `hero-chalk-poster.webp`(43KB).
+  - 여백·모서리 없이 화면 폭을 채운다. 1024 이상은 Figma 비율 1440:786에 맞춰 `object-cover`(양옆 약 3% 잘림), 그 아래는 16:9 그대로.
   - 음소거·반복·인라인 자동 재생. 동작 줄이기 사용자는 자동 재생하지 않는다. 5초 넘게 움직이므로 정지 수단(WCAG 2.2.2)으로 기본 컨트롤을 둔다.
-  - 영상 안에 제목과 단계 설명이 있어 Status Chip은 겹치지 않게 뺐다. 이전 `hero-*.webp` 3장과 Chip 아이콘(A10, A11)은 지웠다.
-  - SW precache 대상이 아니다(기본 glob이 js/css/html만 잡는다).
-- (이전) 오른쪽 Hero Visual(586×440, 요소를 절대 좌표로 겹쳐 배치)
+  - 페이지 맨 위라 Nav 로고 링크의 `#top` 앵커를 이 섹션으로 옮겼다. SW precache 대상이 아니다.
+- 오른쪽 Hero Visual(586×440, 요소를 절대 좌표로 겹쳐 배치)
   - 카드 561×387, radius 24, 배경 `bg/canvas`, 테두리 `border/edge`, 그림자 Shadow Raised
   - 그 위에 이미지(레이어 이름: `image/hero-symbol ← supuling-hero-symbol.png 넣기`)
   - Status Chip 3개

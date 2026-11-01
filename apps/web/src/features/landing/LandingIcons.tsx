@@ -1,5 +1,5 @@
 /**
- * 랜딩 아이콘(Figma `3. Landing Page` SVG 에셋 A6~A9). 경로는 Figma 내보내기 그대로이고,
+ * 랜딩 아이콘(Figma `3. Landing Page` SVG 에셋 A6~A11). 경로는 Figma 내보내기 그대로이고,
  * 하드코딩 색은 랜딩 토큰(`fill-*`/`stroke-*` 유틸리티)으로 바꿨다. 모두 장식용이라 `aria-hidden`이다.
  */
 
@@ -56,3 +56,29 @@ export function CheckPositiveIcon({ className }: IconProps) {
   );
 }
 
+/** A10 — Status Chip Success 26. */
+export function ChipSuccessIcon({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26" fill="none" className={className}>
+      <circle cx="13" cy="13" r="13" className="fill-landing-brand-tint" />
+      <path
+        d="M8.5 13.3L11.5 16.3L17.5 10"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="stroke-landing-brand-deep"
+      />
+    </svg>
+  );
+}
+
+/** A11 — Status Chip Error 26(원 = `status/error-tint`, 느낌표 = `status/error`). */
+export function ChipErrorIcon({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26" fill="none" className={className}>
+      <circle cx="13" cy="13" r="13" className="fill-fill-tint-red" />
+      <path d="M13 7.5V14" strokeWidth="2.6" strokeLinecap="round" className="stroke-landing-status-error" />
+      <circle cx="13" cy="18.3" r="1.5" className="fill-landing-status-error" />
+    </svg>
+  );
+}

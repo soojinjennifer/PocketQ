@@ -1,67 +1,32 @@
-import { useEffect, useRef } from "react";
-import heroAdPosterUrl from "../../assets/landing/hero-ad-poster.webp";
-import heroAdVideoUrl from "../../assets/landing/hero-ad-720.mp4";
-import { usePrefersReducedMotion } from "../../shared/lib/dom/usePrefersReducedMotion";
+import hero560Url from "../../assets/landing/hero-560.webp";
+import hero1120Url from "../../assets/landing/hero-1120.webp";
+import hero1600Url from "../../assets/landing/hero-1600.webp";
 import { LandingBadge } from "./LandingBadge";
 import { LandingButton } from "./LandingButton";
-import { PlaySmallIcon } from "./LandingIcons";
-import { LANDING_CANVAS_SURFACE, LANDING_CONTAINER, LANDING_SCROLL_MARGIN } from "./landingStyles";
+import { ChipErrorIcon, ChipSuccessIcon, PlaySmallIcon } from "./LandingIcons";
+import {
+  LANDING_CANVAS_SURFACE,
+  LANDING_CONTAINER,
+  LANDING_PRIMARY_SURFACE,
+} from "./landingStyles";
 
 const HERO_CHECKS = ["설치 없이 브라우저에서 “홈화면 추가”로", "5초 소셜 로그인", "3번 터치로 진단까지"] as const;
+
+/** Status Chip 공통(Figma `Landing/Status Chip` `444:72`): radius 18, px 14, py 10, gap 10, 14 SemiBold. */
+const CHIP_BASE = "rounded-landing-chip shadow-landing-chip inline-flex items-center gap-2.5 text-sm font-semibold";
+const CHIP_LIGHT = `${CHIP_BASE} bg-bg-elevated text-landing-brand-deep px-3.5 py-2.5`;
+const CHIP_ACTION = `${CHIP_BASE} ${LANDING_PRIMARY_SURFACE} px-4 py-[11px]`;
 
 /** Figma Lead의 줄 경계 — 1024 이상에서만 줄을 바꾸고(6줄), 그 아래 폭에서는 이어서 흘린다. */
 const LEAD_BREAK = <br className="hidden lg:inline" />;
 
 /**
- * Hero 오른쪽 홍보 영상(15초, 16:9, 오너 제공 2026-11-01 — Figma의 스크린샷 + Status Chip 3개를 대체).
- * 영상 안에 제목·단계 설명이 들어 있어 Chip은 겹치지 않도록 뺐다. 자동 재생은 음소거여야 브라우저가 허용하고,
- * React의 `muted` prop은 속성으로 반영되지 않는 경우가 있어 ref로 직접 켠다. 동작 줄이기 사용자는 자동 재생하지 않고
- * 포스터에서 멈춰 둔다. 5초 넘게 움직이므로 정지 수단(WCAG 2.2.2)으로 기본 컨트롤을 둔다(소리 켜기도 여기서).
+ * Hero(`468:177`, 위에 전체 폭 영상 `HeroVideoBanner`가 있다). 1024 이상은 2열(Figma), 그 아래는 카피 → 비주얼 1열로 쌓는다(§6.2 잠정).
+ * 비주얼의 Status Chip은 Figma 절대 좌표(586×440 기준)를 퍼센트로 바꿨고, 768 미만에서는 이미지 아래 세로 목록이 된다.
  */
-function HeroVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-    video.muted = true;
-    if (prefersReducedMotion) {
-      video.pause();
-      return;
-    }
-    // 저전력 모드 등에서 자동 재생이 거부되면 포스터와 컨트롤이 남는다. 예전 Safari는 Promise 대신 undefined를 돌려준다.
-    Promise.resolve(video.play()).catch(() => {});
-  }, [prefersReducedMotion]);
-
-  return (
-    <div
-      className={`${LANDING_CANVAS_SURFACE} rounded-landing-media shadow-landing-raised relative w-full min-w-0 overflow-hidden lg:flex-1`}
-    >
-      <video
-        ref={videoRef}
-        src={heroAdVideoUrl}
-        poster={heroAdPosterUrl}
-        width={1280}
-        height={720}
-        muted
-        loop
-        playsInline
-        controls
-        preload="metadata"
-        aria-label="수풀잉 홍보 영상: 문제 입력, 내 풀이, AI 진단, 막힌 곳부터 이어 풀기"
-        className="block aspect-video h-auto w-full object-cover"
-      />
-    </div>
-  );
-}
-
-/** Hero(`446:20`). 1024 이상은 2열(Figma), 그 아래는 카피 → 영상 1열로 쌓는다(§6.2 잠정). */
 export function HeroSection() {
   return (
-    <section id="top" aria-labelledby="hero-title" className={LANDING_SCROLL_MARGIN}>
+    <section aria-labelledby="hero-title">
       <div
         className={`${LANDING_CONTAINER} flex flex-col gap-10 pt-10 pb-10 lg:flex-row lg:items-center lg:gap-2.5 lg:pt-16`}
       >
@@ -108,7 +73,43 @@ export function HeroSection() {
           </ul>
         </div>
 
-        <HeroVideo />
+        <div
+          role="img"
+          aria-label="수풀잉 풀이 진단 화면 예시: 2번째 줄까지 정확해요, 3번째 줄 부등호 방향 오류, 내 방법으로 계속"
+          className="relative w-full min-w-0 lg:flex-1"
+        >
+          <div aria-hidden="true" className="relative md:aspect-[586/440]">
+            <div
+              className={`${LANDING_CANVAS_SURFACE} rounded-landing-media shadow-landing-raised overflow-hidden md:absolute md:top-[6%] md:right-0 md:h-[88%] md:w-[95.7%]`}
+            >
+              <img
+                src={hero1120Url}
+                srcSet={`${hero560Url} 560w, ${hero1120Url} 1120w, ${hero1600Url} 1600w`}
+                sizes="(min-width: 1280px) 560px, (min-width: 1024px) 45vw, calc(100vw - 48px)"
+                alt=""
+                width={1120}
+                height={782}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="block aspect-[1120/782] h-auto w-full object-cover md:h-full"
+              />
+            </div>
+            <div className="mt-4 flex flex-col items-start gap-2 md:contents">
+              <span className={`${CHIP_LIGHT} md:absolute md:top-[13.9%] md:left-0`}>
+                <ChipSuccessIcon />
+                2번째 줄까지 정확해요
+              </span>
+              <span className={`${CHIP_LIGHT} md:absolute md:top-[45%] md:right-[2%]`}>
+                <ChipErrorIcon />
+                3번째 줄: 부등호 방향 오류
+              </span>
+              <span className={`${CHIP_ACTION} md:absolute md:top-[85%] md:left-[7.5%]`}>
+                내 방법으로 계속<span aria-hidden="true"> →</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
