@@ -91,7 +91,7 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
 
 | Figma 스타일 | 글꼴 / 굵기 | 크기 / 줄높이 / 자간 | 사용처 |
 |---|---|---|---|
-| (H1, 스타일 미지정) | Pretendard ExtraBold 800 | 66 / 1.1 / -2px | Hero 제목 |
+| (H1, 스타일 미지정) | Pretendard ExtraBold 800 | 60 / 1.1 / -2px | Hero 제목(2026-10-31 문구 변경 때 Figma가 66→60으로 바뀜) |
 | `Landing/CTA Title` | Pretendard ExtraBold 800 | 48 / 1.15 / -1.2px | CTA 제목 |
 | `Landing/H2` | Pretendard ExtraBold 800 | 42 / 1.25 / -1px | Video, Demo 제목 |
 | (Why H2) | Pretendard **Bold 700** | 42 / 1.25 / -1px | Why 제목. **H2 스타일과 굵기가 다르다**(D-9) |
@@ -199,7 +199,13 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
      - `✓ 설치 없이 브라우저에서 “홈화면 추가"로 `
      - `✓ 5초 소셜 로그인`
      - `✓ 3번 터치로 진단까지`
-- 오른쪽 Hero Visual(586×440, 요소를 절대 좌표로 겹쳐 배치)
+- **2026-11-01 변경(오너 요청): 오른쪽 비주얼을 홍보 영상으로 바꿨다.** 아래 Figma 원래 명세(스크린샷 + Status Chip 3개)는 기록으로 남긴다.
+  - 원본 `supuling_ad_15s.mp4`(1920×1080, 15초, 2.9MB)를 1280×720 H.264(CRF 26, AAC 96k, faststart)로 줄여 `assets/landing/hero-ad-720.mp4`(674KB)로 넣었다. 포스터는 0.5초 프레임 `hero-ad-poster.webp`(9KB).
+  - 카드: `bg/canvas` + `border/edge`, `rounded-landing-media`(24), Shadow Raised, 16:9. 1024 이상 오른쪽 열, 그 아래는 카피 아래 전체 폭.
+  - 음소거·반복·인라인 자동 재생. 동작 줄이기 사용자는 자동 재생하지 않는다. 5초 넘게 움직이므로 정지 수단(WCAG 2.2.2)으로 기본 컨트롤을 둔다.
+  - 영상 안에 제목과 단계 설명이 있어 Status Chip은 겹치지 않게 뺐다. 이전 `hero-*.webp` 3장과 Chip 아이콘(A10, A11)은 지웠다.
+  - SW precache 대상이 아니다(기본 glob이 js/css/html만 잡는다).
+- (이전) 오른쪽 Hero Visual(586×440, 요소를 절대 좌표로 겹쳐 배치)
   - 카드 561×387, radius 24, 배경 `bg/canvas`, 테두리 `border/edge`, 그림자 Shadow Raised
   - 그 위에 이미지(레이어 이름: `image/hero-symbol ← supuling-hero-symbol.png 넣기`)
   - Status Chip 3개
