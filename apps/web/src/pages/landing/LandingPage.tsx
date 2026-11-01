@@ -2,6 +2,7 @@ import { startOAuthSignIn } from "../../features/auth/startOAuthSignIn";
 import { CtaSection } from "../../features/landing/CtaSection";
 import { DemoSection } from "../../features/landing/DemoSection";
 import { HeroSection } from "../../features/landing/HeroSection";
+import { HeroVideoBanner } from "../../features/landing/HeroVideoBanner";
 import { HowSection } from "../../features/landing/HowSection";
 import { InstallVideoSection } from "../../features/landing/InstallVideoSection";
 import { LandingFooter } from "../../features/landing/LandingFooter";
@@ -21,6 +22,7 @@ export function LandingPage() {
       <LandingNav />
       <YouTubePlaybackGroup>
         <main id="main" tabIndex={-1} className="outline-none">
+          <HeroVideoBanner />
           <HeroSection />
           <WhySection />
           <HowSection />
