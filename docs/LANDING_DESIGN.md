@@ -215,6 +215,7 @@ Figma 텍스트 스타일을 그대로 옮겼다. 줄높이 100은 `normal`, 1.6
     - Error `3번째 줄: 부등호 방향 오류`: 위치 (322, 198)
     - Action `내 방법으로 계속 →`: 위치 (44, 374)
   - Chip 공통: radius 18, `px 14`, `py 10`, gap 10, 아이콘 26, 14 SemiBold, 배경 `bg/elevated`
+  - **2026-11-11 Figma 갱신(눌리지 않는 요소의 effect 제거)**: Status Chip 3개는 그림자 없이 `border/edge` 테두리만 둔다. Action Chip 배경은 `brand/green`(실제 CTA의 `brand/deep`과 구분). 같은 규칙으로 How Step 3 `봐 주세요`, Demo `Choice` 버튼 2개, Demo `Diagnosis` 박스(그림자 대신 `border/edge`)도 평평하게 바꿨다. 구현은 `LandingButton`의 `as="span"`(일러스트)일 때 그림자를 빼는 한 가지 규칙이다. 눌리는 버튼(`a`·`button`)은 그대로 입체다.
   - Action Chip만 배경 `brand/deep`, 글자 흰색, `px 16`, `py 11`
 
 ### 3.3 Why · Pain vs Solution (`446:54`)

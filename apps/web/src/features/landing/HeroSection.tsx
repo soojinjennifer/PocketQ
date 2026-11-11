@@ -4,18 +4,18 @@ import hero1600Url from "../../assets/landing/hero-1600.webp";
 import { LandingBadge } from "./LandingBadge";
 import { LandingButton } from "./LandingButton";
 import { ChipErrorIcon, ChipSuccessIcon, PlaySmallIcon } from "./LandingIcons";
-import {
-  LANDING_CANVAS_SURFACE,
-  LANDING_CONTAINER,
-  LANDING_PRIMARY_SURFACE,
-} from "./landingStyles";
+import { LANDING_CANVAS_SURFACE, LANDING_CONTAINER } from "./landingStyles";
 
 const HERO_CHECKS = ["설치 없이 브라우저에서 “홈화면 추가”로", "5초 소셜 로그인", "3번 터치로 진단까지"] as const;
 
-/** Status Chip 공통(Figma `Landing/Status Chip` `444:72`): radius 18, px 14, py 10, gap 10, 14 SemiBold. */
-const CHIP_BASE = "rounded-landing-chip shadow-landing-chip inline-flex items-center gap-2.5 text-sm font-semibold";
-const CHIP_LIGHT = `${CHIP_BASE} bg-bg-elevated text-landing-brand-deep px-3.5 py-2.5`;
-const CHIP_ACTION = `${CHIP_BASE} ${LANDING_PRIMARY_SURFACE} px-4 py-[11px]`;
+/**
+ * Status Chip 공통(Figma `Landing/Status Chip` `444:72`): radius 18, px 14, py 10, gap 10, 14 SemiBold.
+ * 눌리는 버튼처럼 보이지 않도록 그림자를 두지 않는다(Figma 2026-11-11 갱신). 밝은 칩은 `border/edge` 테두리로 구분하고,
+ * Action 칩은 실제 CTA(`brand/deep`)와 구분되게 `brand/green` 면을 쓴다.
+ */
+const CHIP_BASE = "rounded-landing-chip inline-flex items-center gap-2.5 text-sm font-semibold";
+const CHIP_LIGHT = `${CHIP_BASE} bg-bg-elevated text-landing-brand-deep border border-landing-border-edge px-3.5 py-2.5`;
+const CHIP_ACTION = `${CHIP_BASE} bg-landing-brand-green text-label-on-dark px-4 py-[11px]`;
 
 /** Figma Lead의 줄 경계 — 1024 이상에서만 줄을 바꾸고(6줄), 그 아래 폭에서는 이어서 흘린다. */
 const LEAD_BREAK = <br className="hidden lg:inline" />;

@@ -51,7 +51,7 @@ function DiagnosisCard() {
             <DemoWorkLine key={line.index} line={line} />
           ))}
         </ul>
-        <p className="bg-landing-brand-tint rounded-landing-chip shadow-landing-rest text-landing-brand-deep m-0 px-[15px] py-[13px] text-sm leading-[1.55] md:text-[14.5px]">
+        <p className="bg-landing-brand-tint rounded-landing-chip border-landing-border-edge border text-landing-brand-deep m-0 px-[15px] py-[13px] text-sm leading-[1.55] md:text-[14.5px]">
           <strong className="font-bold">풀이 진단</strong> · 2번째 줄까지 정확해요. 3번째 줄에서 최댓값의 조건을
           판별식으로 착각했어요 — <strong className="font-bold">a의 부호</strong>를 확인해 볼까요?
         </p>
